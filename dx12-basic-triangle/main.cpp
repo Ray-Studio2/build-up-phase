@@ -1,17 +1,9 @@
-#pragma warning(disable:4221) // nonstandard extension used: array cannot be initialized using address of automatic variable
-#pragma warning(disable:4204) // nonstandard extension used: non-constant aggregate initializer
-#pragma warning(disable:4201) // nonstandard extension used: nameless struct/union
 #define NOMINMAX
 #include <windows.h>
-#pragma warning(push)
-#pragma warning(disable:4115) // named type definition in parentheses
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
-#pragma warning(pop)
 #include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <tuple>
 
 
@@ -430,7 +422,7 @@ void render()
 
 		static float t = 0.0;
 		g.commandList->SetGraphicsRoot32BitConstant(0, *reinterpret_cast<uint*>(&t), 0);
-		t += 0.001;
+		t += 0.001f;
 		
 		D3D12_RESOURCE_BARRIER barrier = {
 			.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
