@@ -421,7 +421,7 @@ void render()
 		g.commandList->IASetVertexBuffers(0, 1, &g.vertexBufferView);
 
 		static float t = 0.0;
-		g.commandList->SetGraphicsRoot32BitConstant(0, *reinterpret_cast<uint*>(&t), 0);
+		g.commandList->SetGraphicsRoot32BitConstant(0, *(uint*)&t, 0);  // same as *reinterpret_cast<uint*>(&t)
 		t += 0.001f;
 		
 		D3D12_RESOURCE_BARRIER barrier = {
