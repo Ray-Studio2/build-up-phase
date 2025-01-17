@@ -198,7 +198,7 @@ void createVkInstance(GLFWwindow* window)
 
     VkInstanceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
+        //.pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = (uint)validationLayers.size(),
         .ppEnabledLayerNames = validationLayers.data(),
@@ -258,7 +258,7 @@ void createVkDevice()
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(vk.physicalDevice, vk.queueFamilyIndex, vk.surface, &presentSupport);
 
-            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT | presentSupport)
+            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT && presentSupport)
                 break;
         }
 
@@ -594,7 +594,7 @@ void render()
     vkResetFences(vk.device, 1, &vk.inFlightFence);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, nullptr, &imageIndex);
+    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
     vkResetCommandBuffer(vk.commandBuffer, 0);
     {
