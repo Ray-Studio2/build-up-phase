@@ -142,6 +142,11 @@
   <ItemGroup>
     <ClInclude Include="glsl2spv.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include="simple_fs.glsl" />
+    <None Include="simple_vs.glsl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
