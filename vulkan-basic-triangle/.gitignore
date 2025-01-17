@@ -1,5 +1,6 @@
 *
 !.gitignore
+!README.md
 !glsl2spv.h
 !main.cpp
 !simple_fs.glsl
