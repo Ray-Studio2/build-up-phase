@@ -198,7 +198,7 @@ void createVkInstance(GLFWwindow* window)
 
     VkInstanceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        //.pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
+        .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = (uint)validationLayers.size(),
         .ppEnabledLayerNames = validationLayers.data(),
