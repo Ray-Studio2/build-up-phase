@@ -558,6 +558,7 @@ void createGraphicsPipeline()
     attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -683,7 +684,7 @@ void createSyncObjects()
 
 void render()
 {
-    const VkClearValue clearColor = { .color = {0.0f, 0.0f, 0.0f, 1.0f} };
+    const VkClearValue clearColor = { .color = {0.3f, 0.3f, 0.3f, 1.0f} };
     const VkViewport viewport{ .width = (float)WIDTH, .height = (float)HEIGHT, .maxDepth = 1.0f };
     const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
