@@ -1,20 +1,30 @@
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <glfw/glfw3.h>
 #include <iostream>
 #include <vector>
 #include <fstream>
-//#include "glsl2spv.h"
+//#include "camera.hpp"
+#include "glsl2spv.h"
+#include "glm/glm.hpp"
 
 typedef unsigned int uint;
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+const uint32_t MAX_FRAMES_IN_FLIGHT = 30;
 
 #ifdef NDEBUG
 const bool ON_DEBUG = false;
 #else
 const bool ON_DEBUG = true;
 #endif
+
+struct UniformBufferObject 
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 struct Global {
     VkInstance instance;
@@ -36,6 +46,14 @@ struct Global {
     VkRenderPass renderPass;
     std::vector<VkFramebuffer> framebuffers;
 
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
+
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+
+    VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
@@ -258,7 +276,7 @@ void createVkDevice()
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(vk.physicalDevice, vk.queueFamilyIndex, vk.surface, &presentSupport);
 
-            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT && presentSupport)
+            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT | presentSupport)
                 break;
         }
 
@@ -431,11 +449,13 @@ void createGraphicsPipeline()
 {
     auto spv2shaderModule = [](const char* filename) {
         auto vsSpv = readFile(filename);
+
         VkShaderModuleCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = vsSpv.size(),
             .pCode = (uint*)vsSpv.data(),
         };
+
 
         VkShaderModule shaderModule;
         if (vkCreateShaderModule(vk.device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
@@ -443,6 +463,7 @@ void createGraphicsPipeline()
         }
         return shaderModule;
     };
+    
     VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");
     VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");
 
@@ -512,6 +533,8 @@ void createGraphicsPipeline()
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &vk.descriptorSetLayout
     };
 
     if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &vk.pipelineLayout) != VK_SUCCESS) {
@@ -594,7 +617,7 @@ void render()
     vkResetFences(vk.device, 1, &vk.inFlightFence);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, nullptr, &imageIndex);
 
     vkResetCommandBuffer(vk.commandBuffer, 0);
     {
@@ -657,6 +680,77 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
+void createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(vk.device, &layoutInfo, nullptr, &vk.descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+
+}
+
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate buffer memory!");
+    }
+
+    vkBindBufferMemory(vk.device, buffer, bufferMemory, 0);
+}
+
+void createUniformBuffers() {
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    vk.uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    vk.uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    vk.uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vk.uniformBuffers[i], vk.uniformBuffersMemory[i]);
+
+        vkMapMemory(vk.device, vk.uniformBuffersMemory[i], 0, bufferSize, 0, &vk.uniformBuffersMapped[i]);
+    }
+}
+
 int main() 
 {
     glfwInit();
@@ -665,6 +759,7 @@ int main()
     createVkDevice();
     createSwapChain();
     createRenderPass();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandCenter();
     createSyncObjects();
@@ -674,7 +769,7 @@ int main()
         glfwPollEvents();
         render();
     }
-    
+    vkDestroyDescriptorSetLayout(vk.device, vk.descriptorSetLayout, nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
