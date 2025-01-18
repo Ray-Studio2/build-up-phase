@@ -3,7 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
-//#include "glsl2spv.h"
+#include "glsl2spv.h"
+#include "lib/tiny_obj_loader/tiny_obj_loader.h"
 
 typedef unsigned int uint;
 
@@ -427,8 +428,9 @@ void createRenderPass()
     }
 }
 
-void createGraphicsPipeline() 
+void createGraphicsPipeline()
 {
+#if 0
     auto spv2shaderModule = [](const char* filename) {
         auto vsSpv = readFile(filename);
         VkShaderModuleCreateInfo createInfo{
@@ -442,9 +444,36 @@ void createGraphicsPipeline()
             throw std::runtime_error("failed to create shader module!");
         }
         return shaderModule;
-    };
+        };
     VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");
     VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");
+#else
+    auto vsSpv = readFile("simple_vs.glsl");
+    auto fsSpv = readFile("simple_fs.glsl");
+
+    auto vs_spv = glsl2spv(GLSLANG_STAGE_VERTEX, vsSpv.data());
+    auto fs_spv = glsl2spv(GLSLANG_STAGE_FRAGMENT, fsSpv.data());
+
+    VkShaderModuleCreateInfo vsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = vs_spv.size() * 4,
+        .pCode = vs_spv.data(),
+    };
+    VkShaderModuleCreateInfo fsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = fs_spv.size() * 4,
+        .pCode = fs_spv.data(),
+    };
+
+    VkShaderModule vsModule;
+    if (vkCreateShaderModule(vk.device, &vsModuleInfo, nullptr, &vsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create shader module!");
+    }
+    VkShaderModule fsModule;
+    if (vkCreateShaderModule(vk.device, &fsModuleInfo, nullptr, &fsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create shader module!");
+    }
+#endif
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -657,7 +686,106 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-int main() 
+struct float3
+{
+    union
+    {
+        struct
+        {
+            float x;
+            float y;
+            float z;
+        };
+        float m[3];
+    };
+};
+struct float2
+{
+    union
+    {
+        struct
+        {
+            float x;
+            float y;
+        };
+        float m[2];
+    };
+};
+class Vertex
+{
+public:
+    float3 position;
+    float3 normal;
+    float2 texCoord;
+};
+class StaticMesh
+{
+public:
+    std::vector<uint> indices;
+    std::vector<Vertex> vertices;
+};
+StaticMesh staticMesh;
+void loadModel(const std::string& modelPath)
+{
+    tinyobj::attrib_t attributes;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warnings;
+    std::string errors;
+    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
+
+    for (int i = 0; i < shapes.size(); i++) {
+        tinyobj::shape_t& shape = shapes[i];
+        tinyobj::mesh_t& mesh = shape.mesh;
+
+        const int vertexCount = attributes.vertices.size() / 3;
+        std::vector<int> visitMap;
+        visitMap.resize(vertexCount);
+        for (int j = 0; j < vertexCount; ++j)
+            visitMap[j] = -1;
+
+        staticMesh.vertices.reserve(vertexCount);
+        staticMesh.indices.reserve(mesh.indices.size());
+
+        // Replace the ... above
+        for (int j = 0; j < mesh.indices.size(); j++) {
+            tinyobj::index_t i = mesh.indices[j];
+
+            int vertexIndex = -1;
+            if (visitMap[i.vertex_index] < 0)
+            {
+                float3 position = {
+                attributes.vertices[i.vertex_index * 3],
+                attributes.vertices[i.vertex_index * 3 + 1],
+                attributes.vertices[i.vertex_index * 3 + 2]
+                };
+                float3 normal = {
+                    attributes.normals[i.normal_index * 3],
+                    attributes.normals[i.normal_index * 3 + 1],
+                    attributes.normals[i.normal_index * 3 + 2]
+                };
+                float2 texCoord = {
+                    attributes.texcoords[i.texcoord_index * 2],
+                    attributes.texcoords[i.texcoord_index * 2 + 1],
+                };
+                // Not gonna care about texCoord right now.
+                Vertex vert = { position, normal, texCoord };
+                staticMesh.vertices.push_back(vert);
+
+                vertexIndex = staticMesh.vertices.size() - 1;
+                visitMap[i.vertex_index] = vertexIndex;
+            }
+            else
+            {
+                vertexIndex = visitMap[i.vertex_index];
+            }
+
+            staticMesh.indices.push_back(vertexIndex);
+        }
+    }
+}
+
+int main()
 {
     glfwInit();
     GLFWwindow* window = createWindow();
@@ -669,7 +797,9 @@ int main()
     createCommandCenter();
     createSyncObjects();
 
-    while (!glfwWindowShouldClose(window)) 
+    loadModel("C:/Users/dhfla/Downloads/teapot.obj");
+
+    while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         render();
