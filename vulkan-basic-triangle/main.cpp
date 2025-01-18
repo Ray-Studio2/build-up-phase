@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <array>
 #include <fstream>
 #include "glsl2spv.h"
 #include "lib/tiny_obj_loader/tiny_obj_loader.h"
@@ -47,6 +48,11 @@ struct Global {
     VkSemaphore renderFinishedSemaphore;
     VkFence inFlightFence;
 
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
+
     ~Global() {
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
@@ -73,8 +79,54 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
+
+        vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
+        vkFreeMemory(vk.device, vertexBufferMemory, nullptr);
+
+        vkDestroyBuffer(vk.device, indexBuffer, nullptr);
+        vkFreeMemory(vk.device, indexBufferMemory, nullptr);
     }
 } vk;
+
+struct float3
+{
+    union
+    {
+        struct
+        {
+            float x;
+            float y;
+            float z;
+        };
+        float m[3];
+    };
+};
+struct float2
+{
+    union
+    {
+        struct
+        {
+            float x;
+            float y;
+        };
+        float m[2];
+    };
+};
+class Vertex
+{
+public:
+    float3 position;
+    float3 normal;
+    //float2 texCoord;
+};
+class StaticMesh
+{
+public:
+    std::vector<uint> indices;
+    std::vector<Vertex> vertices;
+};
+StaticMesh staticMesh;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
@@ -490,9 +542,26 @@ void createGraphicsPipeline()
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    };
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, position);
+    attributeDescriptions[1].binding = 0;
+    attributeDescriptions[1].location = 1;
+    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -645,7 +714,13 @@ void render()
             vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
-            vkCmdDraw(vk.commandBuffer, 3, 1, 0, 0);
+
+            VkBuffer vertexBuffers[] = { vk.vertexBuffer };
+            VkDeviceSize offsets[] = { 0 };
+            vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdDrawIndexed(vk.commandBuffer, static_cast<uint32_t>(staticMesh.indices.size()), 1, 0, 0, 0);
         }
         vkCmdEndRenderPass(vk.commandBuffer);
 
@@ -686,45 +761,6 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-struct float3
-{
-    union
-    {
-        struct
-        {
-            float x;
-            float y;
-            float z;
-        };
-        float m[3];
-    };
-};
-struct float2
-{
-    union
-    {
-        struct
-        {
-            float x;
-            float y;
-        };
-        float m[2];
-    };
-};
-class Vertex
-{
-public:
-    float3 position;
-    float3 normal;
-    float2 texCoord;
-};
-class StaticMesh
-{
-public:
-    std::vector<uint> indices;
-    std::vector<Vertex> vertices;
-};
-StaticMesh staticMesh;
 void loadModel(const std::string& modelPath)
 {
     tinyobj::attrib_t attributes;
@@ -769,7 +805,7 @@ void loadModel(const std::string& modelPath)
                     attributes.texcoords[i.texcoord_index * 2 + 1],
                 };
                 // Not gonna care about texCoord right now.
-                Vertex vert = { position, normal, texCoord };
+                Vertex vert = { position, normal };
                 staticMesh.vertices.push_back(vert);
 
                 vertexIndex = staticMesh.vertices.size() - 1;
@@ -785,6 +821,75 @@ void loadModel(const std::string& modelPath)
     }
 }
 
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+void createVertexBuffer() 
+{
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(staticMesh.vertices[0]) * staticMesh.vertices.size();
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &vk.vertexBuffer) != VK_SUCCESS)
+        throw std::runtime_error("failed to create vertex buffer!");
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk.device, vk.vertexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &vk.vertexBufferMemory) != VK_SUCCESS)
+        throw std::runtime_error("failed to allocate vertex buffer memory!");
+
+    vkBindBufferMemory(vk.device, vk.vertexBuffer, vk.vertexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    memcpy(data, staticMesh.vertices.data(), (size_t)bufferInfo.size);
+    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+}
+
+void createIndexBuffer() 
+{
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(staticMesh.indices[0]) * staticMesh.indices.size();
+    bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &vk.indexBuffer) != VK_SUCCESS)
+        throw std::runtime_error("failed to create index buffer!");
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk.device, vk.indexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &vk.indexBufferMemory) != VK_SUCCESS)
+        throw std::runtime_error("failed to allocate index buffer memory!");
+
+    vkBindBufferMemory(vk.device, vk.indexBuffer, vk.indexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(vk.device, vk.indexBufferMemory, 0, bufferInfo.size, 0, &data);
+    memcpy(data, staticMesh.vertices.data(), (size_t)bufferInfo.size);
+    vkUnmapMemory(vk.device, vk.indexBufferMemory);
+}
+
 int main()
 {
     glfwInit();
@@ -798,6 +903,9 @@ int main()
     createSyncObjects();
 
     loadModel("C:/Users/dhfla/Downloads/teapot.obj");
+
+    createVertexBuffer();
+    createIndexBuffer();
 
     while (!glfwWindowShouldClose(window))
     {
