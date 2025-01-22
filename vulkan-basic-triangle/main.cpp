@@ -1,4 +1,4 @@
-#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN         // Vulkan 은 모든 가능성을 염두에 두고 만들어졌다.
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
@@ -10,7 +10,7 @@ typedef unsigned int uint;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-#ifdef NDEBUG
+#ifdef NDEBUG                   // 현재 Debug 모드일 때만 ON_DEBUG 가 True 임 (자동으로 T, F 정해줌)
 const bool ON_DEBUG = false;
 #else
 const bool ON_DEBUG = true;
@@ -21,8 +21,8 @@ struct Global {
     VkDebugUtilsMessengerEXT debugMessenger;
 
     VkSurfaceKHR surface;
-    VkPhysicalDevice physicalDevice;
-    VkDevice device;
+    VkPhysicalDevice physicalDevice;            // Physical Device
+    VkDevice device;                            // Logical Device
 
     VkQueue graphicsQueue; // assume allowing graphics and present
     uint queueFamilyIndex;
@@ -30,7 +30,7 @@ struct Global {
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
-    const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format
+    const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format ( 일반적으로 사용되는 포맷이기에 의도적으로 선택됨 )
     const VkExtent2D swapChainImageExtent = { .width = WIDTH, .height = HEIGHT };
 
     VkRenderPass renderPass;
@@ -76,16 +76,16 @@ struct Global {
 } vk;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-    VkDebugUtilsMessageTypeFlagsEXT messageType, 
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // 메시지 엄격도
+    VkDebugUtilsMessageTypeFlagsEXT messageType,                // 메시지 타입
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
     void* pUserData) 
 {
     const char* severity;
     switch (messageSeverity) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severity = "[Verbose]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severity = "[Warning]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severity = "[Error]"; break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severity = "[Warning]"; break;    // Warning 메시지 활성화. 
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severity = "[Error]"; break;        // Error 메시지 활성화.
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severity = "[Info]"; break;
     default: severity = "[Unknown]";
     }
@@ -166,103 +166,106 @@ static std::vector<char> readFile(const std::string& filename) {
 GLFWwindow* createWindow()
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    return glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);                             // 창 크기 조절 불가
+    return glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);     // 창 크기 및 창 이름 등 설정
 }
 
 void createVkInstance(GLFWwindow* window)
 {
-    VkApplicationInfo appInfo{
+    VkApplicationInfo appInfo{                          // 어플리케이션의 이름 또는 설정사항들
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Hello Triangle",
         .apiVersion = VK_API_VERSION_1_0
     };
 
     uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);       // Instance Extension : Vulkan 인스턴스를 초기화할 때 필요한 추가 기능을 제공
+                                                                                                // 필요한 Extension 들이 플랫폼마다 다르기 때문에 GLFW 를 통해 현재 플랫폼에 맞는 Extension 을 받아옴
+    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);   // Vector 컨테이너로 래핑함 -> Debugger 모드일 경우 Extension 을 하나 더 추가하기 위함.
+    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);                       // Debugger 모드일 경우, 필수적인 Instance Extension 을 추가함
 
     std::vector<const char*> validationLayers;
-    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
-    if (!checkValidationLayerSupport(validationLayers)) {
+    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");                     // Debugger 모드일 경우, Instance Layer 을 추가함
+    if (!checkValidationLayerSupport(validationLayers)) {                                       // 현재 Vulkan 이 해당 Layer 을 지원하는지 알 수 있는 함수
         throw std::runtime_error("validation layers requested, but not available!");
     }
+                                                                                                // Ctrl + F5 => 문제가 있어도 디버거 출력 창에 경고 또는 오류 메시지가 뜸
+                                                                                                // F5        => 디버거 출력 창에 경고 또는 오류 메시지가 뜸
 
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{                                         // Debug Layer 가 활성화되어있을 때에만 작동하는데, 오류 메시지들을 디버그 출력창이 아닌 콘솔창에 띄워줌.
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,                       // 그냥 사용하면 쓸데없는 메시지가 수도 없이 올라오기에, 원하는 종류의 메시지만 올라오도록 커스터마이징이 가능.
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,     // Warning 메시지와 Error 메시지만 띄우게 함. ( 가독성을 위함 )
         .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-        .pfnUserCallback = debugCallback,
+        .pfnUserCallback = debugCallback,       // 에러가 발생했을 때, 메시지를 출력하는데 debugCallback 함수를 따르도록 설정함.
     };
 
     VkInstanceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
+        .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,         // 이 줄을 주석처리하면 무조건 해당 내부변수는 nullptr 이 된다.
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = (uint)validationLayers.size(),
         .ppEnabledLayerNames = validationLayers.data(),
-        .enabledExtensionCount = (uint)extensions.size(),
+        .enabledExtensionCount = (uint)extensions.size(),       // Extension 을 지원하지 않는다면 이후에 Instance 를 생성하는 과정에서 실패하게 될 것이다.
         .ppEnabledExtensionNames = extensions.data(),
     };
 
-    if (vkCreateInstance(&createInfo, nullptr, &vk.instance) != VK_SUCCESS) {
+    if (vkCreateInstance(&createInfo, nullptr, &vk.instance) != VK_SUCCESS) {       // Instance 생성
         throw std::runtime_error("failed to create instance!");
     }
 
-    if (ON_DEBUG) {
-        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk.instance, "vkCreateDebugUtilsMessengerEXT");
+    if (ON_DEBUG) {                                                                 // vkCreateDebugUtilsMessengerEXT 라는 함수를 호출을 해야 디버거 메신저가 활성화된다.
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk.instance, "vkCreateDebugUtilsMessengerEXT");   // EXT 로 끝나는 함수는 확장함수인데, 확장함수는 기본적으로 제공되지 않아 함수 포인터를 달라고 요청해야 함.
         if (!func || func(vk.instance, &debugCreateInfo, nullptr, &vk.debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
     }
 
-    if (glfwCreateWindowSurface(vk.instance, window, nullptr, &vk.surface) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create window surface!");
+    if (glfwCreateWindowSurface(vk.instance, window, nullptr, &vk.surface) != VK_SUCCESS) {     // Surface : Swap Chain 과 관련된 Instance 속성 ( Instance 만들 때 만들어야 한다. )
+        throw std::runtime_error("failed to create window surface!");                           // Surface 또한 플랫폼마다 다르기에 GLFW 의 도움을 받는다.
     }
 }
 
 void createVkDevice()
 {
     vk.physicalDevice = VK_NULL_HANDLE;
-
+                                                                        // Count 를 먼저 구하고 해당 Count 만큼 배열을 만든 후 시작주소들을 해당 배열들에 넣는 과정
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, nullptr);         // Physical Device, 즉, GPU 를 찾고 그 개수를 deviceCount 에 넣음.
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, devices.data());  // Physical Device 의 핸들들이 device.data() 에 들어가게 됨. ( Logical Device 를 만들기 전 작업 )
 
-    std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };      // Device Extension 만들기. ( "VK_KHR_swapchain" 라는 Extension 은 필수적임 )
 
     for (const auto& device : devices) 
     {
-        if (checkDeviceExtensionSupport(device, extentions)) 
+        if (checkDeviceExtensionSupport(device, extentions))            // 나열된 Device 들 (그래픽카드들) 이 해당 Extension 을 지원하는지 알아냄.
         {
-            vk.physicalDevice = device;
+            vk.physicalDevice = device;                                     // 지원하면 Physical Device (GPU) 를 해당 그래픽카드로 지정
             break;
         }
     }
 
-    if (vk.physicalDevice == VK_NULL_HANDLE) {
+    if (vk.physicalDevice == VK_NULL_HANDLE) {                          // 모든 GPU 가 Extension 을 지원하지 않으면 프로그램은 종료됨.
         throw std::runtime_error("failed to find a suitable GPU!");
     }
 
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, nullptr);
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    vk.queueFamilyIndex = 0;
+    uint32_t queueFamilyCount = 0;                                      // 명령들을 순차적으로 집어넣는 Command Queue 의 Family 개수
+    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, nullptr);    // 그래픽카드마다 지원하는 Queue 들이 각기 다 다르기에 Queue 개수를 가져온다.
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);                       // Queue Family 내에는 여러 개의 Queue 가 있다.
+    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, queueFamilies.data());       // Queue 에는 Compute 전용 Queue 와 Transfer 전용 Queue 등이 있다.
+                                                                                                                // 범용 Queue 는 그래픽 명령, Compute, Transfer 등 여러 종류를 수행할 수 있다.
+    vk.queueFamilyIndex = 0;                                                                                // 범용 Queue 를 사용하기 위해 범용 Queue 를 찾아야 한다.
     {
         for (; vk.queueFamilyIndex < queueFamilyCount; ++vk.queueFamilyIndex)
         {
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(vk.physicalDevice, vk.queueFamilyIndex, vk.surface, &presentSupport);
+            VkBool32 presentSupport = false;                                                    // Present : 렌더링 후 화면에 presentation 을 하는 Swap Chain 의 명령 또한 Queue 를 통해 진행되는데, 이러한 presentation 을 지원하는 Queue 인지에 대한 여부
+            vkGetPhysicalDeviceSurfaceSupportKHR(vk.physicalDevice, vk.queueFamilyIndex, vk.surface, &presentSupport);  // 현 GPU 의 현재 QueueFamily 가 Present 를 만족하는 지 알아냄.
 
-            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT | presentSupport)
-                break;
+            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT && presentSupport)    // Queue Flag 로 해당 Queue 가 어떤 기능에 대해 활성화되어있는지 알 수 있다.
+                break;                                                                                      // 그래픽 명령 수행과 presentSupport 을 지원하는 범용 Queue 를 찾으면 for 문 나옴.
         }
 
-        if (vk.queueFamilyIndex >=  queueFamilyCount)
+        if (vk.queueFamilyIndex >=  queueFamilyCount)  
             throw std::runtime_error("failed to find a graphics & present queue!");
     }
     float queuePriority = 1.0f;
@@ -270,11 +273,11 @@ void createVkDevice()
     VkDeviceQueueCreateInfo queueCreateInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = vk.queueFamilyIndex,
-        .queueCount = 1,
+        .queueCount = 1,                                            // Queue Family 안에 2개 이상의 Queue 가 있을 수 있어도 1로 설정해야 한다.
         .pQueuePriorities = &queuePriority,
     };
 
-    VkDeviceCreateInfo createInfo{
+    VkDeviceCreateInfo createInfo{                                  // Logical Device 를 만들기 위한 작업 (이전까지 한 것들은 현 그래픽카드의 기능 중 어느 기능까지 사용할 지 상세하게 정한 것이다.)
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCreateInfo,
@@ -282,58 +285,58 @@ void createVkDevice()
         .ppEnabledExtensionNames = extentions.data(),
     };
 
-    if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create logical device!");
+    if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {    // Logical Device : Physical Device 를 어떤 식으로 사용할 지 정하기 위해 논리적으로 인터페이스를 만든 것
+        throw std::runtime_error("failed to create logical device!");                           // vk.device 에서는 Queue 를 하위로 종속시킨다. 
     }
 
     vkGetDeviceQueue(vk.device, vk.queueFamilyIndex, 0, &vk.graphicsQueue);
 }
 
-void createSwapChain()
-{
+void createSwapChain()                                                  // Swap Chain 과 Window 사이에 Surface 라는 인터페이스가 있다.
+{                                                                       // Swap Chain 은 Surface 를 통해 Window 로 화면을 출력한다. Vulkan 렌더링 -> Swap Chain -> Surface -> Window 출력
     VkSurfaceCapabilitiesKHR capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities); // 현재의 그래픽카드가 Surface 에 대해 어디까지 사용가능한지 그 정보를 capabilities 에 넣어줌. 
     
-    const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;     // Swap Chain 포맷이 VK_FORMAT_B8G8R8A8_SRGB 가 아니면 해당 VK_COLOR_SPACE_SRGB_NONLINEAR_KHR 도 사용 못 함.
     {
         uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, nullptr);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, nullptr);         // 현재 그래픽카드에서 Surface 에 출력하는 Format 에 대한 내용을 가져옴.
         std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, formats.data());
-
-        bool found = false;
-        for (auto format : formats) {
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, formats.data());      // Vector 에 지원하는 포맷들을 집어넣어 나열하고
+                                                                                                                //  의도적으로 정한 Swap Chain 포맷이고 defaultSpace 도 사용 가능한지 확인되면
+        bool found = false;                                                                                     //  Swap Chain Format 으로는 B8G8R8A8_SRGB 을 사용하고
+        for (auto format : formats) {                                                                           //  Default Color Space 로는 SRGB_NONLINEAR 을 사용하게 된다.
             if (format.format == vk.swapChainImageFormat && format.colorSpace == defaultSpace) {
                 found = true;
                 break;
             }
         }
 
-        if (!found) {
-            throw std::runtime_error("");
+        if (!found) {                               // Format 과 Presentation Mode 의 차이 : Presentation Mode 는 Swap Chain 의 Performance 와 관련된 내용
+            throw std::runtime_error("");           //                                      Format 은 그 자체가 바뀌게 되면 전체적인 로직이 바뀐다. Format 이 바뀌면 나머지 코드 모두가 내용이 바뀌어야 한다.
         }
     }
 
-    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;            // Presentation Mode 로 VK_PRESENT_MODE_MAILBOX_KHR 가 지원 안되면 VK_PRESENT_MODE_FIFO_KHR 를 그대로 사용.
     {
         uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(vk.physicalDevice, vk.surface, &presentModeCount, nullptr);
-        std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vk.physicalDevice, vk.surface, &presentModeCount, nullptr);       // Swap Chain 에서 Surface 로 지원하는 Presentation Mode 가 무엇이 있는지
+        std::vector<VkPresentModeKHR> presentModes(presentModeCount);                                               //  vector 에 나열하고 Mode 로 VK_PRESENT_MODE_MAILBOX_KHR 가 지원되면 사용.
         vkGetPhysicalDeviceSurfacePresentModesKHR(vk.physicalDevice, vk.surface, &presentModeCount, presentModes.data());
 
         for (auto mode : presentModes) {
-            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {                              // VK_PRESENT_MODE_MAILBOX_KHR 와 같은 세부기능들은 모든 그래픽카드에서 지원하는 것은 아니기 때문에
+                presentMode = VK_PRESENT_MODE_MAILBOX_KHR;                          //  반드시 해당 그래픽카드에서 지원하는지 먼저 알아보고 사용해야, 나중에 호환성 문제로 귀찮아지지 않는다.
                 break;
             }
         }
     }
 
     uint imageCount = capabilities.minImageCount + 1;
-    VkSwapchainCreateInfoKHR createInfo{
+    VkSwapchainCreateInfoKHR createInfo{                                        // Swap Chain 을 생성하기 위한 설정들
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = vk.surface,
-        .minImageCount = imageCount,
+        .minImageCount = imageCount,                                // imageCount 에 3 을 넣으면 만들어지는 이미지(버퍼) 개수가 최소 3개이다.
         .imageFormat = vk.swapChainImageFormat,
         .imageColorSpace = defaultSpace,
         .imageExtent = {.width = WIDTH , .height = HEIGHT },
@@ -349,16 +352,16 @@ void createSwapChain()
         throw std::runtime_error("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, nullptr);                     // swapChainImages 의 크기를 imageCount 만큼으로 설정
     vk.swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, vk.swapChainImages.data());
+    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, vk.swapChainImages.data());   // swapChainImages 이 이미 내부적으로 만들어져 있는데, 그것을 가져오는 것.
 
     for (const auto& image : vk.swapChainImages) {
         VkImageViewCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = vk.swapChainImageFormat,
+            .format = vk.swapChainImageFormat,                  // Swap Chain 생성때의 Fotmat 과 동일하게 한다.
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .levelCount = 1,
@@ -367,7 +370,7 @@ void createSwapChain()
         };
 
         VkImageView imageView;
-        if (vkCreateImageView(vk.device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
+        if (vkCreateImageView(vk.device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {     // swapChainImages 에 대한 Image View 를 만듦
             throw std::runtime_error("failed to create image views!");
         }
         vk.swapChainImageViews.push_back(imageView);
@@ -427,14 +430,14 @@ void createRenderPass()
     }
 }
 
-void createGraphicsPipeline() 
-{
+void createGraphicsPipeline()                               // State Machine 인 OpenGL 은 동적인 파이프라인이 단 한 개 존재한다. OpenGL 의 State 를 바꾸면서 각기 다른 파이프라인을 만들어 돌린다.
+{                                                           //  State 들이 동적으로 바뀌기 때문에 최적화가 힘들다는 것이 OpenGL 의 단점이다.
     auto spv2shaderModule = [](const char* filename) {
-        auto vsSpv = readFile(filename);
-        VkShaderModuleCreateInfo createInfo{
+        auto vsSpv = readFile(filename);                    // 반면, Vulkan 은 파이프라인을 생성할 때 미리 파이프라인 State 들을 모두 명시한다. 이 파이프라인의 State 들은 그 이후로 절대 변해서는 안되는 것이다.
+        VkShaderModuleCreateInfo createInfo{                //  이는 최적화를 위해 진행되는 작업이다.
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = vsSpv.size(),
-            .pCode = (uint*)vsSpv.data(),
+            .codeSize = vsSpv.size(),                   // Shader Module 의 크기를 지정
+            .pCode = (uint*)vsSpv.data(),               // Shader Module 에 unsigned int 로 형변환해서 저장해야 함. ( char 타입이었던 vsSpv )
         };
 
         VkShaderModule shaderModule;
@@ -443,14 +446,14 @@ void createGraphicsPipeline()
         }
         return shaderModule;
     };
-    VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");
-    VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");
+    VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");    // simple_vs.glsl       // 대표적인 파이프라인인 Graphics Pipeline 중 Vertex 
+    VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");    // simple_fs.glsl
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .module = vsModule,
-        .pName = "main",
+        .pName = "main",                                    // Shader 의 main 함수가 진입점임을 알려줌 ( main 이 되는 함수가 a 이면, a 로 명명해도 됨 )
     };
     VkPipelineShaderStageCreateInfo fsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -459,14 +462,14 @@ void createGraphicsPipeline()
         .pName = "main",
     };
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };      // Shader Stage 를 만들 수 있는 정보를 나중에 파이프라인을 만드는 데에 사용한다.
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,       // 현재 Shader 은 들어가는 input 이 없기 때문에 가장 간단한 형식으로 작성되었다.
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     };
 
@@ -476,21 +479,21 @@ void createGraphicsPipeline()
         .scissorCount = 1,
     };
 
-    VkPipelineRasterizationStateCreateInfo rasterizer{
+    VkPipelineRasterizationStateCreateInfo rasterizer{                              // Vertex 와 Fragment Shader 사이에 있는 Shader
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .cullMode = VK_CULL_MODE_BACK_BIT,
         .frontFace = VK_FRONT_FACE_CLOCKWISE,
-        .lineWidth = 1.0,
+        .lineWidth = 1.0,                                   // lineWIdth 의 값은 지정해주어야 한다.
     };
 
-    VkPipelineMultisampleStateCreateInfo multisampling{
+    VkPipelineMultisampleStateCreateInfo multisampling{                         // 멀티샘플링 ( 한 픽셀 당 1 개의 샘플로 설정 )
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
     };
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{                   // Fragment Shader 호출 이전의 Color 과 호출 이후의 Color 을 각각 어떻게 다룰지 설정함.
         .blendEnable = VK_FALSE,
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,    // 호출 이후의 Color 로 덮어씌우기로 함
     };
 
     VkPipelineColorBlendStateCreateInfo colorBlending{
@@ -499,7 +502,7 @@ void createGraphicsPipeline()
         .pAttachments = &colorBlendAttachment,
     };
 
-    std::vector<VkDynamicState> dynamicStates = {
+    std::vector<VkDynamicState> dynamicStates = {       // Dynamic State : 그래픽스 파이프라인의 State 가 원래는 정적이어야 하는데, 일부분을 Dynamic State 로 지정해주면 그 일부는 변화가 허용된다.
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
@@ -518,7 +521,7 @@ void createGraphicsPipeline()
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{
+    VkGraphicsPipelineCreateInfo pipelineInfo{                          // Pipeline 을 만드는 데에 사용되는 설정들
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
         .pStages = shaderStages,
@@ -531,14 +534,14 @@ void createGraphicsPipeline()
         .pDynamicState = &dynamicState,
         .layout = vk.pipelineLayout,
         .renderPass = vk.renderPass,
-        .subpass = 0,
+        .subpass = 0,                                       // basePipelineHandle 의 용도는 이전 버전의 pipeline 과 리소스을 재활용하면서 좀 더 빨리 Pipeline 을 만들 수 있게하는 것이다. 
     };
 
     if (vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.graphicsPipeline) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
+        throw std::runtime_error("failed to create graphics pipeline!");        // 그래픽스 Pipeline 을 동시에 여러 개 만들 수 있기도 하다.
     }
     
-    vkDestroyShaderModule(vk.device, vsModule, nullptr);
+    vkDestroyShaderModule(vk.device, vsModule, nullptr);    // Pipeline 이 만들어진 후에는 메모리 확보를 위해 Shader 에 대한 메모리를 해제해주는 것이 좋다.
     vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
@@ -659,11 +662,21 @@ void render()
 
 int main() 
 {
-    glfwInit();
-    GLFWwindow* window = createWindow();
-    createVkInstance(window);
-    createVkDevice();
-    createSwapChain();
+    glfwInit();                             // 플랫폼마다 다른 환경에 대한 각기 다른 설정들을 GLFW 가 도맡는데, 이 GLFW 를 초기화
+    GLFWwindow* window = createWindow();    // Window 생성
+    
+                                            // Vulkan 의 Instance 를 먼저 만들고 Device 를 만들어야 한다.
+
+    createVkInstance(window);               // Instance :   Vulkan 애플리케이션과 GPU(그래픽 하드웨어)를 포함한 Vulkan 드라이버 간의 최초 연결을 설정하는 핵심 객체.
+                                            // 역할 : Vulkan 드라이버 초기화, 물리적 디바이스 탐색, 확장(추가 기능) 지원, 검증 레이어 활성화, Vulkan 객체 생성의 시작점
+    
+    createVkDevice();                       // Device   :   Vulkan 애플리케이션이 GPU의 기능을 활용하기 위해 물리적 디바이스와 연결하여 생성되는 객체
+                                            // 역할 : GPU와 애플리케이션 간의 인터페이스 제공, 작업 큐 생성, 확장 활성화, 메모리 관리
+                                            // Device 는 Physical Device 와 Logical Device 로 나뉜다.
+                                            // Physical Device : 시스템에 설치된 실제 GPU 그 자체
+                                            // Logical Device : 물리적 디바이스의 논리적 표현 ( 애플리케이션이 Vulkan API를 통해 GPU를 제어할 수 있게 함 )
+
+    createSwapChain();                      // Swap Chain 생성
     createRenderPass();
     createGraphicsPipeline();
     createCommandCenter();
