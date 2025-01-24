@@ -213,7 +213,7 @@ void createVkInstance(GLFWwindow* window)
         throw std::runtime_error("failed to create instance!");
     }
 
-    if (ON_DEBUG) {                                                                 // vkCreateDebugUtilsMessengerEXT 라는 함수를 호출을 해야 디버거 메신저가 활성화된다.
+    if (ON_DEBUG) {                                                                 // vkCreateDebugUtilsMessengerEXT 라는 함수를 호출을 해야 콘솔 창에 디버거 메신저가 활성화된다.
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk.instance, "vkCreateDebugUtilsMessengerEXT");   // EXT 로 끝나는 함수는 확장함수인데, 확장함수는 기본적으로 제공되지 않아 함수 포인터를 달라고 요청해야 함.
         if (!func || func(vk.instance, &debugCreateInfo, nullptr, &vk.debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
@@ -377,45 +377,49 @@ void createSwapChain()                                                  // Swap 
     }
 }
 
-void createRenderPass()
+void createRenderPass()                                                 // RenderPass 는 여러 개의 Subpass 들로 이루어질 수 있다.
 {
-    VkAttachmentDescription colorAttachment{
+    VkAttachmentDescription colorAttachment{                            // 현재는 Color Attachment 을 하나밖에 안 쓰기에 colorAttachment 배열의 0 번 인덱스만 작성하였다.
+                                                                        // 현재 이 부분(명세)에서는 Render Target 과 리소스를 bind 시켜주지 않았다. 해당 작업은 이후에 수행될 것이다.
         .format = vk.swapChainImageFormat,
         .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,                          // VK_ATTACHMENT_LOAD_OP_CLEAR 는 Shader 를 호출하기 이전에 픽셀을 clear color 로 싹 지우는 동작
+                                                                        //  VK_ATTACHMENT_LOAD_OP_LOAD 는 기존의 픽셀 color 을 지우지 않고 새로운 렌더링 결과와 블랜딩하는 데에 활용가능한 동작
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,                        // VK_ATTACHMENT_STORE_OP_STORE 는 Shader 를 호출하기 이후에 최종적인 color 를 저장하도록 동작
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     };
 
-    VkAttachmentReference colorAttachmentRef0{
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VkAttachmentReference colorAttachmentRef0{                                  // 현재 colorAttachment 가 하나뿐이기 때문에 0 번 index 이다.
+        .attachment = 0,                                                // Attachment 는 Render Target 에 대한 정보를 의미한다. 0 의 의미는 현재 colorAttachment 의 Reference 이다.
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,             // Color 출력만 하기에 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL 로 layout 를 선책한다.
     };
 
-    VkSubpassDescription subpass{
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachmentRef0,
-    };
+    VkSubpassDescription subpass{                                               // fragment Shader 의 아웃풋 (Render Target)이 1가지이기 때문에 colorAttachmentCount 를 1로 정해준다.
+        .colorAttachmentCount = 1,                                      // Render Target, 즉, Shader 가 호출되었을 때 동시에 출력이 몇 개 수행되는지를 정의해주고
+        .pColorAttachments = &colorAttachmentRef0,                      //  그리고 출력 대상이 어떠한 Render Target (리소스) 로 이어지는지에 대한 정보를 정의해준다.
+    };                                                                          // 위의 Attachment 에 대한 Reference 들을 여러개 묶어 Subpass 로 보내주면
+                                                                                //  Render Target 이 여러개인 상황도 정의할 수 있다.
 
-    VkRenderPassCreateInfo renderPassInfo{
+    VkRenderPassCreateInfo renderPassInfo{                              // Attachment (또는 배열)과 Subpass (또는 배열)이 각각 필요한데, 
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .attachmentCount = 1,
-        .pAttachments = &colorAttachment,
+        .pAttachments = &colorAttachment,                               // 현재는 Color Attachment 을 하나밖에 안 쓰지만, 여러 개의 Attachment 를 사용하면 배열로 엮어 시작주소를 넣는다.
         .subpassCount = 1,
-        .pSubpasses = &subpass,
+        .pSubpasses = &subpass,                                         // Subpass 또한 여러 개의 Subpass 를 사용하면 배열로 엮어 시작주소를 넣는다.
     };
 
     if (vkCreateRenderPass(vk.device, &renderPassInfo, nullptr, &vk.renderPass) != VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass!");
     }
 
-    for (const auto& view : vk.swapChainImageViews) {
-        VkFramebufferCreateInfo framebufferInfo{
+    for (const auto& view : vk.swapChainImageViews) {                       // Frame Buffer : 원하는 형태의 Render Target 들이 마련된 Subpass 라는 어뎁터에 호환되는 콘센트의 역할
+                                                                            //                Subpass 의 Render Target, 즉, 리소스들을 한꺼번에 저장할 수 있는 Buffer
+        VkFramebufferCreateInfo framebufferInfo{                            // Render Target 을 Swap Chain 을 통해 출력해서 매번 Render Target 의 결과가 달라질 것이기 때문에 그 달라지는 수만큼 Frame Buffer 가 필요하다.
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .renderPass = vk.renderPass,
+            .renderPass = vk.renderPass,                                    // Bind 할 RenderPass 에 대한 정보를 받음
             .attachmentCount = 1,
-            .pAttachments = &view,
+            .pAttachments = &view,                                          // pAttachments 와 위의 subpass 내의 pColorAttachments 가 호환되어야 bind 가 가능하다.
             .width = WIDTH,
             .height = HEIGHT,
             .layers = 1,
@@ -545,7 +549,7 @@ void createGraphicsPipeline()                               // State Machine 인 
     vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter() 
+void createCommandCenter()                                              // Command Queue 는 Device 설정에서 이미 만들었고, 이제 Command Buffer 와 Command Pool 을 만들어야 한다.
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -553,7 +557,7 @@ void createCommandCenter()
         .queueFamilyIndex = vk.queueFamilyIndex,
     };
 
-    if (vkCreateCommandPool(vk.device, &poolInfo, nullptr, &vk.commandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(vk.device, &poolInfo, nullptr, &vk.commandPool) != VK_SUCCESS) {    // Command Pool : Command Buffer 의 명령어들이 저장된 메모리 공간
         throw std::runtime_error("failed to create command pool!");
     }
 
@@ -562,18 +566,18 @@ void createCommandCenter()
         .commandPool = vk.commandPool,
         .commandBufferCount = 1,
     };
-
-    if (vkAllocateCommandBuffers(vk.device, &allocInfo, &vk.commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate command buffers!");
+                                                                                                // Command Buffer : 실제로 내린 명령들은 이 Command Buffer 에 쌓이게 되는데 나중에 이렇게 쌓인 Buffer 는
+    if (vkAllocateCommandBuffers(vk.device, &allocInfo, &vk.commandBuffer) != VK_SUCCESS) {     //                   Command Queue 에 한꺼번에 제출한다. GPU 의 명령어를 처리하는 과정에서 GPU 명령들이
+        throw std::runtime_error("failed to allocate command buffers!");                        //                   Command Queue 에 쌓이는데, 이는 Command Buffer 에 모아진 명령들이 제출된 것이다.
     }
 }
 
-void createSyncObjects() 
+void createSyncObjects()                                        // Semaphore 와 Fence, 이 두가지를 제공 (동기화와 관련된 부분들) <- DirectX 와 제일 차이가 나는 부분
 {
     VkSemaphoreCreateInfo semaphoreInfo{ 
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
     };
-    VkFenceCreateInfo fenceInfo{ 
+    VkFenceCreateInfo fenceInfo{                                // Fence 는 상태가 Signaled 와 Unsignaled, 두 가지로 나뉜다.
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
@@ -589,41 +593,48 @@ void createSyncObjects()
 void render()
 {
     const VkClearValue clearColor = { .color = {0.0f, 0.0f, 0.0f, 1.0f} };
-    const VkViewport viewport{ .width = (float)WIDTH, .height = (float)HEIGHT, .maxDepth = 1.0f };
-    const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };
+    const VkViewport viewport{ .width = (float)WIDTH, .height = (float)HEIGHT, .maxDepth = 1.0f };      // Viewport 크기
+    const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };                            // 실제 크기 ( 변하지 않는 값들 )
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-
-    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(vk.device, 1, &vk.inFlightFence);
+                                                                                                               
+    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);      // Wait Fence : 만든 Fence 가 Signaled 상태가 될 때까지 기다리는 작업 (이미 앞서 Signaled 상태로 만들었으니 바로 다음으로 진행)
+                                                                                    // VK_TRUE 는 &vk.inFlightFence 로 받은 Fence 배열의 모든 Fence 들이 Signaled 상태이면 넘어가도록 한다.
+                                                                                    // UINT64_MAX 는 나노단위이다. (Time Out) 예를 들어 1000000 이면 1초인데, 이 경우 1초 기다리다가 신호가 안 오면 다음으로 넘어간다.
+    vkResetFences(vk.device, 1, &vk.inFlightFence);                             // 모든 Fance 들을 Unsignaled 상태로 바꿈
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, nullptr, &imageIndex);
-
-    vkResetCommandBuffer(vk.commandBuffer, 0);
+    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, nullptr, &imageIndex);   // Swap Chain 의 이미지들의 화면에 출력되고 있는 하나를 제외한 나머지들 중
+                                                                                                                    //  하나가 이전 프레임에서 렌더링이 아직 진행 (Busy 함) 되고 있다고 할 때 그 둘의 제외한 나머지들이 있는데
+                                                                                                                    //  그 나머지들 중 하나를 return 해주는 역할 ( 여기에서 렌더링하는 결과는 return 받은 그 하나에 그려진다. )
+                                                                                                                    //  ( imageIndex 는 return 받은 이미지의 번째 수 )
+                                                                                                                    //  ( Fence 는 안 넘겨주고 Semaphore 은 넘겨주었는데, 출력을 담당한 하나를 제외한 모든 이미지가 Busy 한 경우, 다음에 놀게 될 이미지의 인덱스를 일단은 return 하지만 현재는 못쓰는 상태 그대로 넘어간다. )
+                                                                                                                    //    => 사용하려는 이미지가 언제 가용한 상태가 될 지 모르기 떄문에, 해당 이미지가 가용한 상태가 되는 순간 imageAvailableSemaphore 에 Signal 을 준다. 
+    
+    vkResetCommandBuffer(vk.commandBuffer, 0);                                                              // Draw Call 에 대한 명령들을 Command Buffer 에 넣는 작업 ( 먼저, Command Buffer 리셋을 진행 )
     {
-        if (vkBeginCommandBuffer(vk.commandBuffer, &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(vk.commandBuffer, &beginInfo) != VK_SUCCESS) {                             // Command Buffer 를 시작
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
         VkRenderPassBeginInfo renderPassInfo{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = vk.renderPass,
-            .framebuffer = vk.framebuffers[imageIndex],
-            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },
+            .framebuffer = vk.framebuffers[imageIndex],                                             // 어떤 Frame Buffer 을 사용할 지 정함
+            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },                       // 렌더링 영역 지정 (매번 수행해주어야 하는 모양이다.)
             .clearValueCount = 1,
             .pClearValues = &clearColor,
         };
 
-        vkCmdBeginRenderPass(vk.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(vk.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);                // Render Pass 를 시작 -> Frame Buffer 와 Render Pass 둘 다 Bind 됨.
         {
-            vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
+            vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);      // Graphics Pipiline 을 Bind 시킴.
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
-            vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
+            vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);                                              // viewport 와 scissor 를 Dynamic State 로 지정했기 때문에 무조건 여기에서 지정해주어야 한다. 그렇지 않으면 화면에 아무것도 뜨지 않게 된다.
             vkCmdDraw(vk.commandBuffer, 3, 1, 0, 0);
         }
         vkCmdEndRenderPass(vk.commandBuffer);
 
-        if (vkEndCommandBuffer(vk.commandBuffer) != VK_SUCCESS) {
+        if (vkEndCommandBuffer(vk.commandBuffer) != VK_SUCCESS) {                                           // Command Buffer 를 끝냄 ( Command Buffer 에 대한 기록 (렌더링된 리소스를 기록) 을 종료 )
             throw std::runtime_error("failed to record command buffer!");
         }
     }
@@ -636,28 +647,28 @@ void render()
     VkSubmitInfo submitInfo{ 
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &vk.imageAvailableSemaphore,
-        .pWaitDstStageMask = waitStages,
+        .pWaitSemaphores = &vk.imageAvailableSemaphore,                         // 사용하려는 Swap Chain 의 이미지가 준비되지 않은 상태일 수도 있으므로 pWaitSemaphores 을 imageAvailableSemaphore 로 설정해준다.
+        .pWaitDstStageMask = waitStages,                                        // Semaphore 마다 waitStage Flag 가 하나씩 대응된다. Vulkan 에서는 Semaphore 의 Signal 까지 무작정 대기하지 않고 설정에 따라 일련의 작업을 진행해놓기도 가능하다.
         .commandBufferCount = 1,
         .pCommandBuffers = &vk.commandBuffer,
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &vk.renderFinishedSemaphore,
+        .pSignalSemaphores = &vk.renderFinishedSemaphore,                       // 렌더링이 완료되면 renderFinishedSemaphore 에 작업이 완료되었다는 Signal 을 보내야 한다.
     };
 
-    if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.inFlightFence) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
+    if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.inFlightFence) != VK_SUCCESS) {      // 기록이 끝난 Command Buffer 를 Present Queue (graphicsQueue) 에 제출 (Submit)
+        throw std::runtime_error("failed to submit draw command buffer!");                      //  이 제출은 imageAvailableSemaphore 이 Signal 된 후에야 진행된다.
     }
 
-    VkPresentInfoKHR presentInfo{
+    VkPresentInfoKHR presentInfo{                                                           // Present Queue 의 내용을 Present 하기 위한 설정
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &vk.renderFinishedSemaphore,
+        .pWaitSemaphores = &vk.renderFinishedSemaphore,                                     // 렌더링이 다 끝나지 않았는데 Present 되면 안되기 때문에 renderFinishedSemaphore 를 활용한다. ( Signal 받으면 그때가 되어서야 Present )
         .swapchainCount = 1,
         .pSwapchains = &vk.swapChain,
-        .pImageIndices = &imageIndex,
+        .pImageIndices = &imageIndex,                                                       // Present 할 이미지의 인덱스
     };
 
-    vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
+    vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);                                      // Present Queue 의 내용을 Present 하라는 명령을 제출 (Submit)
 }
 
 int main() 
@@ -677,16 +688,19 @@ int main()
                                             // Logical Device : 물리적 디바이스의 논리적 표현 ( 애플리케이션이 Vulkan API를 통해 GPU를 제어할 수 있게 함 )
 
     createSwapChain();                      // Swap Chain 생성
-    createRenderPass();
-    createGraphicsPipeline();
+    createRenderPass();                     // Render Pass 생성
+    createGraphicsPipeline();               // 그래픽스 Pipeline 설정
     createCommandCenter();
     createSyncObjects();
 
     while (!glfwWindowShouldClose(window)) 
     {
-        glfwPollEvents();
-        render();
-    }
+        glfwPollEvents();                       // 이 상태 그대로 Debug 모드에서 실행하면, 화면을 종료하면 Error 들이 뜬다.
+        render();                               // render() 호출하는 과정에서 렌더링이 완료된 리소스에 관한 Command Buffer 와 Present 하라는 명령을 Present Queue 에 집어넣었었는데
+                                                //  while 문에서 빠져나오고 window 가 닫히게 되는데 이 과정에서 Queue 로 제출된 모든 리소스들이 강제적으로 종료되었기에 발생하는 오류들이다.
+    }                                                                                                                                         //
+                                                                                                                                             //
+    vkDeviceWaitIdle(vk.device);        //////////// 따라서 GPU 의 Queue 가 모두 비워질 때까지 CPU 가 기다려주도록 이와 같이 설정해줘야 한다. <===//
     
     glfwDestroyWindow(window);
     glfwTerminate();
