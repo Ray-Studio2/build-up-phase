@@ -138,31 +138,31 @@ struct Global {
 
 
 struct Geometry {
-    static const uint vertexBytesSize = 20;
+    static const uint vertexBytesSize = 24;
     static const uint vertexPositionOffset = 0;
-    static const uint vertexColorOffset = 8;
+    static const uint vertexColorOffset = 12;
 
     static std::tuple<float*, size_t> getVertices() {
-        //static float data[] = {
-        //    -0.5, -0.5, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
-        //    0.5, -0.5, 0, 1, 0,
-        //    0.5, 0.5, 0, 0, 1,
-        //    -0.5, 0.5, 0, 0, 1,
-        //};
+        static float data[] = {
+            -0.5, -0.5, 1.0, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
+            0.5, -0.5, 1.0, 0, 1, 0,
+            0.5, 0.5, 1.0, 0, 0, 1,
+            -0.5, 0.5, 1.0, 0, 0, 1,
+        };
 
-        static float* data = vData;    // x, y, z, x_n, y_n, z_n -> 3180 vertices -> 12720 Bytes
-
-        return { data, sizeof(data) };
+        //static float* data = vData;    // x, y, z, x_n, y_n, z_n -> 3180 vertices -> 12720 Bytes
+        
+        return { data, (4 * vertexBytesSize) };
     }
 
     static std::tuple<uint16_t*, size_t> getIndices() {
-        /*static uint16_t data[] = {
+        static uint16_t data[] = {
             0, 1, 2, 2, 3, 0
-        };*/
+        };
 
-        static uint16_t* data = (uint16_t*)shapes[0].mesh.indices.data();
+        //static uint16_t* data = (uint16_t*)shapes[0].mesh.indices.data();
 
-        return { data, sizeof(data) };
+        return { data, 6 * 2 };
     }
 
     static VkVertexInputBindingDescription getBindingDescription() {
@@ -620,7 +620,7 @@ void createGraphicsPipeline()
 
     VkPipelineRasterizationStateCreateInfo rasterizer{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0,
     };
@@ -861,15 +861,15 @@ void createVertexBuffer()
 
 void updateVertexBuffer(float t)
 {
-    size_t size = std::get<1>(Geometry::getVertices());
-    uint count = (uint)size / sizeof(float);
-    void* dst;
-    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    /*for (uint i = 0; i < count; i+=5)
-        ((float*)dst)[i] += t;*/
-    for (uint i = 0; i < count; i+=6)
-        ((float*)dst)[i] += t;
-    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+    //size_t size = std::get<1>(Geometry::getVertices());
+    //uint count = (uint)size / sizeof(float);
+    //void* dst;
+    //vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
+    ///*for (uint i = 0; i < count; i+=5)
+    //    ((float*)dst)[i] += t;*/
+    //for (uint i = 0; i < count; i+=6)
+    //    ((float*)dst)[i] += t;
+    //vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
 void createIndexBuffer()                                                // GPU 에서의 빠른 처리를 위해 HOST_VISIBLE 하지 않은 Buffer 를 만들 필요가 있다. 하지만, CPU 에서 볼 수 있어야 Map 을 통해 메모리를 올릴 수 있을 텐데 ( CPU 메모리에서 GPU 메모리로의 복사 ),
@@ -978,9 +978,9 @@ void updateUniformBuffer(uint32_t currentImage) {
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	ubo.view = glm::lookAt(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	ubo.proj = glm::perspective(glm::radians(45.0f), vk.swapChainImageExtent.width / (float)vk.swapChainImageExtent.height, 0.1f, 10.0f);
+	ubo.proj = glm::perspective(glm::radians(45.0f), vk.swapChainImageExtent.width / (float)vk.swapChainImageExtent.height, 0.1f, 1000.0f);
 
 	ubo.proj[1][1] *= -1;
 
@@ -1170,7 +1170,7 @@ int main()
         updateVertexBuffer(t);
 
         render();
-        t += 0.00001f;
+        //t += 0.00001f;
     }
     
     vkDeviceWaitIdle(vk.device);
