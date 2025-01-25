@@ -6,12 +6,27 @@
 #include <tuple>
 #include <bitset>
 #include <span>
-//#include "glsl2spv.h"
+#include <algorithm>
+#include "glsl2spv.h"
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "lib/tiny_obj_loader/tiny_obj_loader.h"
+#define GLM_FORCE_RADIANS
+#include "lib/GLM/glm.hpp"
+#include "lib/GLM/gtc/matrix_transform.hpp"
+
+#include <chrono>
 
 typedef unsigned int uint;
 
 const uint32_t WIDTH = 1600;
 const uint32_t HEIGHT = 1200;
+
+int mode = 0;
+
+#define MAX_FRAMES_IN_FLIGHT 3  // 원래는 아래있는 imageCount랑 동일한 숫자로 해야하는데, 그러면 Runtime에 결정되는 것들 때문에 코드가 조금 번잡스러워서 일단 하드코딩
+uint imageCount;
+uint32_t imageIndex;
 
 #ifdef NDEBUG
 const bool ON_DEBUG = false;
@@ -19,6 +34,27 @@ const bool ON_DEBUG = false;
 const bool ON_DEBUG = true;
 #endif
 
+struct UniformBufferObject {
+    glm::vec2 foo;
+    alignas(16) glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
+class Vertex
+{
+public:
+    glm::vec3 position;
+    glm::vec3 normal;
+    //float2 texCoord;
+};
+class StaticMesh
+{
+public:
+    std::vector<uint16_t> indices;
+    std::vector<Vertex> vertices;
+};
+StaticMesh staticMesh;
 
 struct Global {
     VkInstance instance;
@@ -55,6 +91,15 @@ struct Global {
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
+    VkDescriptorSetLayout descriptorSetLayout;
+
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
+
     ~Global() {
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
@@ -86,14 +131,24 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
+
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+        }
+
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     }
 } vk;
 
 
 struct Geometry {
-    static const uint vertexBytesSize = 20;
+    static const uint vertexBytesSize = sizeof(Vertex);
     static const uint vertexPositionOffset = 0;
-    static const uint vertexColorOffset = 8;
+    static const uint vertexColorOffset = sizeof(Vertex::position);
 
     static std::tuple<float*, size_t> getVertices() {
         static float data[] = {
@@ -124,7 +179,7 @@ struct Geometry {
         return {
             {
                 .location = 0,
-                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
+                .format = VK_FORMAT_R32G32B32_SFLOAT,      // x, y
                 .offset = vertexPositionOffset,
             }, {
                 .location = 1,
@@ -217,10 +272,13 @@ static std::vector<char> readFile(const std::string& filename) {
         throw std::runtime_error("failed to open file!");
     }
     size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
+    std::vector<char> buffer(fileSize + 1);
     file.seekg(0);
     file.read(buffer.data(), fileSize);
     file.close();
+
+    buffer[buffer.size() - 1] = '\0';
+
     return buffer;
 }
 
@@ -390,7 +448,7 @@ void createSwapChain()
         }
     }
 
-    uint imageCount = capabilities.minImageCount + 1;
+    imageCount = capabilities.minImageCount + 1;
     VkSwapchainCreateInfoKHR createInfo{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = vk.surface,
@@ -490,6 +548,7 @@ void createRenderPass()
 
 void createGraphicsPipeline() 
 {
+#if １
     auto spv2shaderModule = [](const char* filename) {
         auto vsSpv = readFile(filename);
         VkShaderModuleCreateInfo createInfo{
@@ -506,6 +565,33 @@ void createGraphicsPipeline()
     };
     VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
     VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
+#else
+    auto vsSpv = readFile("vertex_input_vs.glsl");
+    auto fsSpv = readFile("vertex_input_fs.glsl");
+
+    auto vs_spv = glsl2spv(GLSLANG_STAGE_VERTEX, vsSpv.data());
+    auto fs_spv = glsl2spv(GLSLANG_STAGE_FRAGMENT, fsSpv.data());
+
+    VkShaderModuleCreateInfo vsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = vs_spv.size() * 4,
+        .pCode = vs_spv.data(),
+    };
+    VkShaderModuleCreateInfo fsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = fs_spv.size() * 4,
+        .pCode = fs_spv.data(),
+    };
+
+    VkShaderModule vsModule;
+    if (vkCreateShaderModule(vk.device, &vsModuleInfo, nullptr, &vsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create shader module!");
+    }
+    VkShaderModule fsModule;
+    if (vkCreateShaderModule(vk.device, &fsModuleInfo, nullptr, &fsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create shader module!");
+    }
+#endif
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -546,7 +632,7 @@ void createGraphicsPipeline()
 
     VkPipelineRasterizationStateCreateInfo rasterizer{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_FRONT_BIT,
         .frontFace = VK_FRONT_FACE_CLOCKWISE,
         .lineWidth = 1.0,
     };
@@ -578,9 +664,10 @@ void createGraphicsPipeline()
         .pDynamicStates = dynamicStates.data(),
     };
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-    };
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &vk.descriptorSetLayout;
 
     if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &vk.pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
@@ -678,6 +765,12 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
         VkPhysicalDeviceMemoryProperties spec;
         vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &spec);
 
+        auto comperator = [](const VkMemoryType& lhs, const VkMemoryType& rhs)
+            {
+                return lhs.propertyFlags < rhs.propertyFlags;
+            };
+        std::sort(spec.memoryTypes, spec.memoryTypes + spec.memoryTypeCount, comperator);
+
         for (auto& [props, _] : std::span<VkMemoryType>(spec.memoryTypes, spec.memoryTypeCount)) {
             if (isSuppoted[memTypeIndex] && (props & reqMemProps) == reqMemProps) {
                 break;
@@ -726,7 +819,7 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 
 void createVertexBuffer()
 {
-    auto [data, size] = Geometry::getVertices();
+    auto [data, size] = std::tuple<Vertex*, size_t>{staticMesh.vertices.data(), staticMesh.vertices.size() * sizeof(staticMesh.vertices[0])};//Geometry::getVertices();
 
     std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
         size,
@@ -741,7 +834,7 @@ void createVertexBuffer()
 
 void updateVertexBuffer(float t)
 {
-    size_t size = std::get<1>(Geometry::getVertices());
+    size_t size = staticMesh.vertices.size();//std::get<1>(Geometry::getVertices());
     uint count = (uint)size / sizeof(float);
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
@@ -752,7 +845,7 @@ void updateVertexBuffer(float t)
 
 void createIndexBuffer()
 {
-    auto [data, size] = Geometry::getIndices();
+    auto [data, size] = std::tuple<uint16_t*, size_t>{ staticMesh.indices.data(), staticMesh.indices.size() * sizeof(staticMesh.indices[0])};//Geometry::getIndices();
 
     auto [stagingBuffer, stagingBufferMemory] = createBuffer(
         size,
@@ -785,7 +878,6 @@ void render()
     vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
     vkResetFences(vk.device, 1, &vk.inFlightFence);
 
-    uint32_t imageIndex;
     vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
     vkResetCommandBuffer(vk.commandBuffer, 0);
@@ -810,9 +902,12 @@ void render()
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = { 0 };
-            size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
+            size_t numIndices = std::get<1>(std::tuple<uint16_t*, size_t>{ staticMesh.indices.data(), staticMesh.indices.size() });
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+            vkCmdBindDescriptorSets(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipelineLayout, 0, 1, &vk.descriptorSets[imageIndex], 0, nullptr);
+
             vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
 
         }
@@ -855,25 +950,207 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
+void loadModel(const std::string& modelPath)
+{
+    tinyobj::attrib_t attributes;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warnings;
+    std::string errors;
+    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
+
+    for (int i = 0; i < shapes.size(); i++) {
+        tinyobj::shape_t& shape = shapes[i];
+        tinyobj::mesh_t& mesh = shape.mesh;
+
+        const int vertexCount = attributes.vertices.size() / 3;
+        std::vector<int> visitMap;
+        visitMap.resize(vertexCount);
+        for (int j = 0; j < vertexCount; ++j)
+            visitMap[j] = -1;
+
+        staticMesh.vertices.reserve(vertexCount);
+        staticMesh.indices.reserve(mesh.indices.size());
+
+        // Replace the ... above
+        for (int j = 0; j < mesh.indices.size(); j++) {
+            tinyobj::index_t i = mesh.indices[j];
+
+            int vertexIndex = -1;
+            if (visitMap[i.vertex_index] < 0)
+            {
+                glm::vec3 position = {
+                attributes.vertices[i.vertex_index * 3],
+                attributes.vertices[i.vertex_index * 3 + 1],
+                attributes.vertices[i.vertex_index * 3 + 2]
+                };
+                glm::vec3 normal = {
+                    attributes.normals[i.normal_index * 3],
+                    attributes.normals[i.normal_index * 3 + 1],
+                    attributes.normals[i.normal_index * 3 + 2]
+                };
+                glm::vec2 texCoord = {
+                    attributes.texcoords[i.texcoord_index * 2],
+                    attributes.texcoords[i.texcoord_index * 2 + 1],
+                };
+                // Not gonna care about texCoord right now.
+                Vertex vert = { position, normal };
+                staticMesh.vertices.push_back(vert);
+
+                vertexIndex = staticMesh.vertices.size() - 1;
+                visitMap[i.vertex_index] = vertexIndex;
+            }
+            else
+            {
+                vertexIndex = visitMap[i.vertex_index];
+            }
+
+            staticMesh.indices.push_back(vertexIndex);
+        }
+    }
+
+    int a = 10;
+}
+
+void createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional  
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(vk.device, &layoutInfo, nullptr, &vk.descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+void createUniformBuffers() {
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    vk.uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    vk.uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    vk.uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        std::tie(vk.uniformBuffers[i], vk.uniformBuffersMemory[i]) = createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        vkMapMemory(vk.device, vk.uniformBuffersMemory[i], 0, bufferSize, 0, &vk.uniformBuffersMapped[i]);
+    }
+}
+
+void updateUniformBuffer(uint32_t currentImage, float t) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    glm::vec3 pos(0, 0, 30);
+    glm::mat4x4 translate = glm::translate(glm::mat4(1), pos);
+
+    UniformBufferObject ubo{};
+    ubo.foo.x = mode;
+    ubo.model = translate * glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1, 0));
+    ubo.view = glm::lookAt(glm::vec3(0, 0, 0), pos, glm::vec3(0.0f, 1, 0));
+    ubo.proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 1000.0f);
+    ubo.proj[1][1] *= -1;
+
+    memcpy(vk.uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+}
+
+void createDescriptorPool() {
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(vk.device, &poolInfo, nullptr, &vk.descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void createDescriptorSets() {
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, vk.descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = vk.descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    vk.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(vk.device, &allocInfo, vk.descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = vk.uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = vk.descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // Optional
+        descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+        vkUpdateDescriptorSets(vk.device, 1, &descriptorWrite, 0, nullptr);
+    }
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        mode = (mode + 1) % 2;
+    }
+}
+
 int main() 
 {
     glfwInit();
     GLFWwindow* window = createWindow();
+    glfwSetKeyCallback(window, key_callback);
+
     createVkInstance(window);
     createVkDevice();
     createSwapChain();
     createRenderPass();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandCenter();
     createSyncObjects();
+
+    loadModel("resource/teapot.obj");
+
     createVertexBuffer();
     createIndexBuffer();
+    createUniformBuffers();
+
+    createDescriptorPool();
+    createDescriptorSets();
 
     float t = 0.f;
     while (!glfwWindowShouldClose(window)) 
     {
         glfwPollEvents();
-        updateVertexBuffer(t);
+        //updateVertexBuffer(t);
+        updateUniformBuffer(imageIndex, t);
         render();
         t += 0.00001f;
     }

@@ -4,10 +4,17 @@
 #include <glslang/Include/glslang_c_interface.h>
 #include <glslang/Public/resource_limits_c.h>
 
+#if defined(_DEBUG)
+#pragma comment(lib, "glslangd.lib")
+#pragma comment(lib, "glslang-default-resource-limitsd.lib")
+#pragma comment(lib, "SPIRV-Toolsd.lib")
+#pragma comment(lib, "SPIRV-Tools-optd.lib")
+#else
 #pragma comment(lib, "glslang.lib")
 #pragma comment(lib, "glslang-default-resource-limits.lib")
 #pragma comment(lib, "SPIRV-Tools.lib")
 #pragma comment(lib, "SPIRV-Tools-opt.lib")
+#endif
 
 
 std::vector<uint32_t> glsl2spv(glslang_stage_t stage, const char* shaderSource) {
@@ -15,11 +22,11 @@ std::vector<uint32_t> glsl2spv(glslang_stage_t stage, const char* shaderSource) 
         .language = GLSLANG_SOURCE_GLSL,
         .stage = stage,
         .client = GLSLANG_CLIENT_VULKAN,
-        .client_version = GLSLANG_TARGET_VULKAN_1_2,
+        .client_version = GLSLANG_TARGET_VULKAN_1_0,
         .target_language = GLSLANG_TARGET_SPV,
-        .target_language_version = GLSLANG_TARGET_SPV_1_5,
+        .target_language_version = GLSLANG_TARGET_SPV_1_0,
         .code = shaderSource,
-        .default_version = 100,
+        .default_version = 450,
         .default_profile = GLSLANG_NO_PROFILE,
         .force_default_version_and_profile = false,
         .forward_compatible = false,
