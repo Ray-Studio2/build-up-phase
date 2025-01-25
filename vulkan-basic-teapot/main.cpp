@@ -143,26 +143,30 @@ struct Geometry {
     static const uint vertexColorOffset = 12;
 
     static std::tuple<float*, size_t> getVertices() {
-        static float data[] = {
-            -0.5, -0.5, 1.0, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
-            0.5, -0.5, 1.0, 0, 1, 0,
-            0.5, 0.5, 1.0, 0, 0, 1,
-            -0.5, 0.5, 1.0, 0, 0, 1,
-        };
+        //static float data[] = {
+        //    -0.5, -0.5, 1.0, 1, 0, 0,   // x, y, z, r, g, b -> total 24 bytes per vertex
+        //    0.5, -0.5, 1.0, 0, 1, 0,
+        //    0.5, 0.5, 1.0, 0, 0, 1,
+        //    -0.5, 0.5, 1.0, 0, 0, 1,
+        //};
 
-        //static float* data = vData;    // x, y, z, x_n, y_n, z_n -> 3180 vertices -> 12720 Bytes
+        //static float* data = vData;
+        static float* data = new float[3180];   // x, y, z, x_n, y_n, z_n -> 530 vertices -> 12720 Bytes
         
-        return { data, (4 * vertexBytesSize) };
+        //return { data, (4 * vertexBytesSize) };
+        return { data, attrib.vertices.size() / 3 * vertexBytesSize };
     }
-
+    
     static std::tuple<uint16_t*, size_t> getIndices() {
-        static uint16_t data[] = {
+        /*static uint16_t data[] = {
             0, 1, 2, 2, 3, 0
-        };
+        };*/
 
         //static uint16_t* data = (uint16_t*)shapes[0].mesh.indices.data();
+        static uint16_t* data = new uint16_t[2976];
 
-        return { data, 6 * 2 };
+        //return { data, 6 * 2 };
+        return { data, shapes[0].mesh.indices.size() * 2 };
     }
 
     static VkVertexInputBindingDescription getBindingDescription() {
@@ -978,7 +982,7 @@ void updateUniformBuffer(uint32_t currentImage) {
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(30.0f, 30.0f, 30.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	ubo.proj = glm::perspective(glm::radians(45.0f), vk.swapChainImageExtent.width / (float)vk.swapChainImageExtent.height, 0.1f, 1000.0f);
 
@@ -1145,6 +1149,15 @@ int main()
 		for(int k = 0; k < 3; k++)
 			vData[dataIndex++] = attrib.normals[normalIndex++];
 	}
+
+    auto [data_v, size_v] = Geometry::getVertices();
+    for (int i = 0; i < size_v / 4; i++)
+        data_v[i] = vData[i];
+    
+
+    auto [data_i, size_i] = Geometry::getIndices();
+    for (int i = 0; i < size_i / 2; i++)
+        data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;
 
 	glfwInit();
 	GLFWwindow* window = createWindow();
