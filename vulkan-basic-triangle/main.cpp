@@ -549,7 +549,7 @@ void createGraphicsPipeline()                               // State Machine 인 
     vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter()                                              // Command Queue 는 Device 설정에서 이미 만들었고, 이제 Command Buffer 와 Command Pool 을 만들어야 한다.
+void createCommandCenter()                                              // Graphics Queue (Command Queue) 는 Device 설정에서 이미 만들었고, 이제 Command Buffer 와 Command Pool 을 만들어야 한다.
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
