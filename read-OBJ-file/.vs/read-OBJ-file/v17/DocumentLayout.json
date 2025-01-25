@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\read-OBJ-file\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E2117C71-8C27-477D-84CF-34789F0E2E2B}|read-OBJ-file.vcxproj|C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\read-OBJ-file\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{E2117C71-8C27-477D-84CF-34789F0E2E2B}|read-OBJ-file.vcxproj|solutionrelative:main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "main.cpp",
+              "DocumentMoniker": "C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\read-OBJ-file\\main.cpp",
+              "RelativeDocumentMoniker": "main.cpp",
+              "ToolTip": "C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\read-OBJ-file\\main.cpp",
+              "RelativeToolTip": "main.cpp",
+              "ViewState": "AQIAAD4AAAAAAAAAAAAhwEgAAAACAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-01-25T03:34:44.3Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

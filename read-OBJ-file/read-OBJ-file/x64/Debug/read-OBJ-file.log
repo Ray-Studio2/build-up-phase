@@ -1,0 +1,4 @@
+﻿  main.cpp
+C:\Users\Juhwan_Bae\Desktop\build-up-phase\read-OBJ-file\main.cpp(55,17): warning C4267: '초기화 중': 'size_t'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\Juhwan_Bae\Desktop\build-up-phase\read-OBJ-file\main.cpp(75,17): warning C4267: '초기화 중': 'size_t'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  read-OBJ-file.vcxproj -> C:\Users\Juhwan_Bae\Desktop\build-up-phase\read-OBJ-file\x64\Debug\read-OBJ-file.exe
