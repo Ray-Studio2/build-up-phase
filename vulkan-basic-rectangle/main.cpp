@@ -8,10 +8,15 @@
 #include <span>
 //#include "glsl2spv.h"
 
+#define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
+// Optional. define TINYOBJLOADER_USE_MAPBOX_EARCUT gives robust triangulation. Requires C++11
+//#define TINYOBJLOADER_USE_MAPBOX_EARCUT
+#include "tiny_obj_loader.h"
+
 typedef unsigned int uint;
 
-const uint32_t WIDTH = 1600;
-const uint32_t HEIGHT = 1200;
+const uint32_t WIDTH = 900;
+const uint32_t HEIGHT = 600; // 
 
 #ifdef NDEBUG
 const bool ON_DEBUG = false;
@@ -89,30 +94,60 @@ struct Global {
     }
 } vk;
 
+class StanfordBunny
+{
+public:
+    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/box.obj";
+    tinyobj::ObjReaderConfig reader_config;
+    tinyobj::ObjReader reader;
 
-struct Geometry {
-    static const uint vertexBytesSize = 20;
-    static const uint vertexPositionOffset = 0;
-    static const uint vertexColorOffset = 8;
+    std::vector<float> vertData;
+    std::vector<size_t> idxData;
 
-    static std::tuple<float*, size_t> getVertices() {
-        static float data[] = {
-            -0.5, -0.5, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
-            0.5, -0.5, 0, 1, 0,
-            0.5, 0.5, 0, 0, 1,
-            -0.5, 0.5, 0, 0, 1,
-        };
-        return { data, sizeof(data) };
+    const uint vertexBytesSize = 24;
+    const uint vertexPositionOffset = 0;
+    const uint vertexColorOffset = 12;
+
+    StanfordBunny() {
+        if (!reader.ParseFromFile(inputfile, reader_config)) {
+            if (!reader.Error().empty()) {
+                std::cerr << "TinyObjReader: " << reader.Error();
+            }
+            exit(1);
+        }
+
+        if (!reader.Warning().empty()) {
+            std::cout << "TinyObjReader: " << reader.Warning();
+        }
+
+        auto& attrib = reader.GetAttrib();
+        auto& shapes = reader.GetShapes();
+
+        size_t index_offset = 0;
+        for (; index_offset < attrib.vertices.size(); index_offset += 3) {
+            vertData.push_back(attrib.vertices[index_offset + 0]);
+            vertData.push_back(attrib.vertices[index_offset + 1]);
+            vertData.push_back(attrib.vertices[index_offset + 2]);
+
+            vertData.push_back(attrib.colors[index_offset + 0]);
+            vertData.push_back(attrib.colors[index_offset + 1]);
+            vertData.push_back(attrib.colors[index_offset + 2]);
+        }
+
+        for (const auto& idx: shapes[0].mesh.indices) {
+            idxData.push_back(idx.vertex_index);
+        }
     }
 
-    static std::tuple<uint16_t*, size_t> getIndices() {
-        static uint16_t data[] = {
-            0, 1, 2, 2, 3, 0
-        };
-        return { data, sizeof(data) };
+    std::tuple<const std::vector<float>*, size_t> getVertices() {
+        return { &vertData, sizeof(vertData[0]) * vertData.size() };
     }
 
-    static VkVertexInputBindingDescription getBindingDescription() {
+    std::tuple<const std::vector<size_t>*, size_t> getIndices() {       
+        return { &idxData, sizeof(idxData[0]) * idxData.size() };
+    }
+
+    VkVertexInputBindingDescription getBindingDescription() {
         return {
             .binding = 0,
             .stride = vertexBytesSize,
@@ -120,20 +155,66 @@ struct Geometry {
         };
     }
 
-    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+    std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
         return {
             {
                 .location = 0,
-                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
-                .offset = vertexPositionOffset,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,   // x, y, z
+                .offset = vertexPositionOffset, // 0
             }, {
                 .location = 1,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
-                .offset = vertexColorOffset,
+                .offset = vertexColorOffset,    // 12
             }
         };
     }
-};
+
+} sb;
+
+//struct Geometry {
+//    static const uint vertexBytesSize = 20;
+//    static const uint vertexPositionOffset = 0;
+//    static const uint vertexColorOffset = 8;
+//
+//    static std::tuple<float*, size_t> getVertices() {
+//        static float data[] = {
+//            -0.5, -0.5, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
+//            0.5, -0.5, 0, 1, 0,
+//            0.5, 0.5, 0, 0, 1,
+//            -0.5, 0.5, 0, 0, 1,
+//        };
+//        return { data, sizeof(data) };
+//    }
+//
+//    static std::tuple<uint16_t*, size_t> getIndices() {
+//        static uint16_t data[] = {
+//            0, 1, 2, 2, 3, 0
+//        };
+//        return { data, sizeof(data) };
+//    }
+//
+//    static VkVertexInputBindingDescription getBindingDescription() {
+//        return {
+//            .binding = 0,
+//            .stride = vertexBytesSize,
+//            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+//        };
+//    }
+//
+//    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+//        return {
+//            {
+//                .location = 0,
+//                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
+//                .offset = vertexPositionOffset,
+//            }, {
+//                .location = 1,
+//                .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
+//                .offset = vertexColorOffset,
+//            }
+//        };
+//    }
+//};
 
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -504,8 +585,8 @@ void createGraphicsPipeline()
         }
         return shaderModule;
     };
-    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
-    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
+    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.glsl");
+    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.glsl");
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -522,8 +603,8 @@ void createGraphicsPipeline()
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
 
-    auto bindingDescription = Geometry::getBindingDescription();
-    auto attributeDescriptions = Geometry::getAttributeDescriptions();
+    auto bindingDescription = sb.getBindingDescription();
+    auto attributeDescriptions = sb.getAttributeDescriptions();
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -726,7 +807,8 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 
 void createVertexBuffer()
 {
-    auto [data, size] = Geometry::getVertices();
+    //auto [data, size] = Geometry::getVertices();
+    auto [data, size] = sb.getVertices();
 
     std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
         size,
@@ -735,24 +817,25 @@ void createVertexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, data, size);
+    memcpy(dst, (*data).data(), size);
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
-void updateVertexBuffer(float t)
-{
-    size_t size = std::get<1>(Geometry::getVertices());
-    uint count = (uint)size / sizeof(float);
-    void* dst;
-    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    for (uint i = 0; i < count; i+=5)
-        ((float*)dst)[i] += t;
-    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
-}
+//void updateVertexBuffer(float t)
+//{
+//    size_t size = std::get<1>(Geometry::getVertices());
+//    uint count = (uint)size / sizeof(float);
+//    void* dst;
+//    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
+//    for (uint i = 0; i < count; i+=5)
+//        ((float*)dst)[i] += t;
+//    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+//}
 
 void createIndexBuffer()
 {
-    auto [data, size] = Geometry::getIndices();
+    //auto [data, size] = Geometry::getIndices();
+    auto [data, size] = sb.getIndices();
 
     auto [stagingBuffer, stagingBufferMemory] = createBuffer(
         size,
@@ -766,7 +849,7 @@ void createIndexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, stagingBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, data, size);
+    memcpy(dst, (*data).data(), size);
     vkUnmapMemory(vk.device, stagingBufferMemory);
 
     copyBuffer(stagingBuffer, vk.indexBuffer, size);
@@ -810,7 +893,8 @@ void render()
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = { 0 };
-            size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
+            //size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
+            size_t numIndices = std::get<0>(sb.getIndices())->size();
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
             vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
@@ -857,6 +941,8 @@ void render()
 
 int main() 
 {
+    //StanfordBunny sb;
+
     glfwInit();
     GLFWwindow* window = createWindow();
     createVkInstance(window);
@@ -869,13 +955,13 @@ int main()
     createVertexBuffer();
     createIndexBuffer();
 
-    float t = 0.f;
+    //float t = 0.f;
     while (!glfwWindowShouldClose(window)) 
     {
         glfwPollEvents();
-        updateVertexBuffer(t);
+        //updateVertexBuffer(t);
         render();
-        t += 0.00001f;
+        //t += 0.00001f;
     }
     
     vkDeviceWaitIdle(vk.device);
