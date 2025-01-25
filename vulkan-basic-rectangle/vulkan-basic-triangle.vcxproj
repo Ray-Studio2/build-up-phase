@@ -24,6 +24,7 @@
     <ProjectGuid>{55ce4b9f-7c20-4389-8452-affc275adfe2}</ProjectGuid>
     <RootNamespace>vulkanbasictriangle</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>vulkan-basic-triangle</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
