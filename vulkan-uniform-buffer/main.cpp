@@ -150,10 +150,10 @@ struct Geometry {
 
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-    VkDebugUtilsMessageTypeFlagsEXT messageType, 
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
-    void* pUserData) 
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
     const char* severity;
     switch (messageSeverity) {
@@ -186,7 +186,7 @@ inline std::vector<T> arrayOf(F pFunc, Args... args)
     return result;
 }
 
-bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) 
+bool checkValidationLayerSupport(std::vector<const char*>& reqestNames)
 {
     auto availables = arrayOf<VkLayerProperties>(vkEnumerateInstanceLayerProperties);
 
@@ -208,7 +208,7 @@ bool checkValidationLayerSupport(std::vector<const char*>& reqestNames)
     return true;
 }
 
-bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames) 
+bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames)
 {
     auto availables = arrayOf<VkExtensionProperties>(vkEnumerateDeviceExtensionProperties, device, nullptr);
 
@@ -230,7 +230,7 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char
     return true;
 }
 
-std::vector<char> readFile(const std::string& filename) 
+std::vector<char> readFile(const std::string& filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
@@ -262,10 +262,10 @@ void createVkInstance(GLFWwindow* window)
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     std::vector<const char*> validationLayers;
-    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
+    if (ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
     if (!checkValidationLayerSupport(validationLayers)) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -311,9 +311,9 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-    for (const auto& device : devices) 
+    for (const auto& device : devices)
     {
-        if (checkDeviceExtensionSupport(device, extentions)) 
+        if (checkDeviceExtensionSupport(device, extentions))
         {
             vk.physicalDevice = device;
             break;
@@ -368,7 +368,7 @@ void createSwapChain()
 {
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
-    
+
     const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     {
         auto formats = arrayOf<VkSurfaceFormatKHR>(vkGetPhysicalDeviceSurfaceFormatsKHR, vk.physicalDevice, vk.surface);
@@ -413,7 +413,7 @@ void createSwapChain()
         .presentMode = presentMode,
         .clipped = VK_TRUE,
     };
-    
+
     if (vkCreateSwapchainKHR(vk.device, &createInfo, nullptr, &vk.swapChain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
@@ -497,7 +497,7 @@ void createRenderPass()
 void createDescriptorRelated()
 {
     // Create Descriptor Set Layout
-    {   
+    {
         VkDescriptorSetLayoutBinding uboLayoutBinding{
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -522,7 +522,7 @@ void createDescriptorRelated()
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
         };
-        
+
         VkDescriptorPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .maxSets = 1,
@@ -565,7 +565,7 @@ void createDescriptorRelated()
     // vkDestroyDescriptorSetLayout(vk.device, vk.descriptorSetLayout, nullptr);
 }
 
-void createGraphicsPipeline() 
+void createGraphicsPipeline()
 {
     auto spv2shaderModule = [](const char* filename) {
         auto vsSpv = readFile(filename);
@@ -580,7 +580,7 @@ void createGraphicsPipeline()
             throw std::runtime_error("failed to create shader module!");
         }
         return shaderModule;
-    };
+        };
     VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
     VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
 
@@ -606,7 +606,7 @@ void createGraphicsPipeline()
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = (uint) attributeDescriptions.size(),
+        .vertexAttributeDescriptionCount = (uint)attributeDescriptions.size(),
         .pVertexAttributeDescriptions = attributeDescriptions.data(),
     };
 
@@ -674,12 +674,12 @@ void createGraphicsPipeline()
     if (vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-    
+
     vkDestroyShaderModule(vk.device, vsModule, nullptr);
     vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter() 
+void createCommandCenter()
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -702,13 +702,13 @@ void createCommandCenter()
     }
 }
 
-void createSyncObjects() 
+void createSyncObjects()
 {
-    VkSemaphoreCreateInfo semaphoreInfo{ 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
-    VkFenceCreateInfo fenceInfo{ 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 
+    VkFenceCreateInfo fenceInfo{
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
@@ -721,8 +721,8 @@ void createSyncObjects()
 }
 
 std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
-    VkDeviceSize size, 
-    VkBufferUsageFlags usage, 
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
     VkMemoryPropertyFlags reqMemProps)
 {
     VkBuffer buffer;
@@ -769,7 +769,7 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     return { buffer, bufferMemory };
 }
 
-void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -804,7 +804,7 @@ void createVertexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, data, size);  
+    memcpy(dst, data, size);
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
@@ -812,9 +812,9 @@ void updateVertexBuffer(float t)
 {
     size_t size = std::get<1>(Geometry::getVertices());
     uint count = (uint)size / sizeof(float);
-    static void* dst;
+    void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    for (uint i = 0; i < count; i+=5)
+    for (uint i = 0; i < count; i += 5)
         ((float*)dst)[i] += t;
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
@@ -850,12 +850,14 @@ void updateUniformBuffer(float t = 0.0)
     float translation[2] = { 0, std::sin(t * 100) };
     //float translation[2] = { 0, t };
 
-    if(!vk.uniformBuffer)
-    { 
+    if (!vk.uniformBuffer)
+    {
         std::tie(vk.uniformBuffer, vk.uniformBufferMemory) = createBuffer(
             sizeof(translation),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(translation), 0, &dst);
 
         VkDescriptorBufferInfo bufferInfo{
             .buffer = vk.uniformBuffer,
@@ -872,8 +874,6 @@ void updateUniformBuffer(float t = 0.0)
         };
 
         vkUpdateDescriptorSets(vk.device, 1, &descriptorWrite, 0, nullptr);
-        
-        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(translation), 0, &dst);
     }
 
     memcpy(dst, translation, sizeof(translation));
@@ -902,7 +902,7 @@ void render()
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = vk.renderPass,
             .framebuffer = vk.framebuffers[imageIndex],
-            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },
+            .renderArea = {.extent = {.width = WIDTH, .height = HEIGHT } },
             .clearValueCount = 1,
             .pClearValues = &clearColor,
         };
@@ -918,8 +918,8 @@ void render()
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
             vkCmdBindDescriptorSets(
-                vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                vk.pipelineLayout, 0, 
+                vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                vk.pipelineLayout, 0,
                 1, &vk.descriptorSet,
                 0, nullptr);
             //for(uint i=0; i<200000; i++)
@@ -933,12 +933,12 @@ void render()
         }
     }
 
-    VkPipelineStageFlags waitStages[] = { 
+    VkPipelineStageFlags waitStages[] = {
         //VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
     };
 
-    VkSubmitInfo submitInfo{ 
+    VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &vk.imageAvailableSemaphore,
@@ -965,7 +965,7 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-int main() 
+int main()
 {
     glfwInit();
     GLFWwindow* window = createWindow();
@@ -981,7 +981,7 @@ int main()
     createIndexBuffer();
 
     float t = 0.f;
-    while (!glfwWindowShouldClose(window)) 
+    while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         updateVertexBuffer(t * 0.01f);
@@ -989,7 +989,7 @@ int main()
         render();
         t += 0.001f;
     }
-    
+
     vkDeviceWaitIdle(vk.device);
     glfwDestroyWindow(window);
     glfwTerminate();

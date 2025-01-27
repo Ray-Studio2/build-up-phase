@@ -5,7 +5,7 @@ layout(location = 1) in vec3 inColor;
 
 layout(location = 0) out vec3 fragColor;
 
-layout(binding = 0) uniform UBO {
+layout(set = 0, binding = 0) uniform UBO {
     float dx;
     float dy;
 } g;
