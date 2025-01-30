@@ -1,0 +1,8 @@
+build
+data
+.vs
+vulkan-basic-rectangle
+*.html
+*.dll
+
+CMakeSettings.json
