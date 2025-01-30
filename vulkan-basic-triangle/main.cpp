@@ -385,7 +385,7 @@ void createRenderPass()                                                 // Rende
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,                          // VK_ATTACHMENT_LOAD_OP_CLEAR 는 Shader 를 호출하기 이전에 픽셀을 clear color 로 싹 지우는 동작
                                                                         //  VK_ATTACHMENT_LOAD_OP_LOAD 는 기존의 픽셀 color 을 지우지 않고 새로운 렌더링 결과와 블랜딩하는 데에 활용가능한 동작
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,                        // VK_ATTACHMENT_STORE_OP_STORE 는 Shader 를 호출하기 이후에 최종적인 color 를 저장하도록 동작
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,                        // VK_ATTACHMENT_STORE_OP_STORE 는 Shader 를 호출한 이후로 최종적인 color 를 저장하도록 동작
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     };
