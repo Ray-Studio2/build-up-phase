@@ -43,7 +43,6 @@ struct Global {
     VkRenderPass renderPass;
     std::vector<VkFramebuffer> framebuffers;
 
-    VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
     VkCommandPool commandPool;
@@ -62,6 +61,7 @@ struct Global {
     VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSet;
 
+    VkPipelineLayout computeLayout;
     VkPipeline computePipeline;
     VkCommandBuffer computeCommandBuffer;
     VkSemaphore computeFinishedSemaphore;
@@ -91,7 +91,7 @@ struct Global {
         }
 
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(device, computeLayout, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
         for (auto imageView : swapChainImageViews) {
@@ -617,7 +617,7 @@ void createDescriptorRelated()
             .pSetLayouts = &vk.descriptorSetLayout,
         };
 
-        if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &vk.pipelineLayout) != VK_SUCCESS) {
+        if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &vk.computeLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
         }
     }
@@ -741,7 +741,7 @@ void createComputePipeline()
     VkComputePipelineCreateInfo pipelineInfo{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .stage = computeShaderStageInfo,
-        .layout = vk.pipelineLayout,
+        .layout = vk.computeLayout,
     };
 
     if (vkCreateComputePipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.computePipeline) != VK_SUCCESS) {
@@ -993,7 +993,7 @@ void render(float lastFrameTime)
             vkCmdBindPipeline(vk.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, vk.computePipeline);
             vkCmdBindDescriptorSets(
                 vk.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                vk.pipelineLayout, 0, 1, &vk.descriptorSet, 
+                vk.computeLayout, 0, 1, &vk.descriptorSet, 
                 0, nullptr);
             vkCmdDispatch(vk.computeCommandBuffer, PARTICLE_COUNT / 256, 1, 1);
 
