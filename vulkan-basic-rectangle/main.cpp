@@ -8,8 +8,10 @@
 #include <span>
 #include <cmath>
 //#include "glsl2spv.h"
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
 
 #define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
 // Optional. define TINYOBJLOADER_USE_MAPBOX_EARCUT gives robust triangulation. Requires C++11
@@ -27,6 +29,13 @@ const bool ON_DEBUG = false;
 const bool ON_DEBUG = true;
 #endif
 
+
+struct UniformBufferObject
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 struct Global {
     VkInstance instance;
@@ -111,12 +120,12 @@ struct Global {
 class StanfordBunny
 {
 public:
-    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/box.obj";
+    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/box1.obj";
     tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
     std::vector<float> vertData;
-    std::vector<size_t> idxData;
+    std::vector<uint32_t> idxData;
 
     const uint vertexBytesSize = 24;
     const uint vertexPositionOffset = 0;
@@ -143,13 +152,14 @@ public:
             vertData.push_back(attrib.vertices[index_offset + 1]);
             vertData.push_back(attrib.vertices[index_offset + 2]);
 
-            vertData.push_back(attrib.colors[index_offset + 0]);
-            vertData.push_back(attrib.colors[index_offset + 1]);
-            vertData.push_back(attrib.colors[index_offset + 2]);
+            // add colors - RGB
+            vertData.push_back(1.0f);
+            vertData.push_back(1.0f);
+            vertData.push_back(1.0f);
         }
 
         for (const auto& idx: shapes[0].mesh.indices) {
-            idxData.push_back(idx.vertex_index);
+            idxData.push_back(static_cast<uint32_t>(idx.vertex_index));
         }
     }
 
@@ -157,7 +167,7 @@ public:
         return { &vertData, sizeof(vertData[0]) * vertData.size() };
     }
 
-    std::tuple<const std::vector<size_t>*, size_t> getIndices() {       
+    std::tuple<const std::vector<uint32_t>*, size_t> getIndices() {
         return { &idxData, sizeof(idxData[0]) * idxData.size() };
     }
 
@@ -708,7 +718,7 @@ void createGraphicsPipeline()
     VkPipelineRasterizationStateCreateInfo rasterizer{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0,
     };
 
@@ -930,20 +940,32 @@ void createIndexBuffer()
     vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
 }
 
-void updateUniformBuffer(float t = 0.0)
+void updateUniformBuffer()
 {
     static void* dst;
-    float translation[2] = { 0, std::sin(t * 100) };
-    //float translation[2] = { 0, t };
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    UniformBufferObject ubo{
+        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        //.model = glm::mat4(1.0f),
+        .view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 10.0f)
+    };
+    ubo.proj[1][1] *= -1;
+
+    //float translation[2] = { 0, std::sin(t * 100) };
 
     if (!vk.uniformBuffer)
     {
         std::tie(vk.uniformBuffer, vk.uniformBufferMemory) = createBuffer(
-            sizeof(translation),
+            sizeof(ubo),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(translation), 0, &dst);
+        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(ubo), 0, &dst);
 
         VkDescriptorBufferInfo bufferInfo{
             .buffer = vk.uniformBuffer,
@@ -962,7 +984,7 @@ void updateUniformBuffer(float t = 0.0)
         vkUpdateDescriptorSets(vk.device, 1, &descriptorWrite, 0, nullptr);
     }
 
-    memcpy(dst, translation, sizeof(translation));
+    memcpy(dst, &ubo, sizeof(ubo));
 }
 
 void render()
@@ -1001,9 +1023,9 @@ void render()
 
             VkDeviceSize offsets[] = { 0 };
             //size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
-            size_t numIndices = std::get<0>(sb.getIndices())->size();
+            uint32_t numIndices = (uint32_t)std::get<0>(sb.getIndices())->size();
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
-            vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+            vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(
                 vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 vk.pipelineLayout, 0,
@@ -1011,7 +1033,7 @@ void render()
                 0, nullptr);
             vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
 
-            vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
+            vkCmdDrawIndexed(vk.commandBuffer, numIndices, 1, 0, 0, 0);
 
         }
         vkCmdEndRenderPass(vk.commandBuffer);
@@ -1073,7 +1095,7 @@ int main()
     {
         glfwPollEvents();
         //updateVertexBuffer(t * 0.01f);
-        //updateUniformBuffer(t);
+        updateUniformBuffer();
         render();
         //t += 0.00001f;
     }
