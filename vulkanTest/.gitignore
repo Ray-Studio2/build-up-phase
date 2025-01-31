@@ -3,7 +3,7 @@
 !README.md
 !glsl2spv.h
 !main.cpp
-!vertex_input_fs.glsl
-!vertex_input_vs.glsl
+!simple_fs.glsl
+!simple_vs.glsl
 !vulkan-basic-triangle.sln
 !vulkan-basic-triangle.vcxproj
