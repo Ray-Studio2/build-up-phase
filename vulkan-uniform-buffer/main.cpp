@@ -42,7 +42,6 @@ struct Global {
     std::vector<VkFramebuffer> framebuffers;
 
     VkPipelineLayout pipelineLayout;
-    VkPipelineLayout pipelineLayout2;
     VkPipeline graphicsPipeline;
 
     VkCommandPool commandPool;
@@ -86,7 +85,6 @@ struct Global {
 
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-        vkDestroyPipelineLayout(device, pipelineLayout2, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
         for (auto imageView : swapChainImageViews) {
@@ -562,16 +560,6 @@ void createDescriptorRelated()
         if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &vk.pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
         }
-
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo2{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &vk.descriptorSetLayout,
-        };
-
-        if (vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo2, nullptr, &vk.pipelineLayout2) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create pipeline layout!");
-        }
     }
 
     // vkDestroyDescriptorSetLayout(vk.device, vk.descriptorSetLayout, nullptr);
@@ -930,7 +918,7 @@ void render()
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
             vkCmdBindDescriptorSets(
                 vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                vk.pipelineLayout2, 0,
+                vk.pipelineLayout, 0,
                 1, &vk.descriptorSet,
                 0, nullptr);
 
