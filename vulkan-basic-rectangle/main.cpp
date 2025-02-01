@@ -152,9 +152,9 @@ public:
             vertData.push_back(attrib.vertices[index_offset + 1]);
             vertData.push_back(attrib.vertices[index_offset + 2]);
 
-            vertData.push_back(1.0f);
-            vertData.push_back(1.0f);
-            vertData.push_back(1.0f);
+            vertData.push_back(attrib.colors[index_offset + 0]);
+            vertData.push_back(attrib.colors[index_offset + 1]);
+            vertData.push_back(attrib.colors[index_offset + 2]);
         }
 
         for (const auto& idx: shapes[0].mesh.indices) {
