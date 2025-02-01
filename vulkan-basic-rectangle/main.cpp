@@ -120,7 +120,7 @@ struct Global {
 class StanfordBunny
 {
 public:
-    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/box1.obj";
+    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/bunny-good.obj";
     tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
@@ -152,7 +152,6 @@ public:
             vertData.push_back(attrib.vertices[index_offset + 1]);
             vertData.push_back(attrib.vertices[index_offset + 2]);
 
-            // add colors - RGB
             vertData.push_back(1.0f);
             vertData.push_back(1.0f);
             vertData.push_back(1.0f);
@@ -949,9 +948,9 @@ void updateUniformBuffer()
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{
-        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
         //.model = glm::mat4(1.0f),
-        .view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .view = glm::lookAt(glm::vec3(0.0f, 4.0f, 4.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
         .proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 10.0f)
     };
     ubo.proj[1][1] *= -1;
@@ -1034,7 +1033,6 @@ void render()
             vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
 
             vkCmdDrawIndexed(vk.commandBuffer, numIndices, 1, 0, 0, 0);
-
         }
         vkCmdEndRenderPass(vk.commandBuffer);
 
