@@ -117,10 +117,8 @@ struct Global {
     }
 } vk;
 
-class StanfordBunny
+struct Geometry
 {
-public:
-    std::string inputfile = "C:/Users/rachel/Documents/GPU/build-up-phase/vulkan-basic-rectangle/include/bunny-good.obj";
     tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
@@ -131,7 +129,7 @@ public:
     const uint vertexPositionOffset = 0;
     const uint vertexColorOffset = 12;
 
-    StanfordBunny() {
+    void readfile(const std::string& inputfile) {
         if (!reader.ParseFromFile(inputfile, reader_config)) {
             if (!reader.Error().empty()) {
                 std::cerr << "TinyObjReader: " << reader.Error();
@@ -157,7 +155,7 @@ public:
             vertData.push_back(attrib.colors[index_offset + 2]);
         }
 
-        for (const auto& idx: shapes[0].mesh.indices) {
+        for (const auto& idx : shapes[0].mesh.indices) {
             idxData.push_back(static_cast<uint32_t>(idx.vertex_index));
         }
     }
@@ -194,53 +192,7 @@ public:
         };
     }
 
-} sb;
-
-//struct Geometry {
-//    static const uint vertexBytesSize = 20;
-//    static const uint vertexPositionOffset = 0;
-//    static const uint vertexColorOffset = 8;
-//
-//    static std::tuple<float*, size_t> getVertices() {
-//        static float data[] = {
-//            -0.5, -0.5, 1, 0, 0,   // x, y, r, g, b -> total 20 bytes per vertex
-//            0.5, -0.5, 0, 1, 0,
-//            0.5, 0.5, 0, 0, 1,
-//            -0.5, 0.5, 0, 0, 1,
-//        };
-//        return { data, sizeof(data) };
-//    }
-//
-//    static std::tuple<uint16_t*, size_t> getIndices() {
-//        static uint16_t data[] = {
-//            0, 1, 2, 2, 3, 0
-//        };
-//        return { data, sizeof(data) };
-//    }
-//
-//    static VkVertexInputBindingDescription getBindingDescription() {
-//        return {
-//            .binding = 0,
-//            .stride = vertexBytesSize,
-//            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-//        };
-//    }
-//
-//    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
-//        return {
-//            {
-//                .location = 0,
-//                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
-//                .offset = vertexPositionOffset,
-//            }, {
-//                .location = 1,
-//                .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
-//                .offset = vertexColorOffset,
-//            }
-//        };
-//    }
-//};
-
+} geo;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
@@ -692,8 +644,8 @@ void createGraphicsPipeline()
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
 
-    auto bindingDescription = sb.getBindingDescription();
-    auto attributeDescriptions = sb.getAttributeDescriptions();
+    auto bindingDescription = geo.getBindingDescription();
+    auto attributeDescriptions = geo.getAttributeDescriptions();
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -889,7 +841,7 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 void createVertexBuffer()
 {
     //auto [data, size] = Geometry::getVertices();
-    auto [data, size] = sb.getVertices();
+    auto [data, size] = geo.getVertices();
 
     std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
         size,
@@ -916,7 +868,7 @@ void createVertexBuffer()
 void createIndexBuffer()
 {
     //auto [data, size] = Geometry::getIndices();
-    auto [data, size] = sb.getIndices();
+    auto [data, size] = geo.getIndices();
 
     auto [stagingBuffer, stagingBufferMemory] = createBuffer(
         size,
@@ -1022,7 +974,7 @@ void render()
 
             VkDeviceSize offsets[] = { 0 };
             //size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
-            uint32_t numIndices = (uint32_t)std::get<0>(sb.getIndices())->size();
+            uint32_t numIndices = (uint32_t)std::get<0>(geo.getIndices())->size();
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(
@@ -1075,6 +1027,9 @@ void render()
 
 int main() 
 {
+    std::string inputfile = "./include/bunny-good.obj";
+    geo.readfile(inputfile);
+
     glfwInit();
     GLFWwindow* window = createWindow();
     createVkInstance(window);
