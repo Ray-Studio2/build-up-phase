@@ -675,6 +675,7 @@ int main()
         render();
     }
     
+    vkDeviceWaitIdle(vk.device);
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
