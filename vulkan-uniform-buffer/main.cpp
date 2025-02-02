@@ -887,6 +887,8 @@ void createIndexBuffer()
 
 void updateUniformBuffer(float t = 0.0)
 {
+    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);      // render 함수의 이 부분을 주석처리하고 여기에 대신 넣으면, CPU 작동 순서에 따른 오작동을 해결할 수 있다.
+
     static void* dst;               // dst 는 프로그램 종료까지 쭉 존재해야 하기 때문에 static 으로 사용
     float translation[2] = { 0, std::sin(t * 100) };
     //float translation[2] = { 0, t };
@@ -927,7 +929,7 @@ void render()
     const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 
-    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
+    //vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
     vkResetFences(vk.device, 1, &vk.inFlightFence);
 
     uint32_t imageIndex;

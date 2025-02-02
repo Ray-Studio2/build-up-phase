@@ -771,7 +771,7 @@ void createIndexBuffer()                                                // GPU �
     memcpy(dst, data, size);
     vkUnmapMemory(vk.device, stagingBufferMemory);              
 
-    copyBuffer(stagingBuffer, vk.indexBuffer, size);            // Staging Buffer 에서 Indec Buffer 로 복사
+    copyBuffer(stagingBuffer, vk.indexBuffer, size);            // Staging Buffer 에서 Index Buffer 로 복사
 
     vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
     vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
@@ -815,7 +815,9 @@ void render()
             size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);                 // Viewport 와 Scissor 은 매번 지정해주어야 하는데, static 으로 지정해주려면 Render 가 아닌 Pipiline 에서 지정해주어야 한다.
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);          // Vertex Buffer 과 Index Buffer 을 Bind 해줘야 하는데, 
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);    //  Vertex Buffer 여러개 ( 여러개도 가능하기 떄문 ) 의 배열과 Index Buffer 1 개를 넘겨준다.
-            vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
+            
+            //for (int i = 0; i < 200000; i++)
+                vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
 
         }
         vkCmdEndRenderPass(vk.commandBuffer);
@@ -877,7 +879,7 @@ int main()
         glfwPollEvents();
         updateVertexBuffer(t);
         render();
-        t += 0.00001f;
+        t += 0.001f;
     }
     
     vkDeviceWaitIdle(vk.device);
