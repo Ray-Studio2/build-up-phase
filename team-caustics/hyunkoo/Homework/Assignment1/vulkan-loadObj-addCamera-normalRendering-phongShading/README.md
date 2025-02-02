@@ -22,3 +22,8 @@ vulkan-basic-triangle 코드를 바탕으로 Vulkan의 기본 구조에 대해�
 1. obj파일 로드 (tinyobj 이용)
 2. 카메라 추가
 3. (World) normal 렌더링 <-> phong shading 스위칭 (키보드 눌렀을 때)
+
+
+### 결과
+
+[![YouTube Video](https://img.youtube.com/vi/RN8EOsA7w8k/0.jpg)](https://www.youtube.com/watch?v=RN8EOsA7w8k)
