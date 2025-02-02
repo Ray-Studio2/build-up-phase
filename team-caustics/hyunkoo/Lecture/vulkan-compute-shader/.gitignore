@@ -1,0 +1,10 @@
+*
+!.gitignore
+!README.md
+!glsl2spv.h
+!main.cpp
+!shader.vert
+!shader.frag
+!shader.comp
+!vulkan-basic-triangle.sln
+!vulkan-basic-triangle.vcxproj
