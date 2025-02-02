@@ -4,6 +4,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
+    int isNormalMode;
 } ubo;
 
 //layout(binding = 1) uniform bool isNormalMode;
@@ -13,7 +14,7 @@ layout(location = 1) in vec3 inNormal;
 
 layout(location = 0) out vec3 FragPos;
 layout(location = 1) out vec3 Normal;
-//layout(location = 2) out bool isNormalMode;
+layout(location = 2) out flat int NormalMode;
 
 void main() {
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
@@ -21,6 +22,7 @@ void main() {
 
     FragPos = vec3(ubo.model * vec4(inPosition, 1.0));
     Normal = mat3(transpose(inverse(ubo.model))) * inNormal;
+    NormalMode = ubo.isNormalMode;
 }
 
 //#version 450

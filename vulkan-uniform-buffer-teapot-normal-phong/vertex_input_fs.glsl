@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec3 FragPos;
 layout(location = 1) in vec3 Normal;
-//layout(location = 2) in bool isNormalMode;
+layout(location = 2) in flat int NormalMode;
 
 layout(location = 0) out vec4 outColor;
 
@@ -22,10 +22,10 @@ float lightLinear = 0.09;
 float lightQuadratic = 0.032;
 
 void main() {
-    /*if (isNormalMode) {
+    if (NormalMode > 0) {
         outColor = vec4(Normal, 1.0);
         return;
-    }*/
+    }
 
     // ambient
     vec3 ambient = lAmbient * materialColor;

@@ -41,7 +41,7 @@ std::vector<tinyobj::material_t> materials;
 std::string warn;
 std::string err;
 
-bool isNormalPresent = true;
+//bool isNormalPresent = true;
 
 void keyboard(GLFWwindow* window, int key, int code, int action, int mods);
 
@@ -49,6 +49,7 @@ struct MVP_Projecttion {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
+    int isNormalMode = 1;   /////////////////////////////////////////
 } MVP;
 
 struct Global {
@@ -1242,7 +1243,7 @@ void	keyboard(GLFWwindow* window, int key, int code, int action, int mods)
             break;
 
         case GLFW_KEY_SPACE:
-            isNormalPresent = !isNormalPresent;
+            MVP.isNormalMode = -MVP.isNormalMode;
             break;
         }
 	}
