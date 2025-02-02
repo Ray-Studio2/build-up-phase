@@ -116,7 +116,6 @@ struct Geometry {
         return {
             .binding = 0,
             .stride = vertexBytesSize,
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
         };
     }
 
@@ -124,10 +123,12 @@ struct Geometry {
         return {
             {
                 .location = 0,
+                .binding = 0,
                 .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
                 .offset = vertexPositionOffset,
             }, {
                 .location = 1,
+                .binding = 0,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
                 .offset = vertexColorOffset,
             }
@@ -735,7 +736,7 @@ void createVertexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, data, size);
+    memcpy(dst, data, size);  
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
