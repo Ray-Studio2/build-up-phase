@@ -840,7 +840,6 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 
 void createVertexBuffer()
 {
-    //auto [data, size] = Geometry::getVertices();
     auto [data, size] = geo.getVertices();
 
     std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
@@ -854,20 +853,8 @@ void createVertexBuffer()
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
-//void updateVertexBuffer(float t)
-//{
-//    size_t size = std::get<1>(Geometry::getVertices());
-//    uint count = (uint)size / sizeof(float);
-//    void* dst;
-//    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-//    for (uint i = 0; i < count; i+=5)
-//        ((float*)dst)[i] += t;
-//    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
-//}
-
 void createIndexBuffer()
 {
-    //auto [data, size] = Geometry::getIndices();
     auto [data, size] = geo.getIndices();
 
     auto [stagingBuffer, stagingBufferMemory] = createBuffer(
@@ -900,14 +887,12 @@ void updateUniformBuffer()
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{
-        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-        //.model = glm::mat4(1.0f),
+        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), // rotates around y-axis
+        //.model = glm::mat4(1.0f), // for static presentation
         .view = glm::lookAt(glm::vec3(0.0f, 4.0f, 4.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
         .proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 10.0f)
     };
     ubo.proj[1][1] *= -1;
-
-    //float translation[2] = { 0, std::sin(t * 100) };
 
     if (!vk.uniformBuffer)
     {
@@ -968,12 +953,10 @@ void render()
 
         vkCmdBeginRenderPass(vk.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         {
-            //vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = { 0 };
-            //size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
             uint32_t numIndices = (uint32_t)std::get<0>(geo.getIndices())->size();
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -1043,14 +1026,11 @@ int main()
     createVertexBuffer();
     createIndexBuffer();
 
-    //float t = 0.f;
     while (!glfwWindowShouldClose(window)) 
     {
         glfwPollEvents();
-        //updateVertexBuffer(t * 0.01f);
         updateUniformBuffer();
         render();
-        //t += 0.00001f;
     }
     
     vkDeviceWaitIdle(vk.device);
