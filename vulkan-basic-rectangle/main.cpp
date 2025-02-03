@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <fstream>
 #include <tuple>
 #include <bitset>
@@ -35,6 +36,12 @@ struct UniformBufferObject
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
+    glm::vec3 lightPos;
+    float padding1;
+    glm::vec3 lightColor;
+    float padding2;
+    glm::vec3 cameraPos;
+    float padding3;
 };
 
 struct Global {
@@ -117,6 +124,14 @@ struct Global {
     }
 } vk;
 
+// Define a hash function for std::tuple<int, int>
+struct tuple_hash {
+    template <typename T1, typename T2>
+    std::size_t operator()(const std::tuple<T1, T2>& t) const {
+        return std::hash<T1>()(std::get<0>(t)) ^ (std::hash<T2>()(std::get<1>(t)) << 1);
+    }
+};
+
 struct Geometry
 {
     tinyobj::ObjReaderConfig reader_config;
@@ -125,9 +140,10 @@ struct Geometry
     std::vector<float> vertData;
     std::vector<uint32_t> idxData;
 
-    const uint vertexBytesSize = 24;
+    const uint vertexBytesSize = 36;
     const uint vertexPositionOffset = 0;
     const uint vertexColorOffset = 12;
+    const uint vertexNormalOffset = 24;
 
     void readfile(const std::string& inputfile) {
         if (!reader.ParseFromFile(inputfile, reader_config)) {
@@ -144,19 +160,31 @@ struct Geometry
         auto& attrib = reader.GetAttrib();
         auto& shapes = reader.GetShapes();
 
-        size_t index_offset = 0;
-        for (; index_offset < attrib.vertices.size(); index_offset += 3) {
-            vertData.push_back(attrib.vertices[index_offset + 0]);
-            vertData.push_back(attrib.vertices[index_offset + 1]);
-            vertData.push_back(attrib.vertices[index_offset + 2]);
+        std::unordered_map<std::tuple<int, int>, uint32_t, tuple_hash> uniqueVertices;
+        uint32_t cnt = 0;
 
-            vertData.push_back(attrib.colors[index_offset + 0]);
-            vertData.push_back(attrib.colors[index_offset + 1]);
-            vertData.push_back(attrib.colors[index_offset + 2]);
-        }
+        for (uint32_t idx = 0; idx < shapes[0].mesh.indices.size(); ++idx) {
+            const auto& vertIdx = shapes[0].mesh.indices[idx].vertex_index;
+            const auto& normIdx = shapes[0].mesh.indices[idx].normal_index;
+            auto key = std::make_tuple(vertIdx, normIdx);
 
-        for (const auto& idx : shapes[0].mesh.indices) {
-            idxData.push_back(static_cast<uint32_t>(idx.vertex_index));
+            if (uniqueVertices.find(key) == uniqueVertices.end()) {
+                uniqueVertices[key] = cnt++;
+
+                vertData.push_back(attrib.vertices[3 * vertIdx + 0]);
+                vertData.push_back(attrib.vertices[3 * vertIdx + 1]);
+                vertData.push_back(attrib.vertices[3 * vertIdx + 2]);
+
+                vertData.push_back(attrib.colors[3 * vertIdx + 0]);
+                vertData.push_back(attrib.colors[3 * vertIdx + 1]);
+                vertData.push_back(attrib.colors[3 * vertIdx + 2]);
+
+                vertData.push_back(attrib.normals[3 * normIdx + 0]);
+                vertData.push_back(attrib.normals[3 * normIdx + 1]);
+                vertData.push_back(attrib.normals[3 * normIdx + 2]);
+
+            }
+            idxData.push_back(uniqueVertices[key]);
         }
     }
 
@@ -188,6 +216,11 @@ struct Geometry
                 .binding = 0,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
                 .offset = vertexColorOffset,    // 12
+            }, {
+                .location = 2,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,   // x, y, z
+                .offset = vertexNormalOffset,    // 24
             }
         };
     }
@@ -547,7 +580,7 @@ void createDescriptorRelated()
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .stageFlags = VK_SHADER_STAGE_ALL,
         };
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{
@@ -626,8 +659,8 @@ void createGraphicsPipeline()
         }
         return shaderModule;
     };
-    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.glsl");
-    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.glsl");
+    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
+    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -889,9 +922,12 @@ void updateUniformBuffer()
     UniformBufferObject ubo{
         .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), // rotates around y-axis
         //.model = glm::mat4(1.0f), // for static presentation
-        .view = glm::lookAt(glm::vec3(0.0f, 4.0f, 4.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-        .proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 10.0f)
+        .proj = glm::perspective(glm::radians(45.0f), WIDTH / (float)HEIGHT, 0.1f, 10.0f),
+        .lightPos = glm::vec3(3.0f, 3.0f, 3.0f),
+        .lightColor = glm::vec3(1.0f, 1.0f, 1.0f)
     };
+    ubo.cameraPos = glm::vec3(0.0f, 4.0f, 4.0f);
+    ubo.view = glm::lookAt(ubo.cameraPos, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj[1][1] *= -1;
 
     if (!vk.uniformBuffer)
