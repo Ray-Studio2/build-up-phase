@@ -1,11 +1,14 @@
 #define GLFW_INCLUDE_VULKAN
-#include <glfw/glfw3.h>
+#include "glfw/glfw3.h"
+
 #include <iostream>
 #include <vector>
 #include <fstream>
 //#include "camera.hpp"
-#include "glsl2spv.h"
+//#include "glsl2spv.h"
 #include "glm/glm.hpp"
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 
 typedef unsigned int uint;
 
