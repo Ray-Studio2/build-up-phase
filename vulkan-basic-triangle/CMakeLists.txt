@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.10)
 project(hello_triangle)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
 set(GLFW_INCLUDE_DIR "C:/Users/phgph/Desktop/build-up-phase/glfw-3.4.bin.WIN64/include")
 set(GLFW_LIBRARY_DIR "C:/Users/phgph/Desktop/build-up-phase/glfw-3.4.bin.WIN64/lib-vc2022")
 

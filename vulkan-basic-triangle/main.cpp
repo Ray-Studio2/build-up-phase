@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <filesystem>
 #include "shader_module.h"
 
 typedef unsigned int uint;
@@ -453,8 +454,8 @@ void createGraphicsPipeline()
 
     )";
 
-    ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, vs_src);
-    //ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.glsl"));
+    //ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, vs_src);
+    ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.glsl"));
     //ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.spv"));
 
     ShaderModule<VK_SHADER_STAGE_FRAGMENT_BIT> fsModule(vk.device, fs_src);
