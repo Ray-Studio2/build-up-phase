@@ -15,7 +15,6 @@ vulkan-basic-triangle 코드를 바탕으로 Vulkan의 기본 구조에 대해�
 ### 참고
 - https://vulkan-tutorial.com
 - https://alain.xyz/blog/raw-vulkan
-- https://github.com/KhronosGroup/glslang
 
 
 ## 과제

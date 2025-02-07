@@ -7,6 +7,7 @@
 #include <bitset>
 #include <span>
 #include <cmath>
+
 //#include "glsl2spv.h"
 
 typedef unsigned int uint;
@@ -150,10 +151,10 @@ struct Geometry {
 
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-    VkDebugUtilsMessageTypeFlagsEXT messageType, 
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
-    void* pUserData) 
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
     const char* severity;
     switch (messageSeverity) {
@@ -186,7 +187,7 @@ inline std::vector<T> arrayOf(F pFunc, Args... args)
     return result;
 }
 
-bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) 
+bool checkValidationLayerSupport(std::vector<const char*>& reqestNames)
 {
     auto availables = arrayOf<VkLayerProperties>(vkEnumerateInstanceLayerProperties);
 
@@ -208,7 +209,7 @@ bool checkValidationLayerSupport(std::vector<const char*>& reqestNames)
     return true;
 }
 
-bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames) 
+bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames)
 {
     auto availables = arrayOf<VkExtensionProperties>(vkEnumerateDeviceExtensionProperties, device, nullptr);
 
@@ -230,7 +231,7 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char
     return true;
 }
 
-std::vector<char> readFile(const std::string& filename) 
+std::vector<char> readFile(const std::string& filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
@@ -262,10 +263,10 @@ void createVkInstance(GLFWwindow* window)
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     std::vector<const char*> validationLayers;
-    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
+    if (ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
     if (!checkValidationLayerSupport(validationLayers)) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -311,9 +312,9 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-    for (const auto& device : devices) 
+    for (const auto& device : devices)
     {
-        if (checkDeviceExtensionSupport(device, extentions)) 
+        if (checkDeviceExtensionSupport(device, extentions))
         {
             vk.physicalDevice = device;
             break;
@@ -368,7 +369,7 @@ void createSwapChain()
 {
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
-    
+
     const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     {
         auto formats = arrayOf<VkSurfaceFormatKHR>(vkGetPhysicalDeviceSurfaceFormatsKHR, vk.physicalDevice, vk.surface);
@@ -413,7 +414,7 @@ void createSwapChain()
         .presentMode = presentMode,
         .clipped = VK_TRUE,
     };
-    
+
     if (vkCreateSwapchainKHR(vk.device, &createInfo, nullptr, &vk.swapChain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
@@ -494,15 +495,21 @@ void createRenderPass()
     }
 }
 
-void createDescriptorRelated()
-{
-    // Create Descriptor Set Layout
-    {   
-        VkDescriptorSetLayoutBinding uboLayoutBinding{
-            .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+void createDescriptorRelated()      // 지금의 Descriptor 는 Uniform Buffer 오브젝트 타입을 레퍼런스하는 역할을 맡는다.
+{                                   // Vulkan 의 Uniform Buffer Object 는 Descriptor 의 한 종류이다.
+                                    // Descriptor Set 은 그러한 Descriptor 들을 모아놓은 집합을 말한다.
+                                    // Descriptor 와 Descriptor Set 은 모두 Descriptor Pool 에서 정의된다. 메모리의 어딘가에서 할당이 되어야 하는데, 이 할당 메모리를 제공하는 것이 Dexcriptor Pool 이다.
+                                    // Descriptor Set Layout 은 Descriptor Pool 안에서 Descriptor Set 이 정의될 때, 어떻게 정의되어야 하는 지에 대한 메모리 관련 정보가 담긴 것이다.
+                                    //  Shader Interface 의 Binding 넘버 마다 어떤 정보가 bind 되어 있는 지에 대한 정보도 다룬다.
+                                    // Pipeline Layout 은 여러 개의 Descriptor Set Layout 을 리스트 또는 페이지로 보관하는 역할을 맡는데, Shader Interface 에서 Set 넘버와 대응된다.
+
+    // Create Descriptor Set Layout             
+    {                                           
+        VkDescriptorSetLayoutBinding uboLayoutBinding{         
+            .binding = 0,                                               // Binding 넘버는 0으로 설정
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,        // UNIFORM_BUFFER 타입의 Binding 임을 설정
+            .descriptorCount = 1,                                       // Descriptor Set 내에 몇 개의 Descriptor 가 들어갈 것인지 개수 지정 ( 2 이상이면 Descriptor 들이 배열로서 저장됨 )
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,                   // Vertex Shader 에서만 적용되는 것으로 설정
         };
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{
@@ -511,7 +518,7 @@ void createDescriptorRelated()
             .pBindings = &uboLayoutBinding,
         };
 
-        if (vkCreateDescriptorSetLayout(vk.device, &layoutInfo, nullptr, &vk.descriptorSetLayout) != VK_SUCCESS) {
+        if (vkCreateDescriptorSetLayout(vk.device, &layoutInfo, nullptr, &vk.descriptorSetLayout) != VK_SUCCESS) {  // Descriptor Set Layout 을 만듦
             throw std::runtime_error("failed to create descriptor set layout!");
         }
     }
@@ -519,13 +526,13 @@ void createDescriptorRelated()
     // Create Descriptor Pool
     {
         VkDescriptorPoolSize poolSize{
-            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                  // UNIFORM_BUFFER 타입 전용으로 사용
+            .descriptorCount = 1,                                       // UNIFORM_BUFFER 타입으로 사용될 Descriptor 개수를 예상하여 입력해야 함. ( 여기에서는 1개 )
         };
-        
+
         VkDescriptorPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 1,
+            .maxSets = 1,                                               // Descriptor Pool 안에서 Descriptor Set 이 얼마나 많이 생성될지 예측하여 정하는 최대 개수
             .poolSizeCount = 1,
             .pPoolSizes = &poolSize,
         };
@@ -539,9 +546,9 @@ void createDescriptorRelated()
     {
         VkDescriptorSetAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = vk.descriptorPool,
-            .descriptorSetCount = 1,
-            .pSetLayouts = &vk.descriptorSetLayout,
+            .descriptorPool = vk.descriptorPool,            // Descriptor Pool 에 메모리를 할당 ( 공간을 미리 확보 )
+            .descriptorSetCount = 1,                        // 몇 개의 descriptorSetCount 만큼의 Descriptor Set 들을 동시에 메모리 allocate 하여 넘겨줄 지 정함.
+            .pSetLayouts = &vk.descriptorSetLayout,         // Descriptor Set Layout 들이 있는 배열의 시작 주소
         };
 
         if (vkAllocateDescriptorSets(vk.device, &allocInfo, &vk.descriptorSet) != VK_SUCCESS) {
@@ -551,9 +558,9 @@ void createDescriptorRelated()
 
     // Create Pipeline Layout
     {
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{                  // Descriptor Set Layout 들을 모아서 하나의 Pipeline Layout 으로 정의함
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
+            .setLayoutCount = 1,                                        // Descriptor Set Layout 가 1개
             .pSetLayouts = &vk.descriptorSetLayout,
         };
 
@@ -565,7 +572,7 @@ void createDescriptorRelated()
     // vkDestroyDescriptorSetLayout(vk.device, vk.descriptorSetLayout, nullptr);
 }
 
-void createGraphicsPipeline() 
+void createGraphicsPipeline()
 {
     auto spv2shaderModule = [](const char* filename) {
         auto vsSpv = readFile(filename);
@@ -580,9 +587,42 @@ void createGraphicsPipeline()
             throw std::runtime_error("failed to create shader module!");
         }
         return shaderModule;
-    };
+        };
+
     VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
     VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
+
+    /*
+    ////////////////////////////////
+
+    auto vs_spv = glsl2spv(GLSLANG_STAGE_VERTEX, "vertex_input_vs.glsl");
+
+    VkShaderModuleCreateInfo vsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = vs_spv.size(),
+        .pCode = vs_spv.data(),
+    };
+
+    VkShaderModule vsModule;
+    if (vkCreateShaderModule(vk.device, &vsModuleInfo, nullptr, &vsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create Vertex shader module!");
+    }
+
+    auto fs_spv = glsl2spv(GLSLANG_STAGE_FRAGMENT, "vertex_input_fs.glsl");
+
+    VkShaderModuleCreateInfo fsModuleInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = fs_spv.size(),
+        .pCode = fs_spv.data(),
+    };
+
+    VkShaderModule fsModule;
+    if (vkCreateShaderModule(vk.device, &fsModuleInfo, nullptr, &fsModule) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create Fragment shader module!");
+    }
+
+    ////////////////////////////////
+    */
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -590,6 +630,7 @@ void createGraphicsPipeline()
         .module = vsModule,
         .pName = "main",
     };
+
     VkPipelineShaderStageCreateInfo fsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -606,7 +647,7 @@ void createGraphicsPipeline()
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = (uint) attributeDescriptions.size(),
+        .vertexAttributeDescriptionCount = (uint)attributeDescriptions.size(),
         .pVertexAttributeDescriptions = attributeDescriptions.data(),
     };
 
@@ -674,12 +715,12 @@ void createGraphicsPipeline()
     if (vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-    
+
     vkDestroyShaderModule(vk.device, vsModule, nullptr);
     vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter() 
+void createCommandCenter()
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -702,13 +743,13 @@ void createCommandCenter()
     }
 }
 
-void createSyncObjects() 
+void createSyncObjects()
 {
-    VkSemaphoreCreateInfo semaphoreInfo{ 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
-    VkFenceCreateInfo fenceInfo{ 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 
+    VkFenceCreateInfo fenceInfo{
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
@@ -721,8 +762,8 @@ void createSyncObjects()
 }
 
 std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
-    VkDeviceSize size, 
-    VkBufferUsageFlags usage, 
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
     VkMemoryPropertyFlags reqMemProps)
 {
     VkBuffer buffer;
@@ -769,7 +810,7 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     return { buffer, bufferMemory };
 }
 
-void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -804,7 +845,7 @@ void createVertexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, data, size);  
+    memcpy(dst, data, size);
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 
@@ -814,7 +855,7 @@ void updateVertexBuffer(float t)
     uint count = (uint)size / sizeof(float);
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    for (uint i = 0; i < count; i+=5)
+    for (uint i = 0; i < count; i += 5)
         ((float*)dst)[i] += t;
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
@@ -846,28 +887,30 @@ void createIndexBuffer()
 
 void updateUniformBuffer(float t = 0.0)
 {
-    static void* dst;
+    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);      // render 함수의 이 부분을 주석처리하고 여기에 대신 넣으면, CPU 작동 순서에 따른 오작동을 해결할 수 있다.
+
+    static void* dst;               // dst 는 프로그램 종료까지 쭉 존재해야 하기 때문에 static 으로 사용
     float translation[2] = { 0, std::sin(t * 100) };
     //float translation[2] = { 0, t };
 
-    if(!vk.uniformBuffer)
-    { 
-        std::tie(vk.uniformBuffer, vk.uniformBufferMemory) = createBuffer(
+    if (!vk.uniformBuffer)          // uniformBuffer 가 없는 경우
+    {
+        std::tie(vk.uniformBuffer, vk.uniformBufferMemory) = createBuffer(      // uniformBuffer 생성
             sizeof(translation),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);    // 자주 값이 변하기 때문에 HOST_VISIBLE 해야 함
 
-        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(translation), 0, &dst);
-
-        VkDescriptorBufferInfo bufferInfo{
-            .buffer = vk.uniformBuffer,
-            .range = VK_WHOLE_SIZE,
+        vkMapMemory(vk.device, vk.uniformBufferMemory, 0, sizeof(translation), 0, &dst);    // CPU 쪽의 주소를 dst 로 할당받고
+                                                                                            //  Unmap 으로 해제를 해주지 않아도 자동으로 GPU 로 dst 의 정보가 전달됨.
+        VkDescriptorBufferInfo bufferInfo{                                                  // Unmap 해주지 않았다는 것은 dst 가 계속 유효하다는 의미
+            .buffer = vk.uniformBuffer,             // Uniform Buffer 핸들을 지정
+            .range = VK_WHOLE_SIZE,                 // 할당받은 메모리 전체를 적용.
         };
 
         VkWriteDescriptorSet descriptorWrite{
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = vk.descriptorSet,
-            .dstBinding = 0,
+            .dstBinding = 0,                                        // 0번 Binding 으로 설정
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .pBufferInfo = &bufferInfo,
@@ -886,7 +929,7 @@ void render()
     const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 
-    vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
+    //vkWaitForFences(vk.device, 1, &vk.inFlightFence, VK_TRUE, UINT64_MAX);
     vkResetFences(vk.device, 1, &vk.inFlightFence);
 
     uint32_t imageIndex;
@@ -902,13 +945,14 @@ void render()
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = vk.renderPass,
             .framebuffer = vk.framebuffers[imageIndex],
-            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },
+            .renderArea = {.extent = {.width = WIDTH, .height = HEIGHT } },
             .clearValueCount = 1,
             .pClearValues = &clearColor,
         };
 
         vkCmdBeginRenderPass(vk.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         {
+            vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
@@ -916,15 +960,13 @@ void render()
             size_t numIndices = std::get<1>(Geometry::getIndices()) / sizeof(uint16_t);
             vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-            vkCmdBindDescriptorSets(
-                vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                vk.pipelineLayout, 0,
-                1, &vk.descriptorSet,
+            vkCmdBindDescriptorSets(                                                            // uniform buffer 을 bind 시킴
+                vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,                              // Pipeline Layout 과 Shader 는 이미 서로 bind 되어 있음
+                vk.pipelineLayout, 0,                                                           //  ( 최적화를 위해 Pipeline 생성할 때 Pipeline Layout 과 Shader 정보를 부여하면서 bind 시킴 )
+                1, &vk.descriptorSet,           // Descriptor Set 에는 Uniform Buffer 에 대한 정보가 이미 있으니 이를 bind 해주면, 결과적으로 쉐이더와 Uniform Buffer 가 연결이 된다.
                 0, nullptr);
-
-            vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
-            //for(uint i=0; i<200000; i++)
-            vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
+            for(uint i=0; i<200000; i++)
+                vkCmdDrawIndexed(vk.commandBuffer, (uint)numIndices, 1, 0, 0, 0);
 
         }
         vkCmdEndRenderPass(vk.commandBuffer);
@@ -934,12 +976,12 @@ void render()
         }
     }
 
-    VkPipelineStageFlags waitStages[] = { 
+    VkPipelineStageFlags waitStages[] = {
         //VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
     };
 
-    VkSubmitInfo submitInfo{ 
+    VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &vk.imageAvailableSemaphore,
@@ -966,7 +1008,7 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-int main() 
+int main()
 {
     glfwInit();
     GLFWwindow* window = createWindow();
@@ -982,7 +1024,7 @@ int main()
     createIndexBuffer();
 
     float t = 0.f;
-    while (!glfwWindowShouldClose(window)) 
+    while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         updateVertexBuffer(t * 0.01f);
@@ -990,7 +1032,7 @@ int main()
         render();
         t += 0.001f;
     }
-    
+
     vkDeviceWaitIdle(vk.device);
     glfwDestroyWindow(window);
     glfwTerminate();

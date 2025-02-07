@@ -144,8 +144,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
-    <None Include="vertex_input_fs.glsl" />
-    <None Include="vertex_input_vs.glsl" />
+    <None Include="shader.comp" />
+    <None Include="shader.frag" />
+    <None Include="shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
