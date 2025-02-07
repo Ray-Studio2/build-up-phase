@@ -19,6 +19,9 @@
 //#define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
 
+#define STB_IMAGE_IMPLEMENTATION // TODO:왜 이렇게 선언해줘야하지?
+#include <stb_image.h>
+
 typedef unsigned int uint;
 
 const uint32_t WIDTH = 900;
@@ -321,6 +324,20 @@ std::vector<char> readFile(const std::string& filename)
     file.close();
     return buffer;
 }
+
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!")
+}
+
 
 GLFWwindow* createWindow()
 {
@@ -798,6 +815,89 @@ void createSyncObjects()
 
 }
 
+std::tuple<VkImage, VkDeviceMemory> createImage(
+    uint32_t width, 
+    uint32_t height, 
+    VkFormat format, 
+    VkImageTiling tiling, 
+    VkImageUsageFlags usage, 
+    VkMemoryPropertyFlags properties) 
+{
+    VkImage image;
+    VkDeviceMemory imageMemory;
+
+    VkImageCreateInfo imageInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = {
+            .width = width,
+            .height = height,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = tiling,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    if (vkCreateImage(vk.device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(vk.device, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties),
+    };
+
+    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(vk.device, image, imageMemory, 0);
+    
+    return { image, imageMemory };
+}
+
+void createTextureImage()
+{
+    int texWidth, texHeight, texChannels;
+    stbi_uc* pixels = stbi_load("./textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    if (!pixels) {
+        throw std::runtime_error("failed to load texture image!");
+    }
+
+    auto [stagingBuffer, stagingBufferMemory] = createBuffer(
+        imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* data;
+    vkMapMemory(vk.device, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(vk.device, stagingBufferMemory); //TODO:왜 staging image가 아닌 buffer? buffer로 쓰는 것의 이점은? image와 buffer의 차이는?
+
+    stbi_image_free(pixels);
+
+    auto [texImage, texImageMemory] = createImage(
+        texWidth, 
+        texHeight, 
+        VK_FORMAT_R8G8B8A8_SRGB, 
+        VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+}
+
 std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     VkDeviceSize size, 
     VkBufferUsageFlags usage, 
@@ -815,28 +915,13 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
         throw std::runtime_error("failed to create vertex buffer!");
     }
 
-    uint memTypeIndex = 0;
-    {
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
-        size = memRequirements.size;
-        std::bitset<32> isSuppoted(memRequirements.memoryTypeBits);
-
-        VkPhysicalDeviceMemoryProperties spec;
-        vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &spec);
-
-        for (auto& [props, _] : std::span<VkMemoryType>(spec.memoryTypes, spec.memoryTypeCount)) {
-            if (isSuppoted[memTypeIndex] && (props & reqMemProps) == reqMemProps) {
-                break;
-            }
-            ++memTypeIndex;
-        }
-    }
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = size,
-        .memoryTypeIndex = memTypeIndex,
+        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, reqMemProps),
     };
     if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate vertex buffer memory!");
@@ -1058,6 +1143,9 @@ int main()
     createDescriptorRelated();
     createGraphicsPipeline();
     createCommandCenter();
+
+    createTextureImage();
+
     createSyncObjects();
     createVertexBuffer();
     createIndexBuffer();
