@@ -86,6 +86,7 @@ struct Global {
 
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorPool descriptorPool;
@@ -128,6 +129,7 @@ struct Global {
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
 
+        vkDestroyImageView(device, textureImageView, nullptr);
         vkDestroyImage(device, textureImage, nullptr);
         vkFreeMemory(device, textureImageMemory, nullptr);
     }
@@ -1162,6 +1164,27 @@ void createTextureImage()
 
     vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
     vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
+}
+
+void createTextureImageView()
+{
+    VkImageViewCreateInfo viewInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = vk.textureImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D, // TODO:변수로 만들기?
+        .format = VK_FORMAT_R8G8B8A8_SRGB, // TODO:변수로 만들기?
+        .subresourceRange = { // TODO:다른 transition image layout 함수 등에서 똑같이 설정해주는 거 같은데 반드시 다 똑같이 설정해줘야하나?
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+
+    if (vkCreateImageView(vk.device, &viewInfo, nullptr, &vk.textureImageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture image view!");
+    }
 }
 
 void render()
