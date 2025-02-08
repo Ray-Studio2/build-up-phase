@@ -87,6 +87,7 @@ struct Global {
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
+    VkSampler textureSampler;
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorPool descriptorPool;
@@ -102,6 +103,11 @@ struct Global {
 
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+        vkDestroySampler(device, textureSampler, nullptr);
+        vkDestroyImageView(device, textureImageView, nullptr);
+        vkDestroyImage(device, textureImage, nullptr);
+        vkFreeMemory(device, textureImageMemory, nullptr);
 
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
@@ -128,10 +134,6 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
-
-        vkDestroyImageView(device, textureImageView, nullptr);
-        vkDestroyImage(device, textureImage, nullptr);
-        vkFreeMemory(device, textureImageMemory, nullptr);
     }
 } vk;
 
@@ -451,12 +453,15 @@ void createVkDevice()
         .pQueuePriorities = &queuePriority,
     };
 
+    VkPhysicalDeviceFeatures deviceFeatures{ .samplerAnisotropy = VK_TRUE };
+
     VkDeviceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCreateInfo,
         .enabledExtensionCount = (uint)extentions.size(),
         .ppEnabledExtensionNames = extentions.data(),
+        .pEnabledFeatures = &deviceFeatures,
     };
 
     if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {
@@ -1187,6 +1192,31 @@ void createTextureImageView()
     }
 }
 
+void createTextureSampler() {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(vk.physicalDevice, &properties);
+
+    VkSamplerCreateInfo samplerInfo{
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .anisotropyEnable = VK_TRUE,
+        .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
+
+    if (vkCreateSampler(vk.device, &samplerInfo, nullptr, &vk.textureSampler) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
+}
+
 void render()
 {
     const VkClearValue clearColor = { .color = {0.0f, 0.0f, 0.0f, 1.0f} };
@@ -1288,6 +1318,8 @@ int main()
     createCommandCenter();
 
     createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
 
     createSyncObjects();
     createVertexBuffer();
