@@ -127,6 +127,9 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
+
+        vkDestroyImage(device, textureImage, nullptr);
+        vkFreeMemory(device, textureImageMemory, nullptr);
     }
 } vk;
 
@@ -1157,6 +1160,8 @@ void createTextureImage()
     copyBufferToImage(stagingBuffer, vk.textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     transitionImageLayout(vk.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+    vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
 }
 
 void render()
