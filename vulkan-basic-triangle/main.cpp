@@ -2,10 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <fstream>
-#include "glsl2spv.h"
-#include "lib/tiny_obj_loader/tiny_obj_loader.h"
+#include <filesystem>
+#include "shader_module.h"
 
 typedef unsigned int uint;
 
@@ -17,6 +15,7 @@ const bool ON_DEBUG = false;
 #else
 const bool ON_DEBUG = true;
 #endif
+
 
 struct Global {
     VkInstance instance;
@@ -48,11 +47,6 @@ struct Global {
     VkSemaphore renderFinishedSemaphore;
     VkFence inFlightFence;
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-
     ~Global() {
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
@@ -79,60 +73,14 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
-
-        vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
-        vkFreeMemory(vk.device, vertexBufferMemory, nullptr);
-
-        vkDestroyBuffer(vk.device, indexBuffer, nullptr);
-        vkFreeMemory(vk.device, indexBufferMemory, nullptr);
     }
 } vk;
 
-struct float3
-{
-    union
-    {
-        struct
-        {
-            float x;
-            float y;
-            float z;
-        };
-        float m[3];
-    };
-};
-struct float2
-{
-    union
-    {
-        struct
-        {
-            float x;
-            float y;
-        };
-        float m[2];
-    };
-};
-class Vertex
-{
-public:
-    float3 position;
-    float3 normal;
-    //float2 texCoord;
-};
-class StaticMesh
-{
-public:
-    std::vector<uint> indices;
-    std::vector<Vertex> vertices;
-};
-StaticMesh staticMesh;
-
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-    VkDebugUtilsMessageTypeFlagsEXT messageType, 
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
-    void* pUserData) 
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
     const char* severity;
     switch (messageSeverity) {
@@ -203,19 +151,6 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char
     return true;
 }
 
-static std::vector<char> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
-    }
-    size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-    return buffer;
-}
-
 GLFWwindow* createWindow()
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -228,16 +163,16 @@ void createVkInstance(GLFWwindow* window)
     VkApplicationInfo appInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Hello Triangle",
-        .apiVersion = VK_API_VERSION_1_0
+        .apiVersion = VK_API_VERSION_1_3
     };
 
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     std::vector<const char*> validationLayers;
-    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
+    if (ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
     if (!checkValidationLayerSupport(validationLayers)) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -286,12 +221,18 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-    for (const auto& device : devices) 
+    for (const auto& device : devices)
     {
-        if (checkDeviceExtensionSupport(device, extentions)) 
+        if (checkDeviceExtensionSupport(device, extentions))
         {
-            vk.physicalDevice = device;
-            break;
+            VkPhysicalDeviceProperties deviceProperties;
+            vkGetPhysicalDeviceProperties(device, &deviceProperties);
+            if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+            {
+                std::cout << deviceProperties.deviceName << std::endl;
+                vk.physicalDevice = device;
+                break;
+            }
         }
     }
 
@@ -315,7 +256,7 @@ void createVkDevice()
                 break;
         }
 
-        if (vk.queueFamilyIndex >=  queueFamilyCount)
+        if (vk.queueFamilyIndex >= queueFamilyCount)
             throw std::runtime_error("failed to find a graphics & present queue!");
     }
     float queuePriority = 1.0f;
@@ -346,7 +287,7 @@ void createSwapChain()
 {
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
-    
+
     const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     {
         uint32_t formatCount;
@@ -397,7 +338,7 @@ void createSwapChain()
         .presentMode = presentMode,
         .clipped = VK_TRUE,
     };
-    
+
     if (vkCreateSwapchainKHR(vk.device, &createInfo, nullptr, &vk.swapChain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
@@ -482,87 +423,15 @@ void createRenderPass()
 
 void createGraphicsPipeline()
 {
-#if 0
-    auto spv2shaderModule = [](const char* filename) {
-        auto vsSpv = readFile(filename);
-        VkShaderModuleCreateInfo createInfo{
-            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = vsSpv.size(),
-            .pCode = (uint*)vsSpv.data(),
-        };
+    ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.spv"));
+    ShaderModule<VK_SHADER_STAGE_FRAGMENT_BIT> fsModule(vk.device, std::filesystem::path("simple_fs.spv"));
 
-        VkShaderModule shaderModule;
-        if (vkCreateShaderModule(vk.device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create shader module!");
-        }
-        return shaderModule;
-        };
-    VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");
-    VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");
-#else
-    auto vsSpv = readFile("simple_vs.glsl");
-    auto fsSpv = readFile("simple_fs.glsl");
 
-    auto vs_spv = glsl2spv(GLSLANG_STAGE_VERTEX, vsSpv.data());
-    auto fs_spv = glsl2spv(GLSLANG_STAGE_FRAGMENT, fsSpv.data());
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vsModule.getStageInfo(), fsModule.getStageInfo() };
 
-    VkShaderModuleCreateInfo vsModuleInfo{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = vs_spv.size() * 4,
-        .pCode = vs_spv.data(),
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     };
-    VkShaderModuleCreateInfo fsModuleInfo{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = fs_spv.size() * 4,
-        .pCode = fs_spv.data(),
-    };
-
-    VkShaderModule vsModule;
-    if (vkCreateShaderModule(vk.device, &vsModuleInfo, nullptr, &vsModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module!");
-    }
-    VkShaderModule fsModule;
-    if (vkCreateShaderModule(vk.device, &fsModuleInfo, nullptr, &fsModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module!");
-    }
-#endif
-
-    VkPipelineShaderStageCreateInfo vsStageInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vsModule,
-        .pName = "main",
-    };
-    VkPipelineShaderStageCreateInfo fsStageInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = fsModule,
-        .pName = "main",
-    };
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
-
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, position);
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, normal);
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -636,12 +505,9 @@ void createGraphicsPipeline()
     if (vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-    
-    vkDestroyShaderModule(vk.device, vsModule, nullptr);
-    vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter() 
+void createCommandCenter()
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -664,13 +530,13 @@ void createCommandCenter()
     }
 }
 
-void createSyncObjects() 
+void createSyncObjects()
 {
-    VkSemaphoreCreateInfo semaphoreInfo{ 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
-    VkFenceCreateInfo fenceInfo{ 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 
+    VkFenceCreateInfo fenceInfo{
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
@@ -684,7 +550,7 @@ void createSyncObjects()
 
 void render()
 {
-    const VkClearValue clearColor = { .color = {0.3f, 0.3f, 0.3f, 1.0f} };
+    const VkClearValue clearColor = { .color = {0.0f, 0.0f, 0.0f, 1.0f} };
     const VkViewport viewport{ .width = (float)WIDTH, .height = (float)HEIGHT, .maxDepth = 1.0f };
     const VkRect2D scissor{ .extent = {.width = WIDTH, .height = HEIGHT } };
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -705,7 +571,7 @@ void render()
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = vk.renderPass,
             .framebuffer = vk.framebuffers[imageIndex],
-            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },
+            .renderArea = {.extent = {.width = WIDTH, .height = HEIGHT } },
             .clearValueCount = 1,
             .pClearValues = &clearColor,
         };
@@ -715,13 +581,7 @@ void render()
             vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
-
-            VkBuffer vertexBuffers[] = { vk.vertexBuffer };
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-            vkCmdDrawIndexed(vk.commandBuffer, static_cast<uint32_t>(staticMesh.indices.size()), 1, 0, 0, 0);
+            vkCmdDraw(vk.commandBuffer, 3, 1, 0, 0);
         }
         vkCmdEndRenderPass(vk.commandBuffer);
 
@@ -730,12 +590,12 @@ void render()
         }
     }
 
-    VkPipelineStageFlags waitStages[] = { 
+    VkPipelineStageFlags waitStages[] = {
         //VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
     };
 
-    VkSubmitInfo submitInfo{ 
+    VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &vk.imageAvailableSemaphore,
@@ -762,135 +622,6 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-void loadModel(const std::string& modelPath)
-{
-    tinyobj::attrib_t attributes;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warnings;
-    std::string errors;
-    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
-
-    for (int i = 0; i < shapes.size(); i++) {
-        tinyobj::shape_t& shape = shapes[i];
-        tinyobj::mesh_t& mesh = shape.mesh;
-
-        const int vertexCount = attributes.vertices.size() / 3;
-        std::vector<int> visitMap;
-        visitMap.resize(vertexCount);
-        for (int j = 0; j < vertexCount; ++j)
-            visitMap[j] = -1;
-
-        staticMesh.vertices.reserve(vertexCount);
-        staticMesh.indices.reserve(mesh.indices.size());
-
-        // Replace the ... above
-        for (int j = 0; j < mesh.indices.size(); j++) {
-            tinyobj::index_t i = mesh.indices[j];
-
-            int vertexIndex = -1;
-            if (visitMap[i.vertex_index] < 0)
-            {
-                float3 position = {
-                attributes.vertices[i.vertex_index * 3],
-                attributes.vertices[i.vertex_index * 3 + 1],
-                attributes.vertices[i.vertex_index * 3 + 2]
-                };
-                float3 normal = {
-                    attributes.normals[i.normal_index * 3],
-                    attributes.normals[i.normal_index * 3 + 1],
-                    attributes.normals[i.normal_index * 3 + 2]
-                };
-                float2 texCoord = {
-                    attributes.texcoords[i.texcoord_index * 2],
-                    attributes.texcoords[i.texcoord_index * 2 + 1],
-                };
-                // Not gonna care about texCoord right now.
-                Vertex vert = { position, normal };
-                staticMesh.vertices.push_back(vert);
-
-                vertexIndex = staticMesh.vertices.size() - 1;
-                visitMap[i.vertex_index] = vertexIndex;
-            }
-            else
-            {
-                vertexIndex = visitMap[i.vertex_index];
-            }
-
-            staticMesh.indices.push_back(vertexIndex);
-        }
-    }
-}
-
-uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
-{
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("failed to find suitable memory type!");
-}
-void createVertexBuffer() 
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(staticMesh.vertices[0]) * staticMesh.vertices.size();
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &vk.vertexBuffer) != VK_SUCCESS)
-        throw std::runtime_error("failed to create vertex buffer!");
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(vk.device, vk.vertexBuffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &vk.vertexBufferMemory) != VK_SUCCESS)
-        throw std::runtime_error("failed to allocate vertex buffer memory!");
-
-    vkBindBufferMemory(vk.device, vk.vertexBuffer, vk.vertexBufferMemory, 0);
-
-    void* data;
-    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, staticMesh.vertices.data(), (size_t)bufferInfo.size);
-    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
-}
-
-void createIndexBuffer() 
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(staticMesh.indices[0]) * staticMesh.indices.size();
-    bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &vk.indexBuffer) != VK_SUCCESS)
-        throw std::runtime_error("failed to create index buffer!");
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(vk.device, vk.indexBuffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &vk.indexBufferMemory) != VK_SUCCESS)
-        throw std::runtime_error("failed to allocate index buffer memory!");
-
-    vkBindBufferMemory(vk.device, vk.indexBuffer, vk.indexBufferMemory, 0);
-
-    void* data;
-    vkMapMemory(vk.device, vk.indexBufferMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, staticMesh.vertices.data(), (size_t)bufferInfo.size);
-    vkUnmapMemory(vk.device, vk.indexBufferMemory);
-}
-
 int main()
 {
     glfwInit();
@@ -903,17 +634,13 @@ int main()
     createCommandCenter();
     createSyncObjects();
 
-    loadModel("C:/Users/dhfla/Downloads/teapot.obj");
-
-    createVertexBuffer();
-    createIndexBuffer();
-
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         render();
     }
-    
+
+    vkDeviceWaitIdle(vk.device);
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
