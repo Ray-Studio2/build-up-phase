@@ -1127,7 +1127,7 @@ void updateUniformBuffer()
         .lightColor = glm::vec3(1.0f, 1.0f, 1.0f)
     };
     ubo.cameraPos = glm::vec3(0.0f, 4.0f, 4.0f);
-    ubo.view = glm::lookAt(ubo.cameraPos, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = glm::lookAt(ubo.cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj[1][1] *= -1;
 
     memcpy(vk.uniformBufferDst, &ubo, sizeof(ubo));
