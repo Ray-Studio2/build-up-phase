@@ -26,7 +26,7 @@
 typedef unsigned int uint;
 
 const uint32_t WIDTH = 900;
-const uint32_t HEIGHT = 600; // 
+const uint32_t HEIGHT = 600;
 
 #ifdef NDEBUG
 const bool ON_DEBUG = false;
@@ -80,7 +80,7 @@ struct Global {
 
     const uint32_t numVertexBuffers = 4;
     VkBuffer positionBuffer;
-    VkDeviceMemory vertexBufferMemory;
+    VkDeviceMemory positionBufferMemory;
     VkBuffer colorBuffer;
     VkDeviceMemory colorBufferMemory;
     VkBuffer normalBuffer;
@@ -105,7 +105,14 @@ struct Global {
 
     ~Global() {
         vkDestroyBuffer(device, positionBuffer, nullptr);
-        vkFreeMemory(device, vertexBufferMemory, nullptr);
+        vkFreeMemory(device, positionBufferMemory, nullptr);
+        vkDestroyBuffer(device, colorBuffer, nullptr);
+        vkFreeMemory(device, colorBufferMemory, nullptr);
+        vkDestroyBuffer(device, normalBuffer, nullptr);
+        vkFreeMemory(device, normalBufferMemory, nullptr);
+        vkDestroyBuffer(device, texCoordBuffer, nullptr);
+        vkFreeMemory(device, texCoordBufferMemory, nullptr);
+
         vkDestroyBuffer(device, indexBuffer, nullptr);
         vkFreeMemory(device, indexBufferMemory, nullptr);
         vkDestroyBuffer(device, uniformBuffer, nullptr);
@@ -1070,7 +1077,7 @@ void createArributeBuffer(const std::vector<float>& data, VkBuffer& buffer, VkDe
 
 void createVertexBuffers()
 {
-    createArributeBuffer(geo.positions, vk.positionBuffer, vk.vertexBufferMemory);
+    createArributeBuffer(geo.positions, vk.positionBuffer, vk.positionBufferMemory);
     createArributeBuffer(geo.colors, vk.colorBuffer, vk.colorBufferMemory);
     createArributeBuffer(geo.normals, vk.normalBuffer, vk.normalBufferMemory);
     createArributeBuffer(geo.texCoords, vk.texCoordBuffer, vk.texCoordBufferMemory);
