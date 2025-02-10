@@ -20,7 +20,7 @@
 //#define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
 
-#define STB_IMAGE_IMPLEMENTATION // TODO:왜 이렇게 선언해줘야하지?
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 typedef unsigned int uint;
@@ -78,8 +78,16 @@ struct Global {
     VkSemaphore renderFinishedSemaphore;
     VkFence inFlightFence;
 
-    VkBuffer vertexBuffer;
+    const uint32_t numVertexBuffers = 4;
+    VkBuffer positionBuffer;
     VkDeviceMemory vertexBufferMemory;
+    VkBuffer colorBuffer;
+    VkDeviceMemory colorBufferMemory;
+    VkBuffer normalBuffer;
+    VkDeviceMemory normalBufferMemory;
+    VkBuffer texCoordBuffer;
+    VkDeviceMemory texCoordBufferMemory;
+
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
     VkBuffer uniformBuffer;
@@ -96,7 +104,7 @@ struct Global {
     VkDescriptorSet descriptorSet;
 
     ~Global() {
-        vkDestroyBuffer(device, vertexBuffer, nullptr);
+        vkDestroyBuffer(device, positionBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
         vkDestroyBuffer(device, indexBuffer, nullptr);
         vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -139,11 +147,16 @@ struct Global {
     }
 } vk;
 
-// Define a hash function for std::tuple<int, int>
+// Define a hash function for std::tuple<int, int, int>
 struct tuple_hash {
-    template <typename T1, typename T2>
-    std::size_t operator()(const std::tuple<T1, T2>& t) const {
-        return std::hash<T1>()(std::get<0>(t)) ^ (std::hash<T2>()(std::get<1>(t)) << 1);
+    template <typename T1, typename T2, typename T3>
+    std::size_t operator()(const std::tuple<T1, T2, T3>& t) const {
+        std::size_t h1 = std::hash<T1>{}(std::get<0>(t));
+        std::size_t h2 = std::hash<T2>{}(std::get<1>(t));
+        std::size_t h3 = std::hash<T3>{}(std::get<2>(t));
+
+        // Combine hashes using bitwise XOR and shifts
+        return h1 ^ (h2 << 1) ^ (h3 << 2);
     }
 };
 
@@ -152,13 +165,12 @@ struct Geometry
     tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
-    std::vector<float> vertData;
-    std::vector<uint32_t> idxData;
+    std::vector<float> positions;
+    std::vector<float> colors;
+    std::vector<float> normals;
+    std::vector<float> texCoords;
 
-    const uint vertexBytesSize = 36;
-    const uint vertexPositionOffset = 0;
-    const uint vertexColorOffset = 12;
-    const uint vertexNormalOffset = 24;
+    std::vector<uint32_t> indices;
 
     void readfile(const std::string& inputfile) {
         if (!reader.ParseFromFile(inputfile, reader_config)) {
@@ -175,68 +187,72 @@ struct Geometry
         auto& attrib = reader.GetAttrib();
         auto& shapes = reader.GetShapes();
 
-        std::unordered_map<std::tuple<int, int>, uint32_t, tuple_hash> uniqueVertices;
+        std::unordered_map<std::tuple<int, int, int>, uint32_t, tuple_hash> uniqueVertices;
         uint32_t cnt = 0;
 
         for (uint32_t idx = 0; idx < shapes[0].mesh.indices.size(); ++idx) {
             const auto& vertIdx = shapes[0].mesh.indices[idx].vertex_index;
             const auto& normIdx = shapes[0].mesh.indices[idx].normal_index;
-            auto key = std::make_tuple(vertIdx, normIdx);
+            const auto& texIdx = shapes[0].mesh.indices[idx].texcoord_index;
+            auto key = std::make_tuple(vertIdx, normIdx, texIdx);
 
             if (uniqueVertices.find(key) == uniqueVertices.end()) {
                 uniqueVertices[key] = cnt++;
 
-                vertData.push_back(attrib.vertices[3 * vertIdx + 0]);
-                vertData.push_back(attrib.vertices[3 * vertIdx + 1]);
-                vertData.push_back(attrib.vertices[3 * vertIdx + 2]);
+                positions.push_back(attrib.vertices[3 * vertIdx + 0]);
+                positions.push_back(attrib.vertices[3 * vertIdx + 1]);
+                positions.push_back(attrib.vertices[3 * vertIdx + 2]);
 
-                vertData.push_back(attrib.colors[3 * vertIdx + 0]);
-                vertData.push_back(attrib.colors[3 * vertIdx + 1]);
-                vertData.push_back(attrib.colors[3 * vertIdx + 2]);
+                if (!attrib.colors.empty()) {
+                    colors.push_back(attrib.colors[3 * vertIdx + 0]);
+                    colors.push_back(attrib.colors[3 * vertIdx + 1]);
+                    colors.push_back(attrib.colors[3 * vertIdx + 2]);
+                }
+                else {
+                    colors.push_back(1.0f);
+                    colors.push_back(1.0f);
+                    colors.push_back(1.0f);
+                }
 
-                vertData.push_back(attrib.normals[3 * normIdx + 0]);
-                vertData.push_back(attrib.normals[3 * normIdx + 1]);
-                vertData.push_back(attrib.normals[3 * normIdx + 2]);
+                if (!attrib.normals.empty()) {
+                    normals.push_back(attrib.normals[3 * normIdx + 0]);
+                    normals.push_back(attrib.normals[3 * normIdx + 1]);
+                    normals.push_back(attrib.normals[3 * normIdx + 2]);
+                }
+                else {
+                    normals.push_back(0.0f);
+                    normals.push_back(0.0f);
+                    normals.push_back(1.0f);
+                }
 
+                if (!attrib.texcoords.empty()) {
+                    texCoords.push_back(attrib.texcoords[2 * texIdx + 0]);
+                    texCoords.push_back(attrib.texcoords[2 * texIdx + 1]);
+                }
+                else {
+                    texCoords.push_back(0.0f);
+                    texCoords.push_back(0.0f);
+                }
             }
-            idxData.push_back(uniqueVertices[key]);
+            indices.push_back(uniqueVertices[key]);
         }
     }
 
-    std::tuple<const std::vector<float>*, size_t> getVertices() {
-        return { &vertData, sizeof(vertData[0]) * vertData.size() };
-    }
-
-    std::tuple<const std::vector<uint32_t>*, size_t> getIndices() {
-        return { &idxData, sizeof(idxData[0]) * idxData.size() };
-    }
-
-    VkVertexInputBindingDescription getBindingDescription() {
+    std::vector<VkVertexInputBindingDescription> getBindingDescription() {
         return {
-            .binding = 0,
-            .stride = vertexBytesSize,
-            //.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+            { .binding = 0, .stride = sizeof(positions[0]) * 3, },
+            { .binding = 1, .stride = sizeof(colors[0]) * 3, },
+            { .binding = 2, .stride = sizeof(normals[0]) * 3, },
+            { .binding = 3, .stride = sizeof(texCoords[0]) * 2, }
         };
     }
 
     std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
         return {
-            {
-                .location = 0,
-                .binding = 0,
-                .format = VK_FORMAT_R32G32B32_SFLOAT,   // x, y, z
-                .offset = vertexPositionOffset, // 0
-            }, {
-                .location = 1,
-                .binding = 0,
-                .format = VK_FORMAT_R32G32B32_SFLOAT,   // r, g, b
-                .offset = vertexColorOffset,    // 12
-            }, {
-                .location = 2,
-                .binding = 0,
-                .format = VK_FORMAT_R32G32B32_SFLOAT,   // x, y, z
-                .offset = vertexNormalOffset,    // 24
-            }
+            { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, }, // x, y, z (pos)
+            { .location = 1, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, }, // r, g, b
+            { .location = 2, .binding = 2, .format = VK_FORMAT_R32G32B32_SFLOAT, }, // x, y, z (normal)
+            { .location = 3, .binding = 3, .format = VK_FORMAT_R32G32_SFLOAT, } // u, v
         };
     }
 
@@ -603,7 +619,7 @@ void createRenderPass()
     }
 }
 
-void createDescriptorRelated()
+void createDescriptorSetLayout()
 {
     // Create Descriptor Set Layout
     {
@@ -634,80 +650,6 @@ void createDescriptorRelated()
         }
     }
 
-    // Create Descriptor Pool
-    {
-        std::array<VkDescriptorPoolSize, 2> poolSizes{};
-
-        poolSizes[0] = {
-            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-        };
-        poolSizes[1] = {
-            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1,
-        };
-
-        VkDescriptorPoolCreateInfo poolInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 1,
-            .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-            .pPoolSizes = poolSizes.data(),
-        };
-
-        if (vkCreateDescriptorPool(vk.device, &poolInfo, nullptr, &vk.descriptorPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor pool!");
-        }
-    }
-
-    // Create Descriptor Set
-    {
-        VkDescriptorSetAllocateInfo allocInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = vk.descriptorPool,
-            .descriptorSetCount = 1,
-            .pSetLayouts = &vk.descriptorSetLayout,
-        };
-
-        if (vkAllocateDescriptorSets(vk.device, &allocInfo, &vk.descriptorSet) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-
-        //////////////////////////
-
-        VkDescriptorBufferInfo bufferInfo{
-            .buffer = vk.uniformBuffer,
-            .range = sizeof(UniformBufferObject),
-        };
-
-        VkDescriptorImageInfo imageInfo{
-            .sampler = vk.textureSampler,
-            .imageView = vk.textureImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-
-        descriptorWrites[0] = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = vk.descriptorSet,
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .pBufferInfo = &bufferInfo,
-        };
-        descriptorWrites[1] = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = vk.descriptorSet,
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &imageInfo,
-        };
-
-        vkUpdateDescriptorSets(vk.device, 1, descriptorWrites.data(), 0, nullptr);
-    }
-
     // Create Pipeline Layout
     {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{
@@ -720,8 +662,77 @@ void createDescriptorRelated()
             throw std::runtime_error("failed to create pipeline layout!");
         }
     }
+}
 
-    // vkDestroyDescriptorSetLayout(vk.device, vk.descriptorSetLayout, nullptr);
+void createDescriptorPool()
+{
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+
+    poolSizes[0] = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+    };
+    poolSizes[1] = {
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data(),
+    };
+
+    if (vkCreateDescriptorPool(vk.device, &poolInfo, nullptr, &vk.descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void createDescriptorSets()
+{
+    VkDescriptorSetAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = vk.descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &vk.descriptorSetLayout,
+    };
+
+    if (vkAllocateDescriptorSets(vk.device, &allocInfo, &vk.descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    VkDescriptorBufferInfo bufferInfo{
+        .buffer = vk.uniformBuffer,
+        .range = sizeof(UniformBufferObject),
+    };
+
+    VkDescriptorImageInfo imageInfo{
+        .sampler = vk.textureSampler,
+        .imageView = vk.textureImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+    descriptorWrites[0] = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = vk.descriptorSet,
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pBufferInfo = &bufferInfo,
+    };
+    descriptorWrites[1] = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = vk.descriptorSet,
+        .dstBinding = 1,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &imageInfo,
+    };
+
+    vkUpdateDescriptorSets(vk.device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }
 
 void createGraphicsPipeline() 
@@ -740,8 +751,8 @@ void createGraphicsPipeline()
         }
         return shaderModule;
     };
-    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.spv");
-    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.spv");
+    VkShaderModule vsModule = spv2shaderModule("vertex_input_vs.vert.spv");
+    VkShaderModule fsModule = spv2shaderModule("vertex_input_fs.frag.spv");
 
     VkPipelineShaderStageCreateInfo vsStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -763,9 +774,9 @@ void createGraphicsPipeline()
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = (uint) attributeDescriptions.size(),
+        .vertexBindingDescriptionCount = (uint32_t) bindingDescription.size(),
+        .pVertexBindingDescriptions = bindingDescription.data(),
+        .vertexAttributeDescriptionCount = (uint32_t) attributeDescriptions.size(),
         .pVertexAttributeDescriptions = attributeDescriptions.data(),
     };
 
@@ -922,8 +933,6 @@ void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayo
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-    // TODO:image copy하는데 image layout transition은 왜 필요하며
-    // 여기서 image memory barrier? 의 역할은 무엇인가
     VkImageMemoryBarrier barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .oldLayout = oldLayout,
@@ -995,7 +1004,7 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
 
     VkMemoryAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = size,
+        .allocationSize = memRequirements.size,
         .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, reqMemProps),
     };
     if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
@@ -1045,24 +1054,31 @@ void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t 
     endSingleTimeCommands(commandBuffer);
 }
 
-void createVertexBuffer()
-{
-    auto [data, size] = geo.getVertices();
+void createArributeBuffer(const std::vector<float>& data, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+    size_t size = sizeof(data[0]) * data.size();
 
-    std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
-        size,
+    std::tie(buffer, bufferMemory) = createBuffer(
+        size, 
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void* dst;
-    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, (*data).data(), size);
-    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+    vkMapMemory(vk.device, bufferMemory, 0, size, 0, &dst);
+    memcpy(dst, data.data(), size);
+    vkUnmapMemory(vk.device, bufferMemory);
+}
+
+void createVertexBuffers()
+{
+    createArributeBuffer(geo.positions, vk.positionBuffer, vk.vertexBufferMemory);
+    createArributeBuffer(geo.colors, vk.colorBuffer, vk.colorBufferMemory);
+    createArributeBuffer(geo.normals, vk.normalBuffer, vk.normalBufferMemory);
+    createArributeBuffer(geo.texCoords, vk.texCoordBuffer, vk.texCoordBufferMemory);
 }
 
 void createIndexBuffer()
 {
-    auto [data, size] = geo.getIndices();
+    size_t size = sizeof(geo.indices[0]) * geo.indices.size();
 
     auto [stagingBuffer, stagingBufferMemory] = createBuffer(
         size,
@@ -1076,7 +1092,7 @@ void createIndexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, stagingBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, (*data).data(), size);
+    memcpy(dst, geo.indices.data(), size);
     vkUnmapMemory(vk.device, stagingBufferMemory);
 
     copyBuffer(stagingBuffer, vk.indexBuffer, size);
@@ -1186,7 +1202,7 @@ void createTextureImage()
     void* data;
     vkMapMemory(vk.device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(vk.device, stagingBufferMemory); //TODO:왜 staging image가 아닌 buffer? buffer로 쓰는 것의 이점은? image와 buffer의 차이는?
+    vkUnmapMemory(vk.device, stagingBufferMemory);
 
     stbi_image_free(pixels);
 
@@ -1214,7 +1230,7 @@ void createTextureImageView()
         .image = vk.textureImage,
         .viewType = VK_IMAGE_VIEW_TYPE_2D, // TODO:변수로 만들기?
         .format = VK_FORMAT_R8G8B8A8_SRGB, // TODO:변수로 만들기?
-        .subresourceRange = { // TODO:다른 transition image layout 함수 등에서 똑같이 설정해주는 거 같은데 반드시 다 똑같이 설정해줘야하나?
+        .subresourceRange = { 
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
             .levelCount = 1,
@@ -1286,9 +1302,15 @@ void render()
             vkCmdSetViewport(vk.commandBuffer, 0, 1, &viewport);
             vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
-            VkDeviceSize offsets[] = { 0 };
-            uint32_t numIndices = (uint32_t)std::get<0>(geo.getIndices())->size();
-            vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.vertexBuffer, offsets);
+            VkBuffer vertexBuffers[] = {
+                vk.positionBuffer,
+                vk.colorBuffer,
+                vk.normalBuffer,
+                vk.texCoordBuffer
+            };
+            VkDeviceSize offsets[] = { 0, 0, 0, 0 };
+            uint32_t numIndices = (uint32_t)geo.indices.size();
+            vkCmdBindVertexBuffers(vk.commandBuffer, 0, vk.numVertexBuffers, vertexBuffers, offsets);
             vkCmdBindIndexBuffer(vk.commandBuffer, vk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(
                 vk.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1340,7 +1362,7 @@ void render()
 
 int main() 
 {
-    std::string inputfile = "./include/plane.obj";
+    std::string inputfile = "./include/box1.obj";
     geo.readfile(inputfile);
 
     glfwInit();
@@ -1349,7 +1371,8 @@ int main()
     createVkDevice();
     createSwapChain();
     createRenderPass();
-    createDescriptorRelated();
+
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandCenter();
 
@@ -1357,10 +1380,14 @@ int main()
     createTextureImageView();
     createTextureSampler();
 
-    createSyncObjects();
-    createVertexBuffer();
+    createVertexBuffers();
     createIndexBuffer();
     createUniformBuffer();
+
+    createDescriptorPool();
+    createDescriptorSets();
+
+    createSyncObjects();
 
     while (!glfwWindowShouldClose(window)) 
     {
