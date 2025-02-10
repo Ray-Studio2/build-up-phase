@@ -194,6 +194,14 @@ struct Geometry
         auto& attrib = reader.GetAttrib();
         auto& shapes = reader.GetShapes();
 
+        const size_t capacity_vert = shapes[0].mesh.indices.size() * 3 + 4;
+        const size_t capacity_idx = shapes[0].mesh.indices.size() + 4;
+        positions.reserve(capacity_vert);
+        colors.reserve(capacity_vert);
+        normals.reserve(capacity_vert);
+        texCoords.reserve(capacity_vert);
+        indices.reserve(capacity_idx);
+
         std::unordered_map<std::tuple<int, int, int>, uint32_t, tuple_hash> uniqueVertices;
         uint32_t cnt = 0;
 
