@@ -38,6 +38,7 @@ const bool ON_DEBUG = true;
 struct UniformBufferObject
 {
     glm::mat4 model;
+    glm::mat4 modelInv;
     glm::mat4 view;
     glm::mat4 proj;
     glm::vec3 lightPos;
@@ -1141,6 +1142,7 @@ void updateUniformBuffer()
         .lightPos = glm::vec3(3.0f, 3.0f, 3.0f),
         .lightColor = glm::vec3(1.0f, 1.0f, 1.0f)
     };
+    ubo.modelInv = glm::transpose(glm::inverse(ubo.model));
     ubo.cameraPos = glm::vec3(0.0f, 4.0f, 4.0f);
     ubo.view = glm::lookAt(ubo.cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj[1][1] *= -1;
