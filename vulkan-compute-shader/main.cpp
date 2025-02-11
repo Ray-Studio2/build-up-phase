@@ -181,26 +181,26 @@ struct Particle {
     float velocity[2];
     float color[4];
 
-    static VkVertexInputBindingDescription getBindingDescription() {
-        return {
-            .binding = 0,
+    static VkVertexInputBindingDescription getBindingDescription() {    // Graphics Pipeline 에게 알려주기 위해 마련한 함수
+        return {                                                        //  Graphics Pipeline 에 Layout 정보를 알려줘야 GPU 가 Storage Buffer 에 적절하게 접근할 수 있다.
+            .binding = 0,                                               // GPU 가 Storage Buffer 의 주소를 알더라도 Stride, Offset 와 같은 Layout 정보를 알지 못하면 제대로 읽을 수 없다.
             .stride = sizeof(Particle),
         };
     }
-    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {  // Graphics Pipeline 은 이 정보를 바탕으로 메모리 상의 계산을 하여 값을 잘 가져올 수 있다.
         return {
             {
-                .location = 0,
+                .location = 0,                                                  // Vertex Buffer 는 Graphics Pipeline 에서 해당 Layout 을 알려주어야 Vertex Shader 에서 이 buffer 을 이해할 수 있다.
                 .binding = 0,
-                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y
-                .offset = 0,
-            }, {
+                .format = VK_FORMAT_R32G32_SFLOAT,      // x, y                 // Uniform Buffer 과 Storage Buffer 는 Graphics Pipeline 에서 해당 Layout 을 알려주는 방법이 없다.
+                .offset = 0,                                                    //  하지만 이 두 종류의 Buffer 은 어떤 메모리의 Layout 으로 작성되어야 하는지에 대한 정해진 규약을 따른다.
+            }, {                                                                // Shader 에서 Storage Buffer 는 std430 이 표준(Default) 규약이고, Uniform Buffer 는 std140 이 표준 규약이다.
                 .location = 1,
-                .binding = 0,
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,   // r, g, b, a
+                .binding = 0,                                                   // std430 규약은 vec3 또는 vec4 인 요소들의 Offset 은 모두 16 의 배수이어야 한다.
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,   // r, g, b, a        // vec2 인 요소들의 Offset 은 모두 8의 배수이어야 하며, float 인 요소들의 Offset 은 모두 4 의 배수이어야 한다.
                 .offset = 16,
-            }
-        };
+            }                                                                   // 따라서, 만약 Particle 이 Shader 상에서 vec3, vec3, vec4 의 3개 요소들로 구성되어 있으면 stride 는 40 이 아닌 48 이어야 한다.
+        };                                                                      //  그리고 그렇게 한다면 여기 Particle 에서는 position[4], velocity[4], color[4] 로 수정되어야 한다.
     }
 };
 
@@ -776,7 +776,7 @@ void createCommandCenter()
         throw std::runtime_error("failed to allocate command buffers!");
     }
 
-    if (vkAllocateCommandBuffers(vk.device, &allocInfo, &vk.computeCommandBuffer) != VK_SUCCESS) {  // compute pipeline 에 대해 처리하ㅏ기 위해 전용 command buffer 을 만듦.
+    if (vkAllocateCommandBuffers(vk.device, &allocInfo, &vk.computeCommandBuffer) != VK_SUCCESS) {  // compute pipeline 에 대해 처리하기 위해 전용 command buffer 을 만듦.
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
@@ -962,7 +962,7 @@ void createBuffers()
             }
             vkUnmapMemory(vk.device, stagingBufferMemory);
             copyBuffer(stagingBuffer, vk.storageBuffer, storageBufferSize);     // GPU 에서의 Copy 작업 자체는 비동기적으로 진행되기 때문에 Queue 에 submit 하고 난 후 Wait 를 해야한다. ( 제일 단순한 방법이지만, 제일 안 좋은 방법이기도 하다. )
-            vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+            vkDestroyBuffer(vk.device, stagingBuffer, nullptr);                 //  Copy 하는 도중에 buffer 가 destroy 될 수 있기 때문에 반드시 동기화 과정이 필요하다.
             vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
         }
     }
@@ -983,7 +983,7 @@ void render(float lastFrameTime)
     const VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 
     // Compute submission        
-    {
+    {                           // 특정 buffer 를 shader 상에서 읽고 갱신하여 write 해야 할 때, compute pipeline 을 사용한다.
         vkWaitForFences(vk.device, 1, &vk.computeFence, VK_TRUE, UINT64_MAX);
         vkResetFences(vk.device, 1, &vk.computeFence);
         
@@ -995,12 +995,23 @@ void render(float lastFrameTime)
                 throw std::runtime_error("failed to begin recording compute command buffer!");
             }
             
-            vkCmdBindPipeline(vk.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, vk.computePipeline);
+            vkCmdBindPipeline(vk.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, vk.computePipeline); // computePipeline 을 bind
             vkCmdBindDescriptorSets(
                 vk.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                 vk.computeLayout, 0, 1, &vk.descriptorSet, 
                 0, nullptr);
-            vkCmdDispatch(vk.computeCommandBuffer, PARTICLE_COUNT / 256, 1, 1);
+            vkCmdDispatch(vk.computeCommandBuffer, PARTICLE_COUNT / 256, 1, 1); // shader 의 main 함수를 호출하는데,
+                                                                                //  PARTICLE_COUNT / 256, 1, 1 이렇게 총 3개의 인자들을 각각
+                                                                                //  main 함수의 x 축, y 축, z 축 매개변수에 넣어서 실행한다고 설정.
+
+                                                                            // 3차원 workgroup 들이 있고 각 workgroup 에는 3차원 invocation 들이 있는데,
+                                                                            //  invocation 은 물리적인 코어를 나타낸다. ( Cuda 코어, 스레드 등 )
+                                                                            //  이러한 코어들의 그룹이 하나의 workgroup 을 구성한다.
+                                                                           
+                                                                        // 여기의 vkCmdDispatch 함수의 인자들의 의미는 총 32개의 workgroup 들이 shader 의 main 함수를 동시에 실행하도록 만드는 것이다.
+                                                                        //  하나의 workgroup 내부의 invocation 구성은 x 축으로 256 개, y 축으로 1 개, z 축으로 1 개, 이렇게 3차원으로 shader 안에서 정의한다.
+                                                                        //   <- layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+                                                                        // 즉, 32 * 256 = 8192 개의 invocation 들이 shader 의 main 함수를 동시에 실행하는 것이다.
 
             if (vkEndCommandBuffer(vk.computeCommandBuffer) != VK_SUCCESS) {
                 throw std::runtime_error("failed to record compute command buffer!");
@@ -1011,8 +1022,8 @@ void render(float lastFrameTime)
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
             .commandBufferCount = 1,
             .pCommandBuffers = &vk.computeCommandBuffer,
-            /*.signalSemaphoreCount = 1,
-            .pSignalSemaphores = &vk.computeFinishedSemaphore,*/
+            //.signalSemaphoreCount = 1,                              ///////////////
+            //.pSignalSemaphores = &vk.computeFinishedSemaphore,      ///////////////
         };
         if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.computeFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
@@ -1056,8 +1067,8 @@ void render(float lastFrameTime)
                 vkCmdSetScissor(vk.commandBuffer, 0, 1, &scissor);
 
                 VkDeviceSize offsets[] = { 0 };
-                vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.storageBuffer, offsets);
-                vkCmdDraw(vk.commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+                vkCmdBindVertexBuffers(vk.commandBuffer, 0, 1, &vk.storageBuffer, offsets); // storageBuffer 를 vertex buffer 로 bind 함
+                vkCmdDraw(vk.commandBuffer, PARTICLE_COUNT, 1, 0, 0);           // PARTICLE_COUNT 만큼 vertex 들을 그림
             }
             vkCmdEndRenderPass(vk.commandBuffer);
 
@@ -1067,11 +1078,11 @@ void render(float lastFrameTime)
         }
 
         VkSemaphore waitSemaphores[] = { 
-            //vk.computeFinishedSemaphore,          
+            //vk.computeFinishedSemaphore,          ///////////////
             vk.imageAvailableSemaphore 
         };
         VkPipelineStageFlags waitStages[] = { 
-            //VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,   
+            //VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,   ///////////////
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
         };
 
@@ -1082,8 +1093,8 @@ void render(float lastFrameTime)
             .pWaitDstStageMask = waitStages,
             .commandBufferCount = 1,
             .pCommandBuffers = &vk.commandBuffer,
-            /*.signalSemaphoreCount = 1,
-            .pSignalSemaphores = &vk.renderFinishedSemaphore,*/
+            //.signalSemaphoreCount = 1,                          ///////////////
+            //.pSignalSemaphores = &vk.renderFinishedSemaphore,   ///////////////
         };
         if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.graphicsFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
@@ -1094,8 +1105,8 @@ void render(float lastFrameTime)
     {
         VkPresentInfoKHR presentInfo{
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            /*.waitSemaphoreCount = 1,
-            .pWaitSemaphores = &vk.renderFinishedSemaphore,*/
+            //.waitSemaphoreCount = 1,                        ///////////////
+            //.pWaitSemaphores = &vk.renderFinishedSemaphore, ///////////////
             .swapchainCount = 1,
             .pSwapchains = &vk.swapChain,
             .pImageIndices = &imageIndex,
@@ -1131,6 +1142,7 @@ int main()
         
         double currentTime = glfwGetTime();
         lastFrameTime = (float)(currentTime - lastTime) * 1000.0f;
+        //std::cout << lastFrameTime << std::endl;
         lastTime = currentTime;
     }
     
