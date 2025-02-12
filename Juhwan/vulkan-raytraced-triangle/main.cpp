@@ -20,8 +20,8 @@ const uint32_t HEIGHT = 800;
 #endif
 
 
-struct Global {
-    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되어 있기에 중복선언을 방지하기 위해 이렇게 struct 안에 위치시켰다.
+    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;                    // Extension 에 해당하는 함수들 ( 드라이버에서 가져온다. )
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
     PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
@@ -235,8 +235,8 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,            // 해당 extension 을 추가해서 이를 지원하는 device 를 찾는다고 바로 사용할 수 있는 것은 아니다.
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,         //  이후에, extension 에 대한 상세한 설정이 반드시 필요하다.
         VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     };
 
@@ -291,16 +291,16 @@ void createVkDevice()
 
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR f1{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-        .accelerationStructure = VK_TRUE,
-    };
+        .accelerationStructure = VK_TRUE,       // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME extension 에 대한 상세한 설정이 필요한데, 
+    };                                          //  , accelerationStructure 을 true 로 설정해야 비로소 해당 extension 을 사용할 수 있다.
 
 	VkPhysicalDeviceBufferDeviceAddressFeatures f2{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-        .bufferDeviceAddress = VK_TRUE,
+        .bufferDeviceAddress = VK_TRUE,         // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME extension 또한 그렇다.
     };
 
-    createInfo.pNext = &f1;
-    f1.pNext = &f2;
+    createInfo.pNext = &f1;         // createInfo 의 Next Chain 으로 넣어주어야 한다. ( Linked List 자료구조 ) 
+    f1.pNext = &f2;                 //  f2 또한 그렇다. ( 이 다음은 당연히 null 이다. )
 
     if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
@@ -479,8 +479,8 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
         VkMemoryAllocateFlagsInfo flagsInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,
-        };
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,     // 차후 createBuffer 함수에서 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT flag 적용을 위해
+        };                                                          //  이렇게 flagsInfo 를 만들고 allocInfo 의 Next Chain 으로 지정해준다.
         allocInfo.pNext = &flagsInfo;
     }
 
@@ -786,9 +786,12 @@ void createTLAS()
     vkDestroyBuffer(vk.device, instanceBuffer, nullptr);
 }
 
-void loadDeviceExtensionFunctions(VkDevice device)
+void loadDeviceExtensionFunctions(VkDevice device)      // 드라이버에서 사용할 확장 함수의 포인터를 이쪽으로 가져온다. 해당 과정은 device 를 지정한 후 진행되어야 한다.
 {
     vk.vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+                                        // device 와 관련한 외부 드라이버에서 vkGetBufferDeviceAddressKHR 함수를 찾은 후 해당 함수의 포인터를
+                                        //  vk.vkGetBufferDeviceAddressKHR 함수 포인터에 대입한다.
+
     vk.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
     vk.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
     vk.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
