@@ -1,0 +1,39 @@
+#version 450
+
+struct Particle {
+	vec2 position;
+	vec2 velocity;
+    vec4 color;
+};
+
+layout (binding = 0) uniform ParameterUBO {
+    float deltaTime;
+} ubo;
+
+layout(std430, binding = 1) buffer ParticleSSBOInOut {      // std430 규약은 vec3 또는 vec4 인 요소들의 Offset 은 모두 16 의 배수이어야 한다.
+   Particle particles[];                                    //  vec2 인 요소들의 Offset 은 모두 8의 배수이어야 하며, float 인 요소들의 Offset 은 모두 4 의 배수이어야 한다.
+};
+
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+            // 하나의 workgroup 내부의 invocation 구성은 x 축으로 256 개, y 축으로 1 개, z 축으로 1 개, 이렇게 3차원으로 shader 안에서 정의한다.
+void main() 
+{
+    uint index = gl_GlobalInvocationID.x;   // gl_GlobalInvocationID 를 통해 index 는 0 부터 8191 까지의 번호들 중 하나가 된다.
+
+    Particle particle_prev = particles[index];  // Storage buffer 는 compute shader 에서 read 도 가능하며 write 또한 가능하다. pixel shader 에서는 불가능한 일이다.
+                                                // 특정 buffer 를 shader 상에서 읽고 갱신하여 write 해야 할 때, compute pipeline 을 사용한다.
+    Particle particle_new;
+    particle_new.position = particle_prev.position + particle_prev.velocity * ubo.deltaTime;
+    particle_new.velocity = particle_prev.velocity;
+
+    // Flip movement at window border
+    if ((particle_new.position.x <= -1.0) || (particle_new.position.x >= 1.0)) {
+        particle_new.velocity.x = -particle_new.velocity.x;
+    }
+    if ((particle_new.position.y <= -1.0) || (particle_new.position.y >= 1.0)) {
+        particle_new.velocity.y = -particle_new.velocity.y;
+    }
+
+    particles[index] = particle_new;
+}

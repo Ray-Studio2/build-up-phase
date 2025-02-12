@@ -1,0 +1,9 @@
+*
+!.gitignore
+!README.md
+!glsl2spv.h
+!main.cpp
+!vertex_input_fs.glsl
+!vertex_input_vs.glsl
+!vulkan-basic-triangle.sln
+!vulkan-basic-triangle.vcxproj
