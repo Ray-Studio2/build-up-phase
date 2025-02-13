@@ -86,6 +86,10 @@ struct glslang_stage_for<vkStage> { \
 GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_VERTEX_BIT, GLSLANG_STAGE_VERTEX);
 GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_FRAGMENT_BIT, GLSLANG_STAGE_FRAGMENT);
 GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_COMPUTE_BIT, GLSLANG_STAGE_COMPUTE);
+GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_RAYGEN_BIT_KHR, GLSLANG_STAGE_RAYGEN);
+GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, GLSLANG_STAGE_ANYHIT);
+GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, GLSLANG_STAGE_CLOSESTHIT);
+GLSLANG_STAGE_MAPPING(VK_SHADER_STAGE_MISS_BIT_KHR, GLSLANG_STAGE_MISS);
 
 
 template <VkShaderStageFlagBits VkStage>
@@ -125,15 +129,26 @@ public:
     VkShaderModule get() {
         return module;
     }
-
-    VkPipelineShaderStageCreateInfo getStageInfo(const char* entry = "main") {
+    
+    /* By default, glslang appears to only support "main" as the entry point name.
+    VkPipelineShaderStageCreateInfo operator|(const char* entry) {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VkStage,
             .module = module,
             .pName = entry,
         };
+    }*/
+
+    operator VkPipelineShaderStageCreateInfo() {
+        return {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VkStage,
+            .module = module,
+            .pName = "main",
+        };
     }
+
     ShaderModule(VkDevice device, const std::vector<uint32_t>& spv_blob) :device(device) {
         build(spv_blob);
     }
