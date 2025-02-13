@@ -3,11 +3,13 @@
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragPosition;
+layout(location = 3) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
+    mat4 modelInv;
     mat4 view;
     mat4 proj;
     
@@ -20,6 +22,8 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec3 cameraPos;
     float padding3;
 } ubo;
+
+layout(binding = 1) uniform sampler2D texSampler;
 
 void main() {
     vec3 normal = normalize(fragNormal);
@@ -39,5 +43,6 @@ void main() {
     float specularStrength = 0.5;
     vec3 specular = specularStrength * spec * ubo.lightColor;
 
-    outColor = vec4((ambient + diffuse + specular) * fragColor, 1.0);
+    // outColor = vec4((ambient + diffuse + specular) * fragColor, 1.0);
+    outColor = texture(texSampler, fragTexCoord);
 }
