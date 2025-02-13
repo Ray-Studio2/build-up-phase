@@ -493,8 +493,8 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     return { buffer, bufferMemory };
 }
 
-inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)
-{
+inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // Estension 함수인 vkGetBufferDeviceAddressKHR 를 통해
+{                                                                           //  Buffer 의 Device 주소 (GPU 상에 할당된 메모리 주소) 를 가져올 수 있다.
     VkBufferDeviceAddressInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .buffer = buffer,
@@ -513,8 +513,8 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 
 void createBLAS()
 {
-    float vertices[][3] = {
-        { -1.0f, -1.0f, 0.0f },
+    float vertices[][3] = {         // 4 개의 Vertices
+        { -1.0f, -1.0f, 0.0f },     // Ray Tracing 에서는 2 차원 Vertex 가 불가함.
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
         { -1.0f,  1.0f, 0.0f },
@@ -523,19 +523,20 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -2.0f,
+            1.0f, 0.0f, 0.0f, -2.0f,            // 왼쪽으로 2 만큼 이동
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 2.0f,
+            1.0f, 0.0f, 0.0f, 2.0f,            // 오른쪽으로 2 만큼 이동
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
 
-    auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices), 
+    auto [vertexBuffer, vertexBufferMem] = createBuffer(        // Vertex, Index, Geometry Buffer 생성
+        sizeof(vertices),           // GPU 에서 각 Buffer 의 주소를 알아야 하기 떄문에 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT flag 를 사용한다.
+             // VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR flag 는 이 Buffer 들이 Ray Tracing 의 가속 구조의 Input 으로 작용하는데, GPU 의 Read Only 접근만 가능하게 하는 flag 이다.
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
@@ -565,41 +566,45 @@ void createBLAS()
 
     VkAccelerationStructureGeometryKHR geometry0{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-        .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-        .geometry = {
-            .triangles = {
+        .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,     // Geometry 를 사용할 떄 (BLAS 에서는) 는 VK_GEOMETRY_TYPE_TRIANGLES_KHR type 를 사용한다.
+        .geometry = {                                           // 다른 type 들 중 VK_GEOMETRY_TYPE_AABBS_KHR 이 있는데, 이는 Intersection Shader 을 사용할 때 사용한다.
+                                                            // 추가로, TLAS 에서는 VK_GEOMETRY_TYPE_INSTANCES_KHR 를 사용한다.
+        
+            .triangles = {                          // BLAS 이기 때문에 VkAccelerationStructureGeometryDataKHR 인 geometry 의 triangles 에 정보를 넣어준다.
+
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-                .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
+                .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,                                         // 3 차원을 사용하기에 RGB 모두 사용.
+                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },                // GPU 상에 할당된 메모리 주소 (uint64_t) 를 가져옴.
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
-                .indexType = VK_INDEX_TYPE_UINT32,
+                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,                            // 최대 Index Number 를 지정해주기 때문에, 마지막에 -1 해준다. (반드시 -1 해야하는 것은 아니다.)
+                .indexType = VK_INDEX_TYPE_UINT32,                                                  // Indices 배열의 각 요소가 uint32_t 이기 때문에 이렇게 설정.
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
             },
         },
-        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,        // 완전히 불투명한 오브젝트를 상정하도록 설정함. ( Ray 의 투과성 X )
     };
-    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
+    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 }; // 동일한 Geometry (사각형) 2 개를 넣어줌.
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
-    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
+    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);   // 하나의 Geometry 마다 triangle 2 개씩 구성됨.
+    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };         // Geometry 마다 해당하는 triangle 개수를 집어넣어줌.
 
-    VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
-        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-        .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+    VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{                      // BLAS 를 Build 하기위한 정보들 ( 먼저, Prebuild 를 거친 후 나중에 본격적인 Build 를 거친다. )
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,  // buildBlasInfo 구성에 필요한 정보들이 많지만, 그 중 일부만 미리 설정해두었다.
+        .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,                    //  이는 Prebuild 과정이기에 지금은 간소하게 진행하는 것이다.
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
         .geometryCount = sizeof(geometries) / sizeof(geometries[0]),
         .pGeometries = geometries,
     };
     
     VkAccelerationStructureBuildSizesInfoKHR requiredSize{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-    vk.vkGetAccelerationStructureBuildSizesKHR(
+    vk.vkGetAccelerationStructureBuildSizesKHR(             // vkGetAccelerationStructureBuildSizesKHR 함수는 Prebuild 하기 위해 필요한 Extension 함수이다.
         vk.device,
-        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &buildBlasInfo,
-        triangleCounts,
-        &requiredSize);
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,    // Build 를 CPU 에서 할 것인지 GPU 에서 할 것인지 지정해줄 수 있는데, 
+        &buildBlasInfo,                                     //  VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR 는 GPU 에서 Build 하기 위한 정보이다.
+        triangleCounts,                                     // ( Vulkan 은 DirectX 와 다르게 Acceleration Structure Build 과정을 CPU 에서 수행할 수 있다. (DirectX 는 무조건 GPU 상에서 수행) )
+        
+        &requiredSize);             // 나중에 본격적인 Build 를 할 것인데, 그 때 필요한 용량을 미리 확보하는 것이다. ( Prebuild 과정 )
 
     std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(
         requiredSize.accelerationStructureSize,
@@ -808,13 +813,13 @@ int main()
     loadDeviceExtensionFunctions(vk.device);
     createSwapChain();
     
-    // createRenderPass();
+    // createRenderPass();          // BLAS 와 TLAS 가 있으니, RenderPass 와 Pipeline 은 필요없어졌다.
     // createGraphicsPipeline();
     createCommandCenter();
     createSyncObjects();
 
-    createBLAS();
-    createTLAS();
+    createBLAS();       // Geometry 들로 구성   ( BLAS (Bottom-Level Acceleration Structure) )
+    createTLAS();       // Instance 들로 구성   ( TLAS (Top-Level Acceleration Structure) )
 
     while (!glfwWindowShouldClose(window))
     {
