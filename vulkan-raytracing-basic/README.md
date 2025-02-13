@@ -201,11 +201,14 @@ struct Global {
 
 
 ## 레퍼런런스
+[Spec]
+- https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt
+- https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
+
 [이론]
 - https://www.khronos.org/blog/ray-tracing-in-vulkan
 - https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/vkrt_tutorial.md.html
 - https://nvpro-samples.github.io/vk_mini_path_tracer/index.html
-- https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
 
 [코드]
 - https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/extensions
@@ -213,6 +216,12 @@ struct Global {
 - https://github.com/nvpro-samples/vk_raytracing_tutorial_KHR
 - https://github.com/nvpro-samples/vk_mini_path_tracer
 
+
+
+## 퀴즈:
+- 레이트레이싱 아웃 대상 : 스토리지 이미지 -> 스토리지 버퍼 변경
+- rgb -> bgr 변경 문제 해결 
+- render()부분 동기화 수정 및 최적화
 
 ## 과제
 1. obj파일 로드 -> Acceleration structure 빌드 성공하기
