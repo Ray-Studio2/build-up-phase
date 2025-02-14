@@ -493,8 +493,8 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     return { buffer, bufferMemory };
 }
 
-inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // Estension 함수인 vkGetBufferDeviceAddressKHR 를 통해
-{                                                                           //  Buffer 의 Device 주소 (GPU 상에 할당된 메모리 주소) 를 가져올 수 있다.
+inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // Extension 함수인 vkGetBufferDeviceAddressKHR 를 통해
+{                                                                           //  buffer 의 Device 주소 (GPU 상에 할당된 메모리 주소) 를 가져올 수 있다.
     VkBufferDeviceAddressInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .buffer = buffer,
@@ -502,7 +502,7 @@ inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // E
     return vk.vkGetBufferDeviceAddressKHR(vk.device, &info);
 }
 
-inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
+inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)    // GPU 상에 할당된 Acceleration Structure Device 의 메모리 주소를 Extension 함수를 통해 가져온다.
 {
     VkAccelerationStructureDeviceAddressInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
@@ -606,13 +606,13 @@ void createBLAS()
         
         &requiredSize);             // 나중에 본격적인 Build 를 할 것인데, 그 때 필요한 용량을 미리 확보하는 것이다. ( Prebuild 과정 )
 
-    std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(
-        requiredSize.accelerationStructureSize,
+    std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(           // BLAS Buffer 은 앞으로 계속 가지고 가야하기에 전역변수로 사용된다.
+        requiredSize.accelerationStructureSize,                     // BLAS 가 저장되어 있는 Buffer 의 크기
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);                           // BLAS Buffer 와 Scratch Buffer 은 GPU 가 알아서 처리하기 때문에 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT 를 사용한다.
 
-    auto [scratchBuffer, scratchBufferMem] = createBuffer(
-        requiredSize.buildScratchSize,
+    auto [scratchBuffer, scratchBufferMem] = createBuffer(              // scratchBuffer 는 BLAS Buffer Build 가 끝나면 해제하기 때문에 이와 같이 지역변수로 선언한 것이다.
+        requiredSize.buildScratchSize,                              // Build 과정에서 발생하는 추가적인 Buffer 크기
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -622,34 +622,36 @@ void createBLAS()
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = vk.blasBuffer,
             .size = requiredSize.accelerationStructureSize,
-            .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+            .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,            // BLAS 임을 알려주는 Bottom Level 타입 ( 앞서 buildBlasInfo 를 만들 때도 동일한 타입을 넣어주었다. )
         };
-        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.blas);
+        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.blas);   // 실제로 BLAS 가 들어간 Buffer 인 vk.blasBuffer 을 다루는 핸들인 vk.blas 를 만드는 것
 
-        vk.blasAddress = getDeviceAddressOf(vk.blas);
-    }
+        vk.blasAddress = getDeviceAddressOf(vk.blas);       // vk.blas 에 해당하는 Acceleration Structure Device 의 메모리 주소를 받아옴.
+    }                                                           // 이제 본격적인 BLAS Build 를 시작한다.
 
     // Build BLAS using GPU operations
     {
         VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
+        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);                                 // 본격적인 BLAS Build 과정
         {
             buildBlasInfo.dstAccelerationStructure = vk.blas;
             buildBlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
-            VkAccelerationStructureBuildRangeInfoKHR buildBlasRangeInfo[] = {
-                { 
-                    .primitiveCount = triangleCounts[0],
+            VkAccelerationStructureBuildRangeInfoKHR buildBlasRangeInfo[] = {   // 위에서 buildBlasInfo.pGeometries 에 2 개의 geometry0 를 넣었으므로,
+                {                                                               //  buildBlasRangeInfo 에 2 개의 geometry0 각각에 대한 정보를 넣어주어야 한다.
+                
+                    .primitiveCount = triangleCounts[0],            // 현 Transformation 에 사용되는 triangle 개수
                     .transformOffset = 0,
                 },
                 { 
                     .primitiveCount = triangleCounts[1],
-                    .transformOffset = sizeof(geoTransforms[0]),
+                    .transformOffset = sizeof(geoTransforms[0]),    // 다음 Transformation 을 나타내는 정보의 Offset 을 지정
                 }
             };
 
-            VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };
-            VkAccelerationStructureBuildRangeInfoKHR* buildBlasRangeInfos[] = { buildBlasRangeInfo };
-            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, buildBlasInfos, buildBlasRangeInfos);
+            VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };           // buildBlasInfos 배열을 만들고
+            VkAccelerationStructureBuildRangeInfoKHR* buildBlasRangeInfos[] = { buildBlasRangeInfo };   //  buildBlasRangeInfos 배열도 만든다.
+            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, buildBlasInfos, buildBlasRangeInfos);   // 해당 함수에서 Structures 을 발견할 수 있는데,
+                                                                                                                //  이는 여러 개의 BLAS 들을 동시에 만들 수 있음을 의미한다.
             // vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildBlasInfo, 
             // (const VkAccelerationStructureBuildRangeInfoKHR *const *)&buildBlasRangeInfo);
         }
@@ -660,7 +662,7 @@ void createBLAS()
             .commandBufferCount = 1,
             .pCommandBuffers = &vk.commandBuffer,
         }; 
-        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);        // BLAS 만드는 명령을 GPU 에 전달
         vkQueueWaitIdle(vk.graphicsQueue);
     }
 
@@ -676,11 +678,11 @@ void createBLAS()
 
 void createTLAS()
 {
-    VkTransformMatrixKHR insTransforms[] = {
-        {
-            1.0f, 0.0f, 0.0f, 0.0f,
+    VkTransformMatrixKHR insTransforms[] = {    // Transformation 2 개가 있었다. 하지만, 이번에는 이름이 insTransforms ( Instance Transformation ) 이다.
+        {                                       // BLAS 에서는 geoTransforms 이었는데 이는 Geometry 마다 가지고 있는 Transformation 정보를 의미하고,
+            1.0f, 0.0f, 0.0f, 0.0f,             //  TLAS 의 insTransforms 는 Instance 마다 적용되는 Transformation 정보를 의미한다.
             0.0f, 1.0f, 0.0f, 2.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
+            0.0f, 0.0f, 1.0f, 0.0f          // 즉, 여기에서는 2 개의 Instance 를 만들고 그에 대한 각각의 Transformation 을 만든다.
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -690,10 +692,10 @@ void createTLAS()
     };
 
     VkAccelerationStructureInstanceKHR instance0 {
-        .mask = 0xFF,
-        .instanceShaderBindingTableRecordOffset = 0,
-        .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-        .accelerationStructureReference = vk.blasAddress,
+        .mask = 0xFF,                                   // mask 는 대부분 0xFF 을 사용
+        .instanceShaderBindingTableRecordOffset = 0,        // 나중에 Shader Binding Table 에서 사용되는 정보
+        .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,     // Back Face Culling 을 적용하지 않겠다는 의미의 flag
+        .accelerationStructureReference = vk.blasAddress,   // Instance 는 BLAS 를 참조한다.
     };
     VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
     instanceData[0].transform = insTransforms[0];
@@ -816,7 +818,7 @@ int main()
     // createRenderPass();          // BLAS 와 TLAS 가 있으니, RenderPass 와 Pipeline 은 필요없어졌다.
     // createGraphicsPipeline();
     createCommandCenter();
-    createSyncObjects();
+    createSyncObjects(); 
 
     createBLAS();       // Geometry 들로 구성   ( BLAS (Bottom-Level Acceleration Structure) )
     createTLAS();       // Instance 들로 구성   ( TLAS (Top-Level Acceleration Structure) )
