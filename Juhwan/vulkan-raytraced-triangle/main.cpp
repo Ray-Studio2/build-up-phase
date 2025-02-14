@@ -12,6 +12,7 @@ typedef unsigned int uint;
 
 const uint32_t WIDTH = 1200;
 const uint32_t HEIGHT = 800;
+const uint32_t SHADER_GROUP_HANDLE_SIZE = 32;
 
 #ifdef NDEBUG
     const bool ON_DEBUG = false;
@@ -20,14 +21,19 @@ const uint32_t HEIGHT = 800;
 #endif
 
 
-struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되어 있기에 중복선언을 방지하기 위해 이렇게 struct 안에 위치시켰다.
-    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;                    // Extension 에 해당하는 함수들 ( 드라이버에서 가져온다. )
+struct Global {
+    PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
     PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
     PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
     PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+	PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR  rtProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+    
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -40,7 +46,7 @@ struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되�
 
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
+    // std::vector<VkImageView> swapChainImageViews;
     const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format
     const VkExtent2D swapChainImageExtent = { .width = WIDTH, .height = HEIGHT };
 
@@ -59,8 +65,27 @@ struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되�
     VkBuffer tlasBuffer;
     VkDeviceMemory tlasBufferMem;
     VkAccelerationStructureKHR tlas;
-    VkDeviceAddress tlasAddress;
 
+    VkImage outImage;
+    VkDeviceMemory outImageMem;
+    VkImageView outImageView;
+
+    VkBuffer uniformBuffer;
+    VkDeviceMemory uniformBufferMem;
+
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
+
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSet descriptorSet;
+
+    VkBuffer sbtBuffer;
+    VkDeviceMemory sbtBufferMem;
+    VkStridedDeviceAddressRegionKHR rgenSbt{};
+    VkStridedDeviceAddressRegionKHR missSbt{};
+    VkStridedDeviceAddressRegionKHR hitgSbt{};
+    
     ~Global() {
         vkDestroyBuffer(device, tlasBuffer, nullptr);
         vkFreeMemory(device, tlasBufferMem, nullptr);
@@ -70,15 +95,32 @@ struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되�
         vkFreeMemory(device, blasBufferMem, nullptr);
         vkDestroyAccelerationStructureKHR(device, blas, nullptr);
 
+        vkDestroyImageView(device, outImageView, nullptr);
+        vkDestroyImage(device, outImage, nullptr);
+        vkFreeMemory(device, outImageMem, nullptr);
+
+        vkDestroyBuffer(device, uniformBuffer, nullptr);
+        vkFreeMemory(device, uniformBufferMem, nullptr);
+
+        vkDestroyBuffer(device, sbtBuffer, nullptr);
+        vkFreeMemory(device, sbtBufferMem, nullptr);
+
+        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+        
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
+
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
         vkDestroyFence(device, fence0, nullptr);
 
         vkDestroyCommandPool(device, commandPool, nullptr);
 
-        for (auto imageView : swapChainImageViews) {
-            vkDestroyImageView(device, imageView, nullptr);
-        }
+        // for (auto imageView : swapChainImageViews) {
+        //     vkDestroyImageView(device, imageView, nullptr);
+        // }
         vkDestroySwapchainKHR(device, swapChain, nullptr);
         vkDestroyDevice(device, nullptr);
         if (ON_DEBUG) {
@@ -89,6 +131,29 @@ struct Global {             // 이 아래의 6개 함수들 모두 라이브러리에 선언이 되�
         vkDestroyInstance(instance, nullptr);
     }
 } vk;
+
+void loadDeviceExtensionFunctions(VkDevice device)
+{
+    vk.vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+    vk.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+    vk.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+    vk.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+    vk.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+    vk.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+	vk.vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+	vk.vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+    vk.vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+
+    VkPhysicalDeviceProperties2 deviceProperties2{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = &vk.rtProperties,
+    };
+	vkGetPhysicalDeviceProperties2(vk.physicalDevice, &deviceProperties2);
+
+    if (vk.rtProperties.shaderGroupHandleSize != SHADER_GROUP_HANDLE_SIZE) {
+        throw std::runtime_error("shaderGroupHandleSize must be 32 mentioned in the vulakn spec (Table 69. Required Limits)!");
+    }
+}
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -117,7 +182,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     return VK_FALSE;
 }
 
-bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) {
+bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) 
+{
     uint32_t count;
     vkEnumerateInstanceLayerProperties(&count, nullptr);
     std::vector<VkLayerProperties> availables(count);
@@ -141,7 +207,8 @@ bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) {
     return true;
 }
 
-bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames) {
+bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames) 
+{
     uint32_t count;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
     std::vector<VkExtensionProperties> availables(count);
@@ -235,9 +302,14 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,            // 해당 extension 을 추가해서 이를 지원하는 device 를 찾는다고 바로 사용할 수 있는 것은 아니다.
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,         //  이후에, extension 에 대한 상세한 설정이 반드시 필요하다.
+
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // not used
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, // not used
         VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+
+        VK_KHR_SPIRV_1_4_EXTENSION_NAME, // not used
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
     };
 
     for (const auto& device : devices)
@@ -289,18 +361,24 @@ void createVkDevice()
         .ppEnabledExtensionNames = extentions.data(),
     };
 
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR f1{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-        .accelerationStructure = VK_TRUE,       // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME extension 에 대한 상세한 설정이 필요한데, 
-    };                                          //  , accelerationStructure 을 true 로 설정해야 비로소 해당 extension 을 사용할 수 있다.
-
-	VkPhysicalDeviceBufferDeviceAddressFeatures f2{
+    VkPhysicalDeviceBufferDeviceAddressFeatures f1{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-        .bufferDeviceAddress = VK_TRUE,         // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME extension 또한 그렇다.
+        .bufferDeviceAddress = VK_TRUE,
     };
 
-    createInfo.pNext = &f1;         // createInfo 의 Next Chain 으로 넣어주어야 한다. ( Linked List 자료구조 ) 
-    f1.pNext = &f2;                 //  f2 또한 그렇다. ( 이 다음은 당연히 null 이다. )
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR f2{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        .accelerationStructure = VK_TRUE,
+    };
+	
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR f3{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+        .rayTracingPipeline = VK_TRUE,
+    };
+
+    createInfo.pNext = &f1;
+    f1.pNext = &f2;
+    f2.pNext = &f3;
 
     if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
@@ -358,7 +436,7 @@ void createSwapChain()
         .imageColorSpace = defaultSpace,
         .imageExtent = {.width = WIDTH , .height = HEIGHT },
         .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT, // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .preTransform = capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
@@ -386,11 +464,11 @@ void createSwapChain()
             },
         };
 
-        VkImageView imageView;
-        if (vkCreateImageView(vk.device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
-        }
-        vk.swapChainImageViews.push_back(imageView);
+        // VkImageView imageView;
+        // if (vkCreateImageView(vk.device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
+        //     throw std::runtime_error("failed to create image views!");
+        // }
+        // vk.swapChainImageViews.push_back(imageView);
     }
 }
 
@@ -435,6 +513,24 @@ void createSyncObjects()
 
 }
 
+
+uint findMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlags reqMemProps)
+{
+    uint memTypeIndex = 0;
+    std::bitset<32> isSuppoted(memoryTypeBits);
+
+    VkPhysicalDeviceMemoryProperties spec;
+    vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &spec);
+
+    for (auto& [props, _] : std::span<VkMemoryType>(spec.memoryTypes, spec.memoryTypeCount)) {
+        if (isSuppoted[memTypeIndex] && (props & reqMemProps) == reqMemProps) {
+            break;
+        }
+        ++memTypeIndex;
+    }
+    return memTypeIndex;
+}
+
 std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     VkDeviceSize size, 
     VkBufferUsageFlags usage, 
@@ -452,35 +548,20 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
         throw std::runtime_error("failed to create vertex buffer!");
     }
 
-    uint memTypeIndex = 0;
-    {
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
-        size = memRequirements.size;
-        std::bitset<32> isSuppoted(memRequirements.memoryTypeBits);
-
-        VkPhysicalDeviceMemoryProperties spec;
-        vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &spec);
-
-        for (auto& [props, _] : std::span<VkMemoryType>(spec.memoryTypes, spec.memoryTypeCount)) {
-            if (isSuppoted[memTypeIndex] && (props & reqMemProps) == reqMemProps) {
-                break;
-            }
-            ++memTypeIndex;
-        }
-    }
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = size,
-        .memoryTypeIndex = memTypeIndex,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, reqMemProps),
     };
 
     if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
         VkMemoryAllocateFlagsInfo flagsInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,     // 차후 createBuffer 함수에서 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT flag 적용을 위해
-        };                                                          //  이렇게 flagsInfo 를 만들고 allocInfo 의 Next Chain 으로 지정해준다.
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,
+        };
         allocInfo.pNext = &flagsInfo;
     }
 
@@ -493,8 +574,87 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     return { buffer, bufferMemory };
 }
 
-inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // Extension 함수인 vkGetBufferDeviceAddressKHR 를 통해
-{                                                                           //  buffer 의 Device 주소 (GPU 상에 할당된 메모리 주소) 를 가져올 수 있다.
+std::tuple<VkImage, VkDeviceMemory> createImage(
+    VkExtent2D extent,
+    VkFormat format,
+    VkImageUsageFlags usage,
+    VkMemoryPropertyFlags reqMemProps)
+{
+    VkImage image;
+    VkDeviceMemory imageMemory;
+
+    VkImageCreateInfo imageInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = { extent.width, extent.height, 1 },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = usage,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    if (vkCreateImage(vk.device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(vk.device, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, reqMemProps),
+    };
+
+    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(vk.device, image, imageMemory, 0);
+
+    return { image, imageMemory };
+}
+
+void setImageLayout(
+    VkCommandBuffer cmdbuffer,
+    VkImage image,
+    VkImageLayout oldImageLayout,
+    VkImageLayout newImageLayout,
+    VkImageSubresourceRange subresourceRange,
+    VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)
+{
+    VkImageMemoryBarrier barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = oldImageLayout,
+        .newLayout = newImageLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange = subresourceRange,
+    };
+
+    if (oldImageLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    } else if (oldImageLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    }
+
+    if (newImageLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    } else if (newImageLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    }
+
+    vkCmdPipelineBarrier(
+        cmdbuffer, srcStageMask, dstStageMask, 0,
+        0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)
+{
     VkBufferDeviceAddressInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .buffer = buffer,
@@ -502,7 +662,7 @@ inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)                  // E
     return vk.vkGetBufferDeviceAddressKHR(vk.device, &info);
 }
 
-inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)    // GPU 상에 할당된 Acceleration Structure Device 의 메모리 주소를 Extension 함수를 통해 가져온다.
+inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 {
     VkAccelerationStructureDeviceAddressInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
@@ -513,8 +673,8 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)    // G
 
 void createBLAS()
 {
-    float vertices[][3] = {         // 4 개의 Vertices
-        { -1.0f, -1.0f, 0.0f },     // Ray Tracing 에서는 2 차원 Vertex 가 불가함.
+    float vertices[][3] = {
+        { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
         { -1.0f,  1.0f, 0.0f },
@@ -523,20 +683,19 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -2.0f,            // 왼쪽으로 2 만큼 이동
+            1.0f, 0.0f, 0.0f, -2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 2.0f,            // 오른쪽으로 2 만큼 이동
+            1.0f, 0.0f, 0.0f, 2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
 
-    auto [vertexBuffer, vertexBufferMem] = createBuffer(        // Vertex, Index, Geometry Buffer 생성
-        sizeof(vertices),           // GPU 에서 각 Buffer 의 주소를 알아야 하기 떄문에 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT flag 를 사용한다.
-             // VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR flag 는 이 Buffer 들이 Ray Tracing 의 가속 구조의 Input 으로 작용하는데, GPU 의 Read Only 접근만 가능하게 하는 flag 이다.
+    auto [vertexBuffer, vertexBufferMem] = createBuffer(
+        sizeof(vertices), 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
@@ -566,53 +725,49 @@ void createBLAS()
 
     VkAccelerationStructureGeometryKHR geometry0{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-        .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,     // Geometry 를 사용할 떄 (BLAS 에서는) 는 VK_GEOMETRY_TYPE_TRIANGLES_KHR type 를 사용한다.
-        .geometry = {                                           // 다른 type 들 중 VK_GEOMETRY_TYPE_AABBS_KHR 이 있는데, 이는 Intersection Shader 을 사용할 때 사용한다.
-                                                            // 추가로, TLAS 에서는 VK_GEOMETRY_TYPE_INSTANCES_KHR 를 사용한다.
-        
-            .triangles = {                          // BLAS 이기 때문에 VkAccelerationStructureGeometryDataKHR 인 geometry 의 triangles 에 정보를 넣어준다.
-
+        .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+        .geometry = {
+            .triangles = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-                .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,                                         // 3 차원을 사용하기에 RGB 모두 사용.
-                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },                // GPU 상에 할당된 메모리 주소 (uint64_t) 를 가져옴.
+                .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,                            // 최대 Index Number 를 지정해주기 때문에, 마지막에 -1 해준다. (반드시 -1 해야하는 것은 아니다.)
-                .indexType = VK_INDEX_TYPE_UINT32,                                                  // Indices 배열의 각 요소가 uint32_t 이기 때문에 이렇게 설정.
+                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
+                .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
             },
         },
-        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,        // 완전히 불투명한 오브젝트를 상정하도록 설정함. ( Ray 의 투과성 X )
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
-    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 }; // 동일한 Geometry (사각형) 2 개를 넣어줌.
+    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);   // 하나의 Geometry 마다 triangle 2 개씩 구성됨.
-    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };         // Geometry 마다 해당하는 triangle 개수를 집어넣어줌.
+    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
+    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
 
-    VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{                      // BLAS 를 Build 하기위한 정보들 ( 먼저, Prebuild 를 거친 후 나중에 본격적인 Build 를 거친다. )
-        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,  // buildBlasInfo 구성에 필요한 정보들이 많지만, 그 중 일부만 미리 설정해두었다.
-        .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,                    //  이는 Prebuild 과정이기에 지금은 간소하게 진행하는 것이다.
+    VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+        .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
         .geometryCount = sizeof(geometries) / sizeof(geometries[0]),
         .pGeometries = geometries,
     };
     
     VkAccelerationStructureBuildSizesInfoKHR requiredSize{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-    vk.vkGetAccelerationStructureBuildSizesKHR(             // vkGetAccelerationStructureBuildSizesKHR 함수는 Prebuild 하기 위해 필요한 Extension 함수이다.
+    vk.vkGetAccelerationStructureBuildSizesKHR(
         vk.device,
-        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,    // Build 를 CPU 에서 할 것인지 GPU 에서 할 것인지 지정해줄 수 있는데, 
-        &buildBlasInfo,                                     //  VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR 는 GPU 에서 Build 하기 위한 정보이다.
-        triangleCounts,                                     // ( Vulkan 은 DirectX 와 다르게 Acceleration Structure Build 과정을 CPU 에서 수행할 수 있다. (DirectX 는 무조건 GPU 상에서 수행) )
-        
-        &requiredSize);             // 나중에 본격적인 Build 를 할 것인데, 그 때 필요한 용량을 미리 확보하는 것이다. ( Prebuild 과정 )
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &buildBlasInfo,
+        triangleCounts,
+        &requiredSize);
 
-    std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(           // BLAS Buffer 은 앞으로 계속 가지고 가야하기에 전역변수로 사용된다.
-        requiredSize.accelerationStructureSize,                     // BLAS 가 저장되어 있는 Buffer 의 크기
+    std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(
+        requiredSize.accelerationStructureSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);                           // BLAS Buffer 와 Scratch Buffer 은 GPU 가 알아서 처리하기 때문에 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT 를 사용한다.
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    auto [scratchBuffer, scratchBufferMem] = createBuffer(              // scratchBuffer 는 BLAS Buffer Build 가 끝나면 해제하기 때문에 이와 같이 지역변수로 선언한 것이다.
-        requiredSize.buildScratchSize,                              // Build 과정에서 발생하는 추가적인 Buffer 크기
+    auto [scratchBuffer, scratchBufferMem] = createBuffer(
+        requiredSize.buildScratchSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -622,36 +777,35 @@ void createBLAS()
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = vk.blasBuffer,
             .size = requiredSize.accelerationStructureSize,
-            .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,            // BLAS 임을 알려주는 Bottom Level 타입 ( 앞서 buildBlasInfo 를 만들 때도 동일한 타입을 넣어주었다. )
+            .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
         };
-        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.blas);   // 실제로 BLAS 가 들어간 Buffer 인 vk.blasBuffer 을 다루는 핸들인 vk.blas 를 만드는 것
+        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.blas);
 
-        vk.blasAddress = getDeviceAddressOf(vk.blas);       // vk.blas 에 해당하는 Acceleration Structure Device 의 메모리 주소를 받아옴.
-    }                                                           // 이제 본격적인 BLAS Build 를 시작한다.
+        vk.blasAddress = getDeviceAddressOf(vk.blas);
+    }
 
     // Build BLAS using GPU operations
     {
+        vkResetCommandBuffer(vk.commandBuffer, 0);
         VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);                                 // 본격적인 BLAS Build 과정
+        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
         {
             buildBlasInfo.dstAccelerationStructure = vk.blas;
             buildBlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
-            VkAccelerationStructureBuildRangeInfoKHR buildBlasRangeInfo[] = {   // 위에서 buildBlasInfo.pGeometries 에 2 개의 geometry0 를 넣었으므로,
-                {                                                               //  buildBlasRangeInfo 에 2 개의 geometry0 각각에 대한 정보를 넣어주어야 한다.
-                
-                    .primitiveCount = triangleCounts[0],            // 현 Transformation 에 사용되는 triangle 개수
+            VkAccelerationStructureBuildRangeInfoKHR buildBlasRangeInfo[] = {
+                { 
+                    .primitiveCount = triangleCounts[0],
                     .transformOffset = 0,
                 },
                 { 
                     .primitiveCount = triangleCounts[1],
-                    .transformOffset = sizeof(geoTransforms[0]),    // 다음 Transformation 을 나타내는 정보의 Offset 을 지정
+                    .transformOffset = sizeof(geoTransforms[0]),
                 }
             };
 
-            VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };           // buildBlasInfos 배열을 만들고
-            VkAccelerationStructureBuildRangeInfoKHR* buildBlasRangeInfos[] = { buildBlasRangeInfo };   //  buildBlasRangeInfos 배열도 만든다.
-            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, buildBlasInfos, buildBlasRangeInfos);   // 해당 함수에서 Structures 을 발견할 수 있는데,
-                                                                                                                //  이는 여러 개의 BLAS 들을 동시에 만들 수 있음을 의미한다.
+            VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };
+            VkAccelerationStructureBuildRangeInfoKHR* buildBlasRangeInfos[] = { buildBlasRangeInfo };
+            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, buildBlasInfos, buildBlasRangeInfos);
             // vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildBlasInfo, 
             // (const VkAccelerationStructureBuildRangeInfoKHR *const *)&buildBlasRangeInfo);
         }
@@ -662,7 +816,7 @@ void createBLAS()
             .commandBufferCount = 1,
             .pCommandBuffers = &vk.commandBuffer,
         }; 
-        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);        // BLAS 만드는 명령을 GPU 에 전달
+        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         vkQueueWaitIdle(vk.graphicsQueue);
     }
 
@@ -678,11 +832,11 @@ void createBLAS()
 
 void createTLAS()
 {
-    VkTransformMatrixKHR insTransforms[] = {    // Transformation 2 개가 있었다. 하지만, 이번에는 이름이 insTransforms ( Instance Transformation ) 이다.
-        {                                       // BLAS 에서는 geoTransforms 이었는데 이는 Geometry 마다 가지고 있는 Transformation 정보를 의미하고,
-            1.0f, 0.0f, 0.0f, 0.0f,             //  TLAS 의 insTransforms 는 Instance 마다 적용되는 Transformation 정보를 의미한다.
+    VkTransformMatrixKHR insTransforms[] = {
+        {
+            1.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 2.0f,
-            0.0f, 0.0f, 1.0f, 0.0f          // 즉, 여기에서는 2 개의 Instance 를 만들고 그에 대한 각각의 Transformation 을 만든다.
+            0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -692,16 +846,18 @@ void createTLAS()
     };
 
     VkAccelerationStructureInstanceKHR instance0 {
-        .mask = 0xFF,                                   // mask 는 대부분 0xFF 을 사용
-        .instanceShaderBindingTableRecordOffset = 0,        // 나중에 Shader Binding Table 에서 사용되는 정보
-        .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,     // Back Face Culling 을 적용하지 않겠다는 의미의 flag
-        .accelerationStructureReference = vk.blasAddress,   // Instance 는 BLAS 를 참조한다.
+        .instanceCustomIndex = 100,
+        .mask = 0xFF,
+        .instanceShaderBindingTableRecordOffset = 0,
+        .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+        .accelerationStructureReference = vk.blasAddress,
     };
     VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
     instanceData[0].transform = insTransforms[0];
     instanceData[1].transform = insTransforms[1];
+    instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
 
-    auto [instanceBuffer, instanceBufferMem] = createBuffer(        // instanceData 에 대한 Buffer 를 만듦.
+    auto [instanceBuffer, instanceBufferMem] = createBuffer(
         sizeof(instanceData), 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -713,28 +869,27 @@ void createTLAS()
 
     VkAccelerationStructureGeometryKHR instances{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-        .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,         // BLAS 에서는 VK_GEOMETRY_TYPE_TRIANGLES_KHR 을 사용하는 반면,
-                                                                //  TLAS 에서는 type 로 VK_GEOMETRY_TYPE_INSTANCES_KHR 를 사용한다.
-        .geometry = {           // geometry union 을 채우기
+        .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+        .geometry = {
             .instances = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-                .data = { .deviceAddress = getDeviceAddressOf(instanceBuffer) },    // Instance Buffer 의 주소로 설정
+                .data = { .deviceAddress = getDeviceAddressOf(instanceBuffer) },
             },
         },
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
-                                                    // BLAS 하나에 여러개의 Geometry 가 들어갈 수 있고, 각각의 Geometry 들은 여러 개의 Triangles 이 들어갈 수 있다.
-    uint32_t instanceCount = 2;                     // TALS 에는 하나의 Geometry 만 올 수 있고, 그 Geometry 은 여러 개의 Instance 들의 집합이기도 하다.
+
+    uint32_t instanceCount = 2;
 
     VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
         .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
         .geometryCount = 1,     // It must be 1 with .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR as shown in the vulkan spec.
-        .pGeometries = &instances,      // 현재 TLAS 에서 geometry 가 1 개이므로 geometryCount 는 1 이어야 한다.
+        .pGeometries = &instances,
     };
 
-    VkAccelerationStructureBuildSizesInfoKHR requiredSize{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};   // Prebuild 과정
+    VkAccelerationStructureBuildSizesInfoKHR requiredSize{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
     vk.vkGetAccelerationStructureBuildSizesKHR(
         vk.device,
         VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
@@ -761,19 +916,18 @@ void createTLAS()
             .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         };
         vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.tlas);
-
-        vk.tlasAddress = getDeviceAddressOf(vk.tlas);
     }
 
     // Build TLAS using GPU operations
     {
-        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};       // 본격적인 TLAS Build 진행
+        vkResetCommandBuffer(vk.commandBuffer, 0);
+        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
         {
             buildTlasInfo.dstAccelerationStructure = vk.tlas;
             buildTlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
 
-            VkAccelerationStructureBuildRangeInfoKHR buildTlasRangeInfo = { .primitiveCount = instanceCount };  // TLAS 의 Geometry 는 1 개뿐이기에 굳이 배열을 만들지 않았다.
+            VkAccelerationStructureBuildRangeInfoKHR buildTlasRangeInfo = { .primitiveCount = instanceCount };
             VkAccelerationStructureBuildRangeInfoKHR* buildTlasRangeInfo_[] = { &buildTlasRangeInfo };
             vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildTlasInfo, buildTlasRangeInfo_);
         }
@@ -794,17 +948,478 @@ void createTLAS()
     vkDestroyBuffer(vk.device, instanceBuffer, nullptr);
 }
 
-void loadDeviceExtensionFunctions(VkDevice device)      // 드라이버에서 사용할 확장 함수의 포인터를 이쪽으로 가져온다. 해당 과정은 device 를 지정한 후 진행되어야 한다.
+void createOutImage()
 {
-    vk.vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
-                                        // device 와 관련한 외부 드라이버에서 vkGetBufferDeviceAddressKHR 함수를 찾은 후 해당 함수의 포인터를
-                                        //  vk.vkGetBufferDeviceAddressKHR 함수 포인터에 대입한다.
+    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM; //VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB(==vk.swapChainImageFormat)
+    std::tie(vk.outImage, vk.outImageMem) = createImage(
+        { WIDTH, HEIGHT },
+        format, 
+        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    vk.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
-    vk.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
-    vk.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-    vk.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
-    vk.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+    VkImageSubresourceRange subresourceRange{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .levelCount = 1,
+        .layerCount = 1,
+    };
+    
+    VkImageViewCreateInfo ci0{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = vk.outImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .components = {
+            .r = VK_COMPONENT_SWIZZLE_B,
+            .b = VK_COMPONENT_SWIZZLE_R,
+        },
+        .subresourceRange = subresourceRange,
+    };
+    vkCreateImageView(vk.device, &ci0, nullptr, &vk.outImageView);
+
+    vkResetCommandBuffer(vk.commandBuffer, 0);
+    VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
+    {
+        setImageLayout(
+            vk.commandBuffer, 
+            vk.outImage, 
+            VK_IMAGE_LAYOUT_UNDEFINED, 
+            VK_IMAGE_LAYOUT_GENERAL, 
+            subresourceRange);
+    }
+    vkEndCommandBuffer(vk.commandBuffer);
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vk.commandBuffer,
+    }; 
+    vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(vk.graphicsQueue);
+}
+
+void createUniformBuffer()
+{
+    struct Data{
+        float cameraPos[3];
+        float yFov_degree;
+    } dataSrc; 
+
+    std::tie(vk.uniformBuffer, vk.uniformBufferMem) = createBuffer(
+        sizeof(dataSrc), 
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* dst;
+    vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
+    *(Data*) dst = {0, 0, 10, 60};
+    vkUnmapMemory(vk.device, vk.uniformBufferMem);
+}
+
+const char* raygen_src = R"(
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, rgba8) uniform image2D image;
+layout(binding = 2) uniform CameraProperties 
+{
+    vec3 cameraPos;
+    float yFov_degree;
+} g;
+
+layout(location = 0) rayPayloadEXT vec3 hitValue;
+
+void main() 
+{
+    const vec3 cameraX = vec3(1, 0, 0);
+    const vec3 cameraY = vec3(0, -1, 0);
+    const vec3 cameraZ = vec3(0, 0, -1);
+    const float aspect_y = tan(radians(g.yFov_degree) * 0.5);
+    const float aspect_x = aspect_y * float(gl_LaunchSizeEXT.x) / float(gl_LaunchSizeEXT.y);
+
+    const vec2 screenCoord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    const vec2 ndc = screenCoord/vec2(gl_LaunchSizeEXT.xy) * 2.0 - 1.0;
+    vec3 rayDir = ndc.x*aspect_x*cameraX + ndc.y*aspect_y*cameraY + cameraZ;
+
+    hitValue = vec3(0.0);
+
+    traceRayEXT(
+        topLevelAS,                         // topLevel
+        gl_RayFlagsOpaqueEXT, 0xff,         // rayFlags, cullMask
+        0, 1, 0,                            // sbtRecordOffset, sbtRecordStride, missIndex
+        g.cameraPos, 0.0, rayDir, 100.0,    // origin, tmin, direction, tmax
+        0);                                 // payload
+
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
+})";
+
+const char* miss_src = R"(
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(location = 0) rayPayloadInEXT vec3 hitValue;
+
+void main()
+{
+    hitValue = vec3(0.0, 0.0, 0.2);
+})";
+
+const char* chit_src = R"(
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(shaderRecordEXT) buffer CustomData
+{
+    vec3 color;
+};
+
+layout(location = 0) rayPayloadInEXT vec3 hitValue;
+hitAttributeEXT vec2 attribs;
+
+void main()
+{
+    if (gl_PrimitiveID == 1 && 
+        gl_InstanceID == 1 && 
+        gl_InstanceCustomIndexEXT == 100 && 
+        gl_GeometryIndexEXT == 1) {
+        hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    }
+    else {
+        hitValue = color;
+    }
+})";
+
+void createRayTracingPipeline()
+{
+    VkDescriptorSetLayoutBinding bindings[] = {
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        },
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        },
+        {
+            .binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        },
+    };
+
+    VkDescriptorSetLayoutCreateInfo ci0{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = sizeof(bindings) / sizeof(bindings[0]),
+        .pBindings = bindings,
+    };
+    vkCreateDescriptorSetLayout(vk.device, &ci0, nullptr, &vk.descriptorSetLayout);
+
+    VkPipelineLayoutCreateInfo ci1{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &vk.descriptorSetLayout,
+    };
+    vkCreatePipelineLayout(vk.device, &ci1, nullptr, &vk.pipelineLayout);
+
+    ShaderModule<VK_SHADER_STAGE_RAYGEN_BIT_KHR> raygenModule(vk.device, raygen_src);
+    ShaderModule<VK_SHADER_STAGE_MISS_BIT_KHR> missModule(vk.device, miss_src);
+    ShaderModule<VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR> chitModule(vk.device, chit_src);
+    VkPipelineShaderStageCreateInfo stages[] = { raygenModule, missModule, chitModule };
+
+    VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 0,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 1,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+            .generalShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = 2,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        },
+    };
+    
+    VkRayTracingPipelineCreateInfoKHR ci2{
+        .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+        .stageCount = sizeof(stages) / sizeof(stages[0]),
+        .pStages = stages,
+        .groupCount = sizeof(shaderGroups) / sizeof(shaderGroups[0]),
+        .pGroups = shaderGroups,
+        .maxPipelineRayRecursionDepth = 1,
+        .layout = vk.pipelineLayout,
+    };
+    vk.vkCreateRayTracingPipelinesKHR(vk.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &ci2, nullptr, &vk.pipeline);
+}
+
+void createDescriptorSets()
+{
+    VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+    };
+    VkDescriptorPoolCreateInfo ci0 {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1,
+        .poolSizeCount = sizeof(poolSizes) / sizeof(poolSizes[0]),
+        .pPoolSizes = poolSizes,
+    };
+    vkCreateDescriptorPool(vk.device, &ci0, nullptr, &vk.descriptorPool);
+
+    VkDescriptorSetAllocateInfo ai0 {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = vk.descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &vk.descriptorSetLayout,
+    };
+    vkAllocateDescriptorSets(vk.device, &ai0, &vk.descriptorSet);
+
+    VkWriteDescriptorSet write_temp{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = vk.descriptorSet,
+        .descriptorCount = 1,
+    };
+
+    // Descriptor(binding = 0), VkAccelerationStructure
+    VkWriteDescriptorSetAccelerationStructureKHR desc0{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &vk.tlas,  
+    };
+    VkWriteDescriptorSet write0 = write_temp;
+    write0.pNext = &desc0;
+    write0.dstBinding = 0;
+    write0.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    
+    // Descriptor(binding = 1), VkImage for output
+    VkDescriptorImageInfo desc1{
+        .imageView = vk.outImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+    };
+    VkWriteDescriptorSet write1 = write_temp;
+    write1.dstBinding = 1;
+    write1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    write1.pImageInfo = &desc1;
+ 
+    // Descriptor(binding = 2), VkBuffer for uniform
+    VkDescriptorBufferInfo desc2{
+        .buffer = vk.uniformBuffer,
+        .offset = 0,
+        .range = VK_WHOLE_SIZE,
+    };
+    VkWriteDescriptorSet write2 = write_temp;
+    write2.dstBinding = 2;
+    write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write2.pBufferInfo = &desc2;
+
+    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2 };
+    vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
+    /*
+    [VUID-VkWriteDescriptorSet-descriptorType-00336]
+    If descriptorType is VK_DESCRIPTOR_TYPE_STORAGE_IMAGE or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 
+    the imageView member of each element of pImageInfo must have been created with the identity swizzle.
+    */
+}
+
+struct ShaderGroupHandle {
+    uint8_t data[SHADER_GROUP_HANDLE_SIZE];
+};
+
+struct HitgCustomData {
+    float color[3];
+};
+
+/*
+In the vulkan spec,
+[VUID-vkCmdTraceRaysKHR-stride-03686] pMissShaderBindingTable->stride must be a multiple of VkPhysicalDeviceRayTracingPipelinePropertiesKHR::shaderGroupHandleAlignment
+[VUID-vkCmdTraceRaysKHR-stride-03690] pHitShaderBindingTable->stride must be a multiple of VkPhysicalDeviceRayTracingPipelinePropertiesKHR::shaderGroupHandleAlignment
+[VUID-vkCmdTraceRaysKHR-pRayGenShaderBindingTable-03682] pRayGenShaderBindingTable->deviceAddress must be a multiple of VkPhysicalDeviceRayTracingPipelinePropertiesKHR::shaderGroupBaseAlignment
+[VUID-vkCmdTraceRaysKHR-pMissShaderBindingTable-03685] pMissShaderBindingTable->deviceAddress must be a multiple of VkPhysicalDeviceRayTracingPipelinePropertiesKHR::shaderGroupBaseAlignment
+[VUID-vkCmdTraceRaysKHR-pHitShaderBindingTable-03689] pHitShaderBindingTable->deviceAddress must be a multiple of VkPhysicalDeviceRayTracingPipelinePropertiesKHR::shaderGroupBaseAlignment
+
+As shown in the vulkan spec 40.3.1. Indexing Rules,  
+    pHitShaderBindingTable->deviceAddress + pHitShaderBindingTable->stride 횞 (
+    instanceShaderBindingTableRecordOffset + geometryIndex 횞 sbtRecordStride + sbtRecordOffset )
+*/
+void createShaderBindingTable() 
+{
+    auto alignTo = [](auto value, auto alignment) -> decltype(value) {
+        return (value + (decltype(value))alignment - 1) & ~((decltype(value))alignment - 1);
+    };
+    const uint32_t handleSize = SHADER_GROUP_HANDLE_SIZE;
+    const uint32_t groupCount = 3; // 1 raygen, 1 miss, 1 hit group
+    std::vector<ShaderGroupHandle> handels(groupCount);
+    vk.vkGetRayTracingShaderGroupHandlesKHR(vk.device, vk.pipeline, 0, groupCount, handleSize * groupCount, handels.data());
+    ShaderGroupHandle rgenHandle = handels[0];
+    ShaderGroupHandle missHandle = handels[1];
+    ShaderGroupHandle hitgHandle = handels[2];
+
+    const uint32_t rgenStride = alignTo(handleSize, vk.rtProperties.shaderGroupHandleAlignment);
+    vk.rgenSbt = { 0, rgenStride, rgenStride };
+    
+    const uint64_t missOffset = alignTo(vk.rgenSbt.size, vk.rtProperties.shaderGroupBaseAlignment);
+    const uint32_t missStride = alignTo(handleSize, vk.rtProperties.shaderGroupHandleAlignment);
+    vk.missSbt = { 0, missStride, missStride };
+
+    const uint32_t hitgCustomDataSize = sizeof(HitgCustomData);
+    const uint32_t geometryCount = 4;
+    const uint64_t hitgOffset = alignTo(missOffset + vk.missSbt.size, vk.rtProperties.shaderGroupBaseAlignment);
+    const uint32_t hitgStride = alignTo(handleSize + hitgCustomDataSize, vk.rtProperties.shaderGroupHandleAlignment);
+    vk.hitgSbt = { 0, hitgStride, hitgStride * geometryCount };
+
+    const uint64_t sbtSize = hitgOffset + vk.hitgSbt.size;
+    std::tie(vk.sbtBuffer, vk.sbtBufferMem) = createBuffer(
+        sbtSize,
+        VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto sbtAddress = getDeviceAddressOf(vk.sbtBuffer);
+    if (sbtAddress != alignTo(sbtAddress, vk.rtProperties.shaderGroupBaseAlignment)) {
+        throw std::runtime_error("It will not be happened!");
+    }
+    vk.rgenSbt.deviceAddress = sbtAddress;
+    vk.missSbt.deviceAddress = sbtAddress + missOffset;
+    vk.hitgSbt.deviceAddress = sbtAddress + hitgOffset;
+
+    uint8_t* dst;
+    vkMapMemory(vk.device, vk.sbtBufferMem, 0, sbtSize, 0, (void**)&dst);
+    {
+        *(ShaderGroupHandle*)dst = rgenHandle; 
+        *(ShaderGroupHandle*)(dst + missOffset) = missHandle;
+
+        *(ShaderGroupHandle*)(dst + hitgOffset + 0 * hitgStride             ) = hitgHandle;
+        *(HitgCustomData*   )(dst + hitgOffset + 0 * hitgStride + handleSize) = {0.6f, 0.1f, 0.2f}; // Deep Red Wine
+        *(ShaderGroupHandle*)(dst + hitgOffset + 1 * hitgStride             ) = hitgHandle;
+        *(HitgCustomData*   )(dst + hitgOffset + 1 * hitgStride + handleSize) = {0.1f, 0.8f, 0.4f}; // Emerald Green
+        *(ShaderGroupHandle*)(dst + hitgOffset + 2 * hitgStride             ) = hitgHandle;
+        *(HitgCustomData*   )(dst + hitgOffset + 2 * hitgStride + handleSize) = {0.9f, 0.7f, 0.1f}; // Golden Yellow
+        *(ShaderGroupHandle*)(dst + hitgOffset + 3 * hitgStride             ) = hitgHandle;
+        *(HitgCustomData*   )(dst + hitgOffset + 3 * hitgStride + handleSize) = {0.3f, 0.6f, 0.9f}; // Dawn Sky Blue
+    }
+    vkUnmapMemory(vk.device, vk.sbtBufferMem);
+}
+
+void render()
+{
+    static const VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    static const VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    static const VkImageCopy copyRegion = {
+        .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+        .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+        .extent = { WIDTH, HEIGHT, 1 },
+    };
+    static const VkStridedDeviceAddressRegionKHR callSbt{};
+
+    vkWaitForFences(vk.device, 1, &vk.fence0, VK_TRUE, UINT64_MAX);
+    vkResetFences(vk.device, 1, &vk.fence0);
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(vk.device, vk.swapChain, UINT64_MAX, vk.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    vkResetCommandBuffer(vk.commandBuffer, 0);
+    if (vkBeginCommandBuffer(vk.commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+    {
+        vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, vk.pipeline);
+        vkCmdBindDescriptorSets(
+            vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 
+            vk.pipelineLayout, 0, 1, &vk.descriptorSet, 0, 0);
+
+        vk.vkCmdTraceRaysKHR(
+            vk.commandBuffer,
+            &vk.rgenSbt,
+            &vk.missSbt,
+            &vk.hitgSbt,
+            &callSbt,
+            WIDTH, HEIGHT, 1);
+        
+        setImageLayout(
+            vk.commandBuffer,
+            vk.outImage,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            subresourceRange);
+            
+        setImageLayout(
+            vk.commandBuffer,
+            vk.swapChainImages[imageIndex],
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            subresourceRange);
+        
+        vkCmdCopyImage(
+            vk.commandBuffer,
+            vk.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            vk.swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &copyRegion);
+
+        setImageLayout(
+            vk.commandBuffer,
+            vk.outImage,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresourceRange);
+
+        setImageLayout(
+            vk.commandBuffer,
+            vk.swapChainImages[imageIndex],
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            subresourceRange);
+    }
+    if (vkEndCommandBuffer(vk.commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+
+    VkSemaphore waitSemaphores[] = { 
+        vk.imageAvailableSemaphore 
+    };
+    VkPipelineStageFlags waitStages[] = { 
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
+    };
+    
+    VkSubmitInfo submitInfo{ 
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = sizeof(waitSemaphores) / sizeof(waitSemaphores[0]),
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vk.commandBuffer,
+    };
+    
+    if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.fence0) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+    }
+    
+    VkPresentInfoKHR presentInfo{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .swapchainCount = 1,
+        .pSwapchains = &vk.swapChain,
+        .pImageIndices = &imageIndex,
+    };
+    
+    vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
 int main()
@@ -815,19 +1430,21 @@ int main()
     createVkDevice();
     loadDeviceExtensionFunctions(vk.device);
     createSwapChain();
-    
-    // createRenderPass();          // BLAS 와 TLAS 가 있으니, RenderPass 와 Pipeline 은 필요없어졌다.
-    // createGraphicsPipeline();
     createCommandCenter();
-    createSyncObjects(); 
+    createSyncObjects();
 
-    createBLAS();       // Geometry 들로 구성   ( BLAS (Bottom-Level Acceleration Structure) )
-    createTLAS();       // Instance 들로 구성   ( TLAS (Top-Level Acceleration Structure) )
+    createBLAS();
+    createTLAS();
+    createOutImage();
+    createUniformBuffer();
+    createRayTracingPipeline();
+    createDescriptorSets();
+    createShaderBindingTable();
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        //render();
+        render();
     }
 
     vkDeviceWaitIdle(vk.device);
