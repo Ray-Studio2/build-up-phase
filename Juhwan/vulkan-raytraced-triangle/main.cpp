@@ -701,7 +701,7 @@ void createTLAS()
     instanceData[0].transform = insTransforms[0];
     instanceData[1].transform = insTransforms[1];
 
-    auto [instanceBuffer, instanceBufferMem] = createBuffer(
+    auto [instanceBuffer, instanceBufferMem] = createBuffer(        // instanceData 에 대한 Buffer 를 만듦.
         sizeof(instanceData), 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -713,27 +713,28 @@ void createTLAS()
 
     VkAccelerationStructureGeometryKHR instances{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-        .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-        .geometry = {
+        .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,         // BLAS 에서는 VK_GEOMETRY_TYPE_TRIANGLES_KHR 을 사용하는 반면,
+                                                                //  TLAS 에서는 type 로 VK_GEOMETRY_TYPE_INSTANCES_KHR 를 사용한다.
+        .geometry = {           // geometry union 을 채우기
             .instances = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-                .data = { .deviceAddress = getDeviceAddressOf(instanceBuffer) },
+                .data = { .deviceAddress = getDeviceAddressOf(instanceBuffer) },    // Instance Buffer 의 주소로 설정
             },
         },
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
-
-    uint32_t instanceCount = 2;
+                                                    // BLAS 하나에 여러개의 Geometry 가 들어갈 수 있고, 각각의 Geometry 들은 여러 개의 Triangles 이 들어갈 수 있다.
+    uint32_t instanceCount = 2;                     // TALS 에는 하나의 Geometry 만 올 수 있고, 그 Geometry 은 여러 개의 Instance 들의 집합이기도 하다.
 
     VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
         .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
         .geometryCount = 1,     // It must be 1 with .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR as shown in the vulkan spec.
-        .pGeometries = &instances,
+        .pGeometries = &instances,      // 현재 TLAS 에서 geometry 가 1 개이므로 geometryCount 는 1 이어야 한다.
     };
 
-    VkAccelerationStructureBuildSizesInfoKHR requiredSize{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+    VkAccelerationStructureBuildSizesInfoKHR requiredSize{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};   // Prebuild 과정
     vk.vkGetAccelerationStructureBuildSizesKHR(
         vk.device,
         VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
@@ -766,13 +767,13 @@ void createTLAS()
 
     // Build TLAS using GPU operations
     {
-        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};       // 본격적인 TLAS Build 진행
         vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
         {
             buildTlasInfo.dstAccelerationStructure = vk.tlas;
             buildTlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
 
-            VkAccelerationStructureBuildRangeInfoKHR buildTlasRangeInfo = { .primitiveCount = instanceCount };
+            VkAccelerationStructureBuildRangeInfoKHR buildTlasRangeInfo = { .primitiveCount = instanceCount };  // TLAS 의 Geometry 는 1 개뿐이기에 굳이 배열을 만들지 않았다.
             VkAccelerationStructureBuildRangeInfoKHR* buildTlasRangeInfo_[] = { &buildTlasRangeInfo };
             vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildTlasInfo, buildTlasRangeInfo_);
         }
