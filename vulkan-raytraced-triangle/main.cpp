@@ -1,347 +1,537 @@
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "glfw/glfw3.h"
+
+#include "core/app.hpp"
+#include "math/vec3.hpp"
+
 #include <iostream>
+#include <fstream>
 #include <vector>
-#include <filesystem>
 #include <tuple>
-#include <bitset>
-#include <span>
-#include "shader_module.h"
+#include <cstring>              // strcmp()
+using std::cout, std::endl;
+using std::ifstream;
+using std::vector;
+using std::tuple;
 
-typedef unsigned int uint;
+constexpr unsigned int WINDOW_WIDTH  = 1280;
+constexpr unsigned int WINDOW_HEIGHT = 720;
 
-const uint32_t WIDTH = 1200;
-const uint32_t HEIGHT = 800;
+// 현재 BLAS, TLAS 빌드 까지 완료
+// TODO: SwapChain, Desc, Uniform Buffer, render함수 세팅
+//       global buffer 정리, images, RT pipeline, shader, SBT
 
-#ifdef NDEBUG
-    const bool ON_DEBUG = false;
-#else
-    const bool ON_DEBUG = true;
-#endif
-
-
-struct Global {
+struct VKglobal {
     PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
     PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
     PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
     PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+	PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 
     VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
 
-    VkSurfaceKHR surface;
-    VkPhysicalDevice physicalDevice;
-    VkDevice device;
+    #ifdef DEBUG
+        VkDebugUtilsMessengerEXT debugMessenger;
+    #endif
 
-    VkQueue graphicsQueue; // assume allowing graphics and present
-    uint queueFamilyIndex;
+    VkSurfaceKHR windowSurface;
+
+    VkPhysicalDevice gpu;
+    unsigned int graphicsQueueIdx;
+    VkQueue graphicsQueue;
+    VkDevice logicalDevice;
 
     VkSwapchainKHR swapChain;
-    std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
-    const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format
-    const VkExtent2D swapChainImageExtent = { .width = WIDTH, .height = HEIGHT };
+    vector<VkImage> swapChainImages;
+    vector<VkImageView> swapChainImageViews;
+
+    vector<VkFramebuffer> frameBuffers;
+
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
 
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
 
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
-    VkFence fence0;
+    VkSemaphore availableSemaphore;
+    VkSemaphore renderDoneSemaphore;
+    VkFence fence;
 
-    VkBuffer blasBuffer;
-    VkDeviceMemory blasBufferMem;
+    tuple<VkBuffer, VkDeviceMemory> vertexBuffer;
+    tuple<VkBuffer, VkDeviceMemory> indexBuffer;
+    tuple<VkBuffer, VkDeviceMemory> geometryBuffer;
+    tuple<VkBuffer, VkDeviceMemory> instanceBuffer;
+    tuple<VkBuffer, VkDeviceMemory> blasBuffer;
+    tuple<VkBuffer, VkDeviceMemory> tlasBuffer;
+
     VkAccelerationStructureKHR blas;
-    VkDeviceAddress blasAddress;
-
-    VkBuffer tlasBuffer;
-    VkDeviceMemory tlasBufferMem;
     VkAccelerationStructureKHR tlas;
+    VkDeviceAddress blasAddress;
     VkDeviceAddress tlasAddress;
 
-    ~Global() {
-        vkDestroyBuffer(device, tlasBuffer, nullptr);
-        vkFreeMemory(device, tlasBufferMem, nullptr);
-        vkDestroyAccelerationStructureKHR(device, tlas, nullptr);
+    VkDescriptorSetLayout uboDescSetLayout;
+    VkDescriptorPool descPool;
+    VkDescriptorSet uboDescSet;
 
-        vkDestroyBuffer(device, blasBuffer, nullptr);
-        vkFreeMemory(device, blasBufferMem, nullptr);
-        vkDestroyAccelerationStructureKHR(device, blas, nullptr);
+    const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    const VkColorSpaceKHR swapChainImageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    const VkExtent2D swapChainImageExtent = {
+        .width = WINDOW_WIDTH,
+        .height = WINDOW_HEIGHT
+    };
 
-        vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-        vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
-        vkDestroyFence(device, fence0, nullptr);
+    ~VKglobal() noexcept {
+        vkDestroyFence(logicalDevice, fence, nullptr);
+        vkDestroySemaphore(logicalDevice, availableSemaphore, nullptr);
+        vkDestroySemaphore(logicalDevice, renderDoneSemaphore, nullptr);
 
-        vkDestroyCommandPool(device, commandPool, nullptr);
+        vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 
-        for (auto imageView : swapChainImageViews) {
-            vkDestroyImageView(device, imageView, nullptr);
-        }
-        vkDestroySwapchainKHR(device, swapChain, nullptr);
-        vkDestroyDevice(device, nullptr);
-        if (ON_DEBUG) {
-            ((PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk.instance, "vkDestroyDebugUtilsMessengerEXT"))
-                (vk.instance, vk.debugMessenger, nullptr);
-        }
-        vkDestroySurfaceKHR(instance, surface, nullptr);
+        vkDestroyAccelerationStructureKHR(logicalDevice, tlas, nullptr);
+        vkDestroyAccelerationStructureKHR(logicalDevice, blas, nullptr);
+
+        vkFreeMemory(logicalDevice, std::get<1>(tlasBuffer), nullptr);
+        vkFreeMemory(logicalDevice, std::get<1>(blasBuffer), nullptr);
+        vkFreeMemory(logicalDevice, std::get<1>(instanceBuffer), nullptr);
+        vkFreeMemory(logicalDevice, std::get<1>(geometryBuffer), nullptr);
+        vkFreeMemory(logicalDevice, std::get<1>(indexBuffer), nullptr);
+        vkFreeMemory(logicalDevice, std::get<1>(vertexBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(tlasBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(blasBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(instanceBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(geometryBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(indexBuffer), nullptr);
+        vkDestroyBuffer(logicalDevice, std::get<0>(vertexBuffer), nullptr);
+
+        vkDestroyDescriptorPool(logicalDevice, descPool, nullptr);
+        vkDestroyDescriptorSetLayout(logicalDevice, uboDescSetLayout, nullptr);
+
+        vkDestroyPipeline(logicalDevice, pipeline, nullptr);
+        vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
+
+        for (auto frameBuffer: frameBuffers)
+            vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
+
+        for (auto imageView: swapChainImageViews)
+            vkDestroyImageView(logicalDevice, imageView, nullptr);
+
+        vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
+
+        vkDestroyDevice(logicalDevice, nullptr);
+        vkDestroySurfaceKHR(instance, windowSurface, nullptr);
+
+        #ifdef DEBUG
+            ((PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"))(instance, debugMessenger, nullptr);
+        #endif
+
         vkDestroyInstance(instance, nullptr);
     }
-} vk;
+} vkGlobal;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData)
-{
-    const char* severity;
-    switch (messageSeverity) {
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severity = "[Verbose]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severity = "[Warning]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severity = "[Error]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severity = "[Info]"; break;
-    default: severity = "[Unknown]";
+          VkDebugUtilsMessageSeverityFlagBitsEXT severity    , VkDebugUtilsMessageTypeFlagsEXT type,
+    const VkDebugUtilsMessengerCallbackDataEXT*  callbackData, void*                           userData
+) {
+    const char* debugMSG{ };
+
+    switch (severity) {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
+            debugMSG = "[Verbose]";
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
+            debugMSG = "[Warning]";
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
+            debugMSG = "[Error]";
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
+            debugMSG = "[Info]";
+            break;
+        }
+
+        default:
+            debugMSG = "[Unknown]";
     }
 
-    const char* types;
-    switch (messageType) {
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: types = "[General]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: types = "[Performance]"; break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: types = "[Validation]"; break;
-    default: types = "[Unknown]";
+    const char* types{ };
+
+    switch (type) {
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: {
+            types = "[General]";
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: {
+            types = "[Performance]";
+            break;
+        }
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: {
+            types = "[Validation]";
+            break;
+        }
+
+        default:
+            types = "[Unknown]";
     }
 
-    std::cout << "[Debug]" << severity << types << pCallbackData->pMessage << std::endl;
+    cout << "[Debug]" << severity << types << callbackData->pMessage << endl;
     return VK_FALSE;
 }
 
-bool checkValidationLayerSupport(std::vector<const char*>& reqestNames) {
-    uint32_t count;
-    vkEnumerateInstanceLayerProperties(&count, nullptr);
-    std::vector<VkLayerProperties> availables(count);
-    vkEnumerateInstanceLayerProperties(&count, availables.data());
+void loadDeviceExtensionFunctions() {
+    // anonymous namespace 내부에 함수들 넣어두면 vkGlobal. 붙이지 않고 쓸 수 있나?/
+    // ::vkGetBufferDeviceAddressKHR 처럼
 
-    for (const char* reqestName : reqestNames) {
-        bool found = false;
+    vkGlobal.vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkGetBufferDeviceAddressKHR"));
+    vkGlobal.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkGetAccelerationStructureDeviceAddressKHR"));
+    vkGlobal.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkCreateAccelerationStructureKHR"));
+    vkGlobal.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkDestroyAccelerationStructureKHR"));
+    vkGlobal.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkGetAccelerationStructureBuildSizesKHR"));
+    vkGlobal.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkCmdBuildAccelerationStructuresKHR"));
+	vkGlobal.vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkCreateRayTracingPipelinesKHR"));
+	vkGlobal.vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkGetRayTracingShaderGroupHandlesKHR"));
+    vkGlobal.vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(vkGlobal.logicalDevice, "vkCmdTraceRaysKHR"));
+}
+inline VkDeviceAddress getDeviceAddress(VkBuffer buf) {
+    VkBufferDeviceAddressInfoKHR deviceAddressInfo {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = buf
+    };
 
-        for (const auto& available : availables) {
-            if (strcmp(reqestName, available.layerName) == 0) {
-                found = true;
-                break;
-            }
-        }
+    return vkGlobal.vkGetBufferDeviceAddressKHR(vkGlobal.logicalDevice, &deviceAddressInfo);
+}
+inline VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR as) {
+    VkAccelerationStructureDeviceAddressInfoKHR deviceAddressInfo {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+        .accelerationStructure = as
+    };
 
-        if (!found) {
-            return false;
+    return vkGlobal.vkGetAccelerationStructureDeviceAddressKHR(vkGlobal.logicalDevice, &deviceAddressInfo);
+}
+
+bool isExtensionSupport(const VkPhysicalDevice& device, const vector<const char*>& extensions) {
+    unsigned int deviceExtensionCount{ };
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &deviceExtensionCount, nullptr);
+
+    vector<VkExtensionProperties> supportExtensions(deviceExtensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &deviceExtensionCount, supportExtensions.data());
+
+    int checkCount{ };
+    for (const auto& needExtension: extensions) {
+        for (const auto& support: supportExtensions) {
+            if (strcmp(needExtension, support.extensionName) == 0)
+                ++checkCount;
+
+            if (checkCount == extensions.size())
+                return true;
         }
     }
 
-    return true;
+    return false;
 }
+vector<char> readFile(const char* filePath) {
+    ifstream reader(filePath, std::ios::binary | std::ios::ate);
+    vector<char> fileData;
 
-bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*>& reqestNames) {
-    uint32_t count;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
-    std::vector<VkExtensionProperties> availables(count);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, availables.data());
+    if (reader) {
+        unsigned long long fileSize = static_cast<unsigned long long>(reader.tellg());
+        fileData.resize(fileSize);
 
-    for (const char* reqestName : reqestNames) {
-        bool found = false;
+        reader.seekg(std::ios::beg);
+        reader.read(fileData.data(), fileSize);
+        reader.close();
+    }
+    else
+        cout << "[ERROR]: Failed to open file \"" << filePath << '\"' << endl;
 
-        for (const auto& available : availables) {
-            if (strcmp(reqestName, available.extensionName) == 0) {
-                found = true;
+    return fileData;
+}
+VkShaderModule makeShaderModule(const char* filePath) {
+    VkShaderModule shaderModule{ };
+
+    vector<char> spvFile = readFile(filePath);
+    if (!spvFile.empty()) {
+        VkShaderModuleCreateInfo shaderModuleCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = spvFile.size(),
+            .pCode = reinterpret_cast<const unsigned int*>(spvFile.data())
+        };
+
+        if (vkCreateShaderModule(vkGlobal.logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule) != VK_SUCCESS)
+            cout << "[ERROR]: vkCreateShaderModule()" << endl;
+    }
+
+    return shaderModule;
+}
+tuple<VkBuffer, VkDeviceMemory> createBuffer(const VkDeviceSize& size, const VkBufferUsageFlags& usage, const VkMemoryPropertyFlags& reqMemFlags) {
+    VkBufferCreateInfo bufferInfo {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = usage
+    };
+
+    VkBuffer buffer{ };
+    if (vkCreateBuffer(vkGlobal.logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateBuffer()" << endl;
+
+    unsigned int memIdx{ };
+    VkMemoryRequirements memRequirements;
+    {
+        vkGetBufferMemoryRequirements(vkGlobal.logicalDevice, buffer, &memRequirements);
+
+        VkPhysicalDeviceMemoryProperties gpuMemSpec;
+        vkGetPhysicalDeviceMemoryProperties(vkGlobal.gpu, &gpuMemSpec);
+
+        for (; memIdx < gpuMemSpec.memoryTypeCount; ++memIdx) {
+            if ((memRequirements.memoryTypeBits) && ((reqMemFlags & gpuMemSpec.memoryTypes[memIdx].propertyFlags) == reqMemFlags))
                 break;
-            }
-        }
-
-        if (!found) {
-            return false;
         }
     }
 
-    return true;
+    VkMemoryAllocateInfo memAllocInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = memIdx
+    };
+
+    // VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 가 켜져 있는 경우
+    // 이 설정을 해주는 것으로 GPU가 버퍼를 찾을 수 있음
+    if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        VkMemoryAllocateFlagsInfo memAllocFlagsInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
+        };
+
+        // Next Chain 연결
+        memAllocInfo.pNext = &memAllocFlagsInfo;
+    }
+
+    VkDeviceMemory memory{ };
+    if (vkAllocateMemory(vkGlobal.logicalDevice, &memAllocInfo, nullptr, &memory) != VK_SUCCESS)
+        cout << "[ERROR]: vkAllocateMemory()" << endl;
+
+    vkBindBufferMemory(vkGlobal.logicalDevice, buffer, memory, 0);
+
+    return { buffer, memory };
 }
 
-GLFWwindow* createWindow()
-{
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    return glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+// Depth Image 코드 잔재
+// 후속 강의에 Image 생성 파트가 있는것 같아서 일단 남겨둠
+tuple<VkImage, VkDeviceMemory> createImage(
+    const VkFormat&          format, const VkExtent3D&                 extent, const VkImageTiling& tiling,
+    const VkImageUsageFlags& usage , const VkMemoryPropertyFlags& reqMemFlags
+) {
+    VkImageCreateInfo imageInfo {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = tiling,
+        .usage = usage
+    };
+
+    VkImage image{ };
+    if (vkCreateImage(vkGlobal.logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateBuffer()" << endl;
+
+    unsigned int memIdx{ };
+    VkMemoryRequirements memRequirements;
+    {
+        // 이미지에 필요한 메모리 요구사항 탐색
+        vkGetImageMemoryRequirements(vkGlobal.logicalDevice, image, &memRequirements);
+
+        // GPU상에 지원되는 메모리 정보 탐색
+        VkPhysicalDeviceMemoryProperties gpuMemSpec;
+        vkGetPhysicalDeviceMemoryProperties(vkGlobal.gpu, &gpuMemSpec);
+
+        for (; memIdx < gpuMemSpec.memoryTypeCount; ++memIdx) {
+            if ((memRequirements.memoryTypeBits) && ((reqMemFlags & gpuMemSpec.memoryTypes[memIdx].propertyFlags) == reqMemFlags))
+                break;
+        }
+    }
+
+    // 메모리 요구 사항에 맞추어 allocate
+    VkMemoryAllocateInfo memAllocInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = memIdx
+    };
+
+    VkDeviceMemory memory{ };
+    if (vkAllocateMemory(vkGlobal.logicalDevice, &memAllocInfo, nullptr, &memory) != VK_SUCCESS)
+        cout << "[ERROR]: vkAllocateMemory()" << endl;
+
+    vkBindImageMemory(vkGlobal.logicalDevice, image, memory, 0);
+
+    return { image, memory };
+}
+VkImageView createImageView(const VkImage& image, const VkFormat& format, const VkImageSubresourceRange& resourceRange) {
+    VkImageViewCreateInfo imageViewInfo {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = format,
+            .subresourceRange = resourceRange
+        };
+
+    VkImageView imageView;
+    if (vkCreateImageView(vkGlobal.logicalDevice, &imageViewInfo, nullptr, &imageView) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateImageView()" << endl;
+
+    return imageView;
 }
 
-void createVkInstance(GLFWwindow* window)
-{
-    VkApplicationInfo appInfo{
+void createInstance(GLFWwindow* window) {
+    VkApplicationInfo appInfo {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Hello Triangle",
-        .apiVersion = VK_API_VERSION_1_3
+        .apiVersion = VK_API_VERSION_1_0
     };
 
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if (ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    unsigned int glfwExtCount{ };
+    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtCount);
+    vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtCount);
 
-    std::vector<const char*> validationLayers;
-    if (ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
-    if (!checkValidationLayerSupport(validationLayers)) {
-        throw std::runtime_error("validation layers requested, but not available!");
-    }
+    #ifdef DEBUG
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensions.shrink_to_fit();
 
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-        .pfnUserCallback = debugCallback,
-    };
+        vector<const char*> validationLayers;
+        validationLayers.push_back("VK_LAYER_KHRONOS_validation");
 
-    VkInstanceCreateInfo createInfo{
+        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            .pfnUserCallback = debugCallback
+        };
+    #endif
+
+    VkInstanceCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
+
+        #ifdef DEBUG
+            .pNext = &debugCreateInfo,
+        #endif
+
         .pApplicationInfo = &appInfo,
-        .enabledLayerCount = (uint)validationLayers.size(),
-        .ppEnabledLayerNames = validationLayers.data(),
-        .enabledExtensionCount = (uint)extensions.size(),
-        .ppEnabledExtensionNames = extensions.data(),
+
+        #ifdef DEBUG
+            .enabledLayerCount = static_cast<unsigned int>(validationLayers.size()),
+            .ppEnabledLayerNames = validationLayers.data(),
+        #endif
+
+        .enabledExtensionCount = static_cast<unsigned int>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data()
     };
 
-    if (vkCreateInstance(&createInfo, nullptr, &vk.instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance!");
-    }
+    if (vkCreateInstance(&createInfo, nullptr, &vkGlobal.instance) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateInstance()" << endl;
 
-    if (ON_DEBUG) {
-        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk.instance, "vkCreateDebugUtilsMessengerEXT");
-        if (!func || func(vk.instance, &debugCreateInfo, nullptr, &vk.debugMessenger) != VK_SUCCESS) {
-            throw std::runtime_error("failed to set up debug messenger!");
-        }
-    }
+    #ifdef DEBUG
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vkGlobal.instance, "vkCreateDebugUtilsMessengerEXT");
 
-    if (glfwCreateWindowSurface(vk.instance, window, nullptr, &vk.surface) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create window surface!");
-    }
+        if (func == nullptr or func(vkGlobal.instance, &debugCreateInfo, nullptr, &vkGlobal.debugMessenger) != VK_SUCCESS)
+            cout << "[ERROR]: Debug Messenger Setup" << endl;
+    #endif
+
+    if (glfwCreateWindowSurface(vkGlobal.instance, window, nullptr, &vkGlobal.windowSurface) != VK_SUCCESS)
+        cout << "[ERROR]: glfwCreateWindowSurface()" << endl;
 }
+void createDevice() {
+    unsigned int physicalDeviceCount{ };
+    vkEnumeratePhysicalDevices(vkGlobal.instance, &physicalDeviceCount, nullptr);
 
-void createVkDevice()
-{
-    vk.physicalDevice = VK_NULL_HANDLE;
+    vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+    vkEnumeratePhysicalDevices(vkGlobal.instance, &physicalDeviceCount, physicalDevices.data());
 
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, nullptr);
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(vk.instance, &deviceCount, devices.data());
-
-    std::vector<const char*> extentions = { 
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
+    vector<const char*> needExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
         VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
     };
 
-    for (const auto& device : devices)
-    {
-        if (checkDeviceExtensionSupport(device, extentions))
-        {
-            vk.physicalDevice = device;
+    for (const auto& physicalDevice: physicalDevices) {
+        if (isExtensionSupport(physicalDevice, needExtensions)) {
+            vkGlobal.gpu = physicalDevice;
             break;
         }
     }
 
-    if (vk.physicalDevice == VK_NULL_HANDLE) {
-        throw std::runtime_error("failed to find a suitable GPU!");
+    unsigned int queueFamilyCount{ };
+    vkGetPhysicalDeviceQueueFamilyProperties(vkGlobal.gpu, &queueFamilyCount, nullptr);
+
+    vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(vkGlobal.gpu, &queueFamilyCount, queueFamilies.data());
+
+    while (vkGlobal.graphicsQueueIdx < queueFamilyCount) {
+        VkBool32 presentSupport{ false };
+        vkGetPhysicalDeviceSurfaceSupportKHR(vkGlobal.gpu, vkGlobal.graphicsQueueIdx, vkGlobal.windowSurface, &presentSupport);
+
+        if ((queueFamilies[vkGlobal.graphicsQueueIdx].queueFlags & VK_QUEUE_GRAPHICS_BIT) and presentSupport)
+            break;
+
+        ++vkGlobal.graphicsQueueIdx;
     }
 
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, nullptr);
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(vk.physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    vk.queueFamilyIndex = 0;
-    {
-        for (; vk.queueFamilyIndex < queueFamilyCount; ++vk.queueFamilyIndex)
-        {
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(vk.physicalDevice, vk.queueFamilyIndex, vk.surface, &presentSupport);
-
-            if (queueFamilies[vk.queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT && presentSupport)
-                break;
-        }
-
-        if (vk.queueFamilyIndex >= queueFamilyCount)
-            throw std::runtime_error("failed to find a graphics & present queue!");
-    }
-    float queuePriority = 1.0f;
-
-    VkDeviceQueueCreateInfo queueCreateInfo{
+    float queuePriorities = 1.0f;
+    VkDeviceQueueCreateInfo queueCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = vk.queueFamilyIndex,
+        .queueFamilyIndex = vkGlobal.graphicsQueueIdx,
         .queueCount = 1,
-        .pQueuePriorities = &queuePriority,
+        .pQueuePriorities = &queuePriorities
     };
 
-    VkDeviceCreateInfo createInfo{
+    VkDeviceCreateInfo logicalDeviceCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCreateInfo,
-        .enabledExtensionCount = (uint)extentions.size(),
-        .ppEnabledExtensionNames = extentions.data(),
+        .enabledExtensionCount = static_cast<unsigned int>(needExtensions.size()),
+        .ppEnabledExtensionNames = needExtensions.data()
     };
 
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR f1{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-        .accelerationStructure = VK_TRUE,
-    };
-
-	VkPhysicalDeviceBufferDeviceAddressFeatures f2{
+    // AS 에서 필요한 feature enable
+    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-        .bufferDeviceAddress = VK_TRUE,
+        .bufferDeviceAddress = VK_TRUE
+    };
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        .accelerationStructure = VK_TRUE
     };
 
-    createInfo.pNext = &f1;
-    f1.pNext = &f2;
+    logicalDeviceCreateInfo.pNext = &bufferDeviceAddressFeatures;
+    asFeatures.pNext = &asFeatures;
 
-    if (vkCreateDevice(vk.physicalDevice, &createInfo, nullptr, &vk.device) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create logical device!");
-    }
+    if (vkCreateDevice(vkGlobal.gpu, &logicalDeviceCreateInfo, nullptr, &vkGlobal.logicalDevice) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateDevice()" << endl;
 
-    vkGetDeviceQueue(vk.device, vk.queueFamilyIndex, 0, &vk.graphicsQueue);
+    vkGetDeviceQueue(vkGlobal.logicalDevice, vkGlobal.graphicsQueueIdx, 0, &vkGlobal.graphicsQueue);
 }
-
-void createSwapChain()
-{
+void createSwapChain() {
     VkSurfaceCapabilitiesKHR capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
-
-    const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    {
-        uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, nullptr);
-        std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk.physicalDevice, vk.surface, &formatCount, formats.data());
-
-        bool found = false;
-        for (auto format : formats) {
-            if (format.format == vk.swapChainImageFormat && format.colorSpace == defaultSpace) {
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            throw std::runtime_error("");
-        }
-    }
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkGlobal.gpu, vkGlobal.windowSurface, &capabilities);
 
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
     {
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(vk.physicalDevice, vk.surface, &presentModeCount, nullptr);
-        std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(vk.physicalDevice, vk.surface, &presentModeCount, presentModes.data());
+        unsigned int presentModeCount{ };
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vkGlobal.gpu, vkGlobal.windowSurface, &presentModeCount, nullptr);
 
-        for (auto mode : presentModes) {
+        vector<VkPresentModeKHR> presentModes(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vkGlobal.gpu, vkGlobal.windowSurface, &presentModeCount, presentModes.data());
+
+        for (const auto& mode: presentModes) {
             if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
                 presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
                 break;
@@ -349,478 +539,516 @@ void createSwapChain()
         }
     }
 
-    uint imageCount = capabilities.minImageCount + 1;
-    VkSwapchainCreateInfoKHR createInfo{
+    VkSwapchainCreateInfoKHR swapChainCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .surface = vk.surface,
-        .minImageCount = imageCount,
-        .imageFormat = vk.swapChainImageFormat,
-        .imageColorSpace = defaultSpace,
-        .imageExtent = {.width = WIDTH , .height = HEIGHT },
+        .surface = vkGlobal.windowSurface,
+        .minImageCount = capabilities.minImageCount + 1,
+        .imageFormat = vkGlobal.swapChainImageFormat,
+        .imageColorSpace = vkGlobal.swapChainImageColorSpace,
+        .imageExtent = vkGlobal.swapChainImageExtent,
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .preTransform = capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
-        .clipped = VK_TRUE,
+        .clipped = VK_TRUE
     };
 
-    if (vkCreateSwapchainKHR(vk.device, &createInfo, nullptr, &vk.swapChain) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create swap chain!");
-    }
+    if (vkCreateSwapchainKHR(vkGlobal.logicalDevice, &swapChainCreateInfo, nullptr, &vkGlobal.swapChain) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateSwapchainKHR()" << endl;
 
-    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, nullptr);
-    vk.swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, vk.swapChainImages.data());
+    unsigned int swapChainImageCount{ };
+    vkGetSwapchainImagesKHR(vkGlobal.logicalDevice, vkGlobal.swapChain, &swapChainImageCount, nullptr);
 
-    for (const auto& image : vk.swapChainImages) {
-        VkImageViewCreateInfo createInfo{
+    vkGlobal.swapChainImages.resize(swapChainImageCount);
+    vkGetSwapchainImagesKHR(vkGlobal.logicalDevice, vkGlobal.swapChain, &swapChainImageCount, vkGlobal.swapChainImages.data());
+
+    for (const auto& image: vkGlobal.swapChainImages) {
+        VkImageViewCreateInfo imageViewInfo {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = vk.swapChainImageFormat,
+            .format = vkGlobal.swapChainImageFormat,
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .levelCount = 1,
-                .layerCount = 1,
-            },
+                .layerCount = 1
+            }
         };
 
         VkImageView imageView;
-        if (vkCreateImageView(vk.device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
-        }
-        vk.swapChainImageViews.push_back(imageView);
+        if (vkCreateImageView(vkGlobal.logicalDevice, &imageViewInfo, nullptr, &imageView) != VK_SUCCESS)
+            cout << "[ERROR]: vkCreateImageView()" << endl;
+
+        vkGlobal.swapChainImageViews.push_back(imageView);
     }
 }
+void createDescSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+    };
 
-void createCommandCenter()
-{
-    VkCommandPoolCreateInfo poolInfo{
+    VkDescriptorSetLayoutCreateInfo uboDescLayoutCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &uboLayoutBinding
+    };
+
+    if (vkCreateDescriptorSetLayout(vkGlobal.logicalDevice, &uboDescLayoutCreateInfo, nullptr, &vkGlobal.uboDescSetLayout) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateDescriptorSetLayout()" << endl;
+}
+void createCommandBuffers() {
+    VkCommandPoolCreateInfo commandPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = vk.queueFamilyIndex,
+        .queueFamilyIndex = vkGlobal.graphicsQueueIdx
     };
 
-    if (vkCreateCommandPool(vk.device, &poolInfo, nullptr, &vk.commandPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create command pool!");
-    }
+    if (vkCreateCommandPool(vkGlobal.logicalDevice, &commandPoolCreateInfo, nullptr, &vkGlobal.commandPool) != VK_SUCCESS)
+        cout << "[ERROR]: vkCreateCommandPool()" << endl;
 
-    VkCommandBufferAllocateInfo allocInfo{
+    VkCommandBufferAllocateInfo commandBufferAllocInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = vk.commandPool,
-        .commandBufferCount = 1,
+        .commandPool = vkGlobal.commandPool,
+        .commandBufferCount = 1
     };
 
-    if (vkAllocateCommandBuffers(vk.device, &allocInfo, &vk.commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate command buffers!");
-    }
+    if (vkAllocateCommandBuffers(vkGlobal.logicalDevice, &commandBufferAllocInfo, &vkGlobal.commandBuffer) != VK_SUCCESS)
+        cout << "[ERROR]: vkAllocateCommandBuffers()" << endl;
 }
-
-void createSyncObjects()
-{
-    VkSemaphoreCreateInfo semaphoreInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+void createDescPool() {
+    VkDescriptorPoolSize descPoolSize {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1
     };
-    VkFenceCreateInfo fenceInfo{
+
+    VkDescriptorPoolCreateInfo descPoolCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &descPoolSize
+    };
+
+    if (vkCreateDescriptorPool(vkGlobal.logicalDevice, &descPoolCreateInfo, nullptr, &vkGlobal.descPool))
+        cout << "[ERROR]: vkCreateDescriptorPool()" << endl;
+}
+void createSyncObjects() {
+    VkSemaphoreCreateInfo semaphoreCreateInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    VkFenceCreateInfo fenceCreateInfo {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    if (vkCreateSemaphore(vk.device, &semaphoreInfo, nullptr, &vk.imageAvailableSemaphore) != VK_SUCCESS ||
-        vkCreateSemaphore(vk.device, &semaphoreInfo, nullptr, &vk.renderFinishedSemaphore) != VK_SUCCESS ||
-        vkCreateFence(vk.device, &fenceInfo, nullptr, &vk.fence0) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create synchronization objects for a frame!");
-    }
-
+    if ((vkCreateSemaphore(vkGlobal.logicalDevice, &semaphoreCreateInfo, nullptr, &vkGlobal.availableSemaphore) != VK_SUCCESS) or
+        (vkCreateSemaphore(vkGlobal.logicalDevice, &semaphoreCreateInfo, nullptr, &vkGlobal.renderDoneSemaphore) != VK_SUCCESS) or
+        (vkCreateFence(vkGlobal.logicalDevice, &fenceCreateInfo, nullptr, &vkGlobal.fence)))
+        cout << "[ERROR]: createSyncObjects()" << endl;
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
-    VkDeviceSize size, 
-    VkBufferUsageFlags usage, 
-    VkMemoryPropertyFlags reqMemProps)
-{
-    VkBuffer buffer;
-    VkDeviceMemory bufferMemory;
-
-    VkBufferCreateInfo bufferInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = size,
-        .usage = usage,
-    };
-    if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vertex buffer!");
-    }
-
-    uint memTypeIndex = 0;
-    {
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
-        size = memRequirements.size;
-        std::bitset<32> isSuppoted(memRequirements.memoryTypeBits);
-
-        VkPhysicalDeviceMemoryProperties spec;
-        vkGetPhysicalDeviceMemoryProperties(vk.physicalDevice, &spec);
-
-        for (auto& [props, _] : std::span<VkMemoryType>(spec.memoryTypes, spec.memoryTypeCount)) {
-            if (isSuppoted[memTypeIndex] && (props & reqMemProps) == reqMemProps) {
-                break;
-            }
-            ++memTypeIndex;
-        }
-    }
-
-    VkMemoryAllocateInfo allocInfo{
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = size,
-        .memoryTypeIndex = memTypeIndex,
-    };
-
-    if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-        VkMemoryAllocateFlagsInfo flagsInfo{
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,
-        };
-        allocInfo.pNext = &flagsInfo;
-    }
-
-    if (vkAllocateMemory(vk.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate vertex buffer memory!");
-    }
-
-    vkBindBufferMemory(vk.device, buffer, bufferMemory, 0);
-
-    return { buffer, bufferMemory };
-}
-
-inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)
-{
-    VkBufferDeviceAddressInfoKHR info{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-        .buffer = buffer,
-    };
-    return vk.vkGetBufferDeviceAddressKHR(vk.device, &info);
-}
-
-inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
-{
-    VkAccelerationStructureDeviceAddressInfoKHR info{
-        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-        .accelerationStructure = as,
-    };
-    return vk.vkGetAccelerationStructureDeviceAddressKHR(vk.device, &info);
-}
-
-void createBLAS()
-{
-    float vertices[][3] = {
+// Ray와 Scene의 교차 테스트를 수행하는데, BLAS, TLAS 생성으로 가속 작업 Scene을 만든 것 (BVH 구조를 생성한 것)
+void createBLAS() {
+    /* Clowk-Wise
+        0 ---- 1
+        |      |
+        |      |
+        3 ---- 2
+    */
+    Vec3 vertices[] = {
         { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
-        { -1.0f,  1.0f, 0.0f },
+        { -1.0f,  1.0f, 0.0f }
     };
-    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+    unsigned int indices[] = {
+        0, 1, 3,
+        1, 2, 3
+    };
 
-    VkTransformMatrixKHR geoTransforms[] = {
-        {
+    // 두 개를 사용하는 이유는 사각형을 두 개를 그리기 위함
+    VkTransformMatrixKHR transforms[] = {
+        {   // 좌측에 그려질 사각형에 사용
             1.0f, 0.0f, 0.0f, -2.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
-        }, 
-        {
+            0.0f, 1.0f, 0.0f,  0.0f,
+            0.0f, 0.0f, 1.0f,  0.0f
+        },
+        {   // 우측에 그려질 사각형에 사용
             1.0f, 0.0f, 0.0f, 2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
-        },
+        }
     };
 
-    auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices), 
+    unsigned int verticesSize = sizeof(vertices);
+    unsigned int indicesSize = sizeof(indices);
+    unsigned int transformsSize = sizeof(transforms);
+
+    // BLAS의 input이 되는 대상 버퍼들 생성
+    // AS 생성시 (빌드할 때) GPU 내부에서 빌드하는 프로그램이 있다.
+    // 그 빌드 프로그램에서 우리가 생성한 버퍼를 참조해야 하는데, 그 버퍼의 주소를 알려줘야 하므로 USAGE 수정
+    // VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR 는 AS의 INPUT으로 사용한다는 의미
+    auto& [vBuffer, vMemory] = vkGlobal.vertexBuffer;
+    std::tie(vBuffer, vMemory) = createBuffer(
+        verticesSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    
-    auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof(indices), 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
+
+    auto& [iBuffer, iMemory] = vkGlobal.indexBuffer;
+    std::tie(iBuffer, iMemory) = createBuffer(
+        indicesSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
 
-    auto [geoTransformBuffer, geoTransformBufferMem] = createBuffer(
-        sizeof(geoTransforms), 
+    auto& [gBuffer, gMemory] = vkGlobal.geometryBuffer;
+    std::tie(gBuffer, gMemory) = createBuffer(
+        transformsSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    
-    void* dst;
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices), 0, &dst);
-    memcpy(dst, vertices, sizeof(vertices));
-    vkUnmapMemory(vk.device, vertexBufferMem);
+    void* dst{ };
 
-    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices), 0, &dst);
-    memcpy(dst, indices, sizeof(indices));
-    vkUnmapMemory(vk.device, indexBufferMem);
+    vkMapMemory(vkGlobal.logicalDevice, vMemory, 0, verticesSize, 0, &dst);
+    memcpy(dst, vertices, verticesSize);
+    vkUnmapMemory(vkGlobal.logicalDevice, vMemory);
 
-    vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
-    memcpy(dst, geoTransforms, sizeof(geoTransforms));
-    vkUnmapMemory(vk.device, geoTransformBufferMem);
+    vkMapMemory(vkGlobal.logicalDevice, iMemory, 0, indicesSize, 0, &dst);
+    memcpy(dst, indices, indicesSize);
+    vkUnmapMemory(vkGlobal.logicalDevice, iMemory);
 
-    VkAccelerationStructureGeometryKHR geometry0{
+    vkMapMemory(vkGlobal.logicalDevice, gMemory, 0, transformsSize, 0, &dst);
+    memcpy(dst, transforms, transformsSize);
+    vkUnmapMemory(vkGlobal.logicalDevice, gMemory);
+
+    // BLAS 생성 시작
+    // geometry type BLAS: VK_GEOMETRY_TYPE_TRIANGLES_KHR
+    // geometry type TLAS: VK_GEOMETRY_TYPE_INSTANCES_KHR
+    VkAccelerationStructureGeometryKHR geometry0 {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
         .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+
+        // maxVertex: 최대 index 번호 지정
         .geometry = {
             .triangles = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
+                .vertexData = { .deviceAddress = getDeviceAddress(vBuffer) },
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
+                .maxVertex = static_cast<unsigned int>((verticesSize / sizeof(vertices[0])) - 1),
                 .indexType = VK_INDEX_TYPE_UINT32,
-                .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
-                .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
-            },
+                .indexData = { .deviceAddress = getDeviceAddress(iBuffer) },
+                .transformData = { .deviceAddress = getDeviceAddress(gBuffer) }
+            }
         },
-        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+        // 불투명한 물체이므로 OPAQUE
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR
     };
+
     VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
+    unsigned int triangleCounts[] = { 2, 2 };
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
-    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
-
-    VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
+    // BLAS 빌드시 필요한 용량을 얻기 위한 정보 세팅
+    VkAccelerationStructureBuildGeometryInfoKHR blasBuildInfo {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
         .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-        .geometryCount = sizeof(geometries) / sizeof(geometries[0]),
-        .pGeometries = geometries,
+        .geometryCount = (sizeof(geometries) / sizeof(geometries[0])),
+        .pGeometries = geometries
     };
-    
-    VkAccelerationStructureBuildSizesInfoKHR requiredSize{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-    vk.vkGetAccelerationStructureBuildSizesKHR(
-        vk.device,
-        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &buildBlasInfo,
-        triangleCounts,
-        &requiredSize);
+    VkAccelerationStructureBuildSizesInfoKHR blasBuildSizeInfo { .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 
-    std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(
-        requiredSize.accelerationStructureSize,
+    // BLAS 빌드에 필요한 용량 획득
+    // AS Build Device를 GPU로 지정 (Vulkan에서는 CPU에서도 가능, DX12는 GPU만 가능)
+    vkGlobal.vkGetAccelerationStructureBuildSizesKHR(
+        vkGlobal.logicalDevice, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &blasBuildInfo, triangleCounts, &blasBuildSizeInfo
+    );
+
+    // BLAS가 저장 된 실제 버퍼의 사이즈 = blasBuildSizeInfo.accelerationStructureSize
+    // GPU에서 빌드되므로 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    auto& [blasBuffer, blasMemory] = vkGlobal.blasBuffer;
+    std::tie(blasBuffer, blasMemory) = createBuffer(
+        blasBuildSizeInfo.accelerationStructureSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
 
-    auto [scratchBuffer, scratchBufferMem] = createBuffer(
-        requiredSize.buildScratchSize,
+    // 빌드 과정에 추가적으로 필요한 용량 확보를 위한 버퍼
+    // GPU에서 빌드되므로 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    // 빌드가 끝나면 필요 없으므로 local 선언
+    auto [scratchBuffer, scratchMemory] = createBuffer(
+        blasBuildSizeInfo.buildScratchSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
 
-    // Generate BLAS handle
+    // BLAS에 대한 핸들과, 실제 BLAS가 저장되어 있는 곳 (버퍼) 이 존재
+    // 이 단계에서 BLAS의 핸들 획득
+    VkAccelerationStructureCreateInfoKHR asInfo {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+        .buffer = std::get<0>(vkGlobal.blasBuffer),
+        .size = blasBuildSizeInfo.accelerationStructureSize,
+        .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
+    };
+    // BLAS 핸들 생성 및 해당 핸들값 저장
+    // BLAS 핸들 값은 TLAS에서 사용됨
+    vkGlobal.vkCreateAccelerationStructureKHR(vkGlobal.logicalDevice, &asInfo, nullptr, &vkGlobal.blas);
+    vkGlobal.blasAddress = getDeviceAddress(vkGlobal.blas);
+
+    // BLAS build
+    // GPU상에서 이루어지므로, Command Buffer 사용
+    VkCommandBufferBeginInfo commandBufferBeginInfo { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    vkBeginCommandBuffer(vkGlobal.commandBuffer, &commandBufferBeginInfo);
     {
-        VkAccelerationStructureCreateInfoKHR asCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = vk.blasBuffer,
-            .size = requiredSize.accelerationStructureSize,
-            .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+        blasBuildInfo.dstAccelerationStructure = vkGlobal.blas;
+        blasBuildInfo.scratchData.deviceAddress = getDeviceAddress(scratchBuffer);
+
+        // blasBuildInfo 상에 존재하는 geometry가 2개였으므로 그에 대한 명시
+        // 이전에 사각형 한 개만을 정의했고, indices도 한 개만 존재
+        // 따라서, primitiveOffset은 지정해주지 않아도 됨
+        VkAccelerationStructureBuildRangeInfoKHR blasBuildRangeInfo[] = {
+            {   // 첫 번째 geometry의 삼각형 수
+                .primitiveCount = triangleCounts[0],
+                .transformOffset = 0
+            },
+            {   // 두 번째 geometry의 삼각형 수
+                .primitiveCount = triangleCounts[0],
+                .transformOffset = sizeof(transforms[0])
+            }
         };
-        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.blas);
 
-        vk.blasAddress = getDeviceAddressOf(vk.blas);
+        VkAccelerationStructureBuildGeometryInfoKHR blasBuildInfos[] = { blasBuildInfo };
+        VkAccelerationStructureBuildRangeInfoKHR* blasBuildRangeInfos[] = { blasBuildRangeInfo };
+
+        // 여러 개의 BLAS를 한 번의 호출로 동시에 생성할 수 있다는 점 인지
+        vkGlobal.vkCmdBuildAccelerationStructuresKHR(vkGlobal.commandBuffer, 1, blasBuildInfos, blasBuildRangeInfos);
     }
+    vkEndCommandBuffer(vkGlobal.commandBuffer);
 
-    // Build BLAS using GPU operations
-    {
-        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
-        {
-            buildBlasInfo.dstAccelerationStructure = vk.blas;
-            buildBlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
-            VkAccelerationStructureBuildRangeInfoKHR buildBlasRangeInfo[] = {
-                { 
-                    .primitiveCount = triangleCounts[0],
-                    .transformOffset = 0,
-                },
-                { 
-                    .primitiveCount = triangleCounts[1],
-                    .transformOffset = sizeof(geoTransforms[0]),
-                }
-            };
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkGlobal.commandBuffer,
+    };
+    vkQueueSubmit(vkGlobal.graphicsQueue, 1, &submitInfo, nullptr);
+    vkQueueWaitIdle(vkGlobal.graphicsQueue);
 
-            VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };
-            VkAccelerationStructureBuildRangeInfoKHR* buildBlasRangeInfos[] = { buildBlasRangeInfo };
-            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, buildBlasInfos, buildBlasRangeInfos);
-            // vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildBlasInfo, 
-            // (const VkAccelerationStructureBuildRangeInfoKHR *const *)&buildBlasRangeInfo);
-        }
-        vkEndCommandBuffer(vk.commandBuffer);
-
-        VkSubmitInfo submitInfo {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &vk.commandBuffer,
-        }; 
-        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(vk.graphicsQueue);
-    }
-
-    vkFreeMemory(vk.device, scratchBufferMem, nullptr);
-    vkFreeMemory(vk.device, vertexBufferMem, nullptr);
-    vkFreeMemory(vk.device, indexBufferMem, nullptr);
-    vkFreeMemory(vk.device, geoTransformBufferMem, nullptr);
-    vkDestroyBuffer(vk.device, scratchBuffer, nullptr);
-    vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
-    vkDestroyBuffer(vk.device, indexBuffer, nullptr);
-    vkDestroyBuffer(vk.device, geoTransformBuffer, nullptr);
+    vkFreeMemory(vkGlobal.logicalDevice, scratchMemory, nullptr);
+    vkDestroyBuffer(vkGlobal.logicalDevice, scratchBuffer, nullptr);
 }
-
-void createTLAS()
-{
-    VkTransformMatrixKHR insTransforms[] = {
-        {
+void createTLAS() {
+    // BLAS에서 그랬던 것 처럼, 두 개의 instance 생성
+    VkTransformMatrixKHR transforms[] = {
+        {   // 첫 번째 instance에 적용 될 matrix
             1.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 2.0f,
             0.0f, 0.0f, 1.0f, 0.0f
-        }, 
-        {
-            1.0f, 0.0f, 0.0f, 0.0f,
+        },
+        {   // 첫 번째 instance에 적용 될 matrix
+            1.0f, 0.0f, 0.0f,  0.0f,
             0.0f, 1.0f, 0.0f, -2.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
+            0.0f, 0.0f, 1.0f,  0.0f
         },
     };
 
+    // Back-face Culling Disable
+    // 앞면인지 뒷면인지 상관하지 않고 삼각형끼리 충돌 시, shader 호출
+    // instance는 BLAS 를 참조
     VkAccelerationStructureInstanceKHR instance0 {
         .mask = 0xFF,
         .instanceShaderBindingTableRecordOffset = 0,
         .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-        .accelerationStructureReference = vk.blasAddress,
+        .accelerationStructureReference = vkGlobal.blasAddress
     };
-    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
-    instanceData[0].transform = insTransforms[0];
-    instanceData[1].transform = insTransforms[1];
 
-    auto [instanceBuffer, instanceBufferMem] = createBuffer(
-        sizeof(instanceData), 
+    VkAccelerationStructureInstanceKHR instances[] = { instance0, instance0 };
+    instances[0].transform = transforms[0];
+    instances[1].transform = transforms[1];
+
+    unsigned int instancesSize = sizeof(instances);
+    unsigned int instanceCount = 2;
+
+    // TLAS의 input이 되는 대상 버퍼들 생성
+    auto& [instanceBuffer, instanceMemory] = vkGlobal.instanceBuffer;
+    std::tie(instanceBuffer, instanceMemory) = createBuffer(
+        instancesSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
 
-    void* dst;
-    vkMapMemory(vk.device, instanceBufferMem, 0, sizeof(instanceData), 0, &dst);
-    memcpy(dst, instanceData, sizeof(instanceData));
-    vkUnmapMemory(vk.device, instanceBufferMem);
+    void* dst{ };
 
-    VkAccelerationStructureGeometryKHR instances{
+    vkMapMemory(vkGlobal.logicalDevice, instanceMemory, 0, instancesSize, 0, &dst);
+    memcpy(dst, instances, instancesSize);
+    vkUnmapMemory(vkGlobal.logicalDevice, instanceMemory);
+
+    // TLAS 생성 시작
+    // geometry type BLAS: VK_GEOMETRY_TYPE_TRIANGLES_KHR
+    // geometry type TLAS: VK_GEOMETRY_TYPE_INSTANCES_KHR
+    VkAccelerationStructureGeometryKHR instanceData {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
         .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
         .geometry = {
             .instances = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-                .data = { .deviceAddress = getDeviceAddressOf(instanceBuffer) },
-            },
+                .data = { .deviceAddress = getDeviceAddress(instanceBuffer) }
+            }
         },
-        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+        // 불투명한 물체이므로 OPAQUE
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR
     };
 
-    uint32_t instanceCount = 2;
-
-    VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
+    // TLAS 빌드시 필요한 용량을 얻기 위한 정보 세팅
+    // BLAS는 하나 이상의 geometry로 구성되어 geometry Count가 1이 아닐 수 있음
+    // TLAS는 여러 개의 instance로 이루어지고, 여러 개의 instance가 하나의 geometry로 구성
+    // vulkan spec 에서도 geometryCount는 1 이어야 한다고 명시되어 있음
+    VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
         .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-        .geometryCount = 1,     // It must be 1 with .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR as shown in the vulkan spec.
-        .pGeometries = &instances,
+        .geometryCount = 1,
+        .pGeometries = &instanceData
+    };
+    VkAccelerationStructureBuildSizesInfoKHR tlasBuildSizeInfo { .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+
+    // TLAS 빌드에 필요한 용량 획득
+    // AS Build Device를 GPU로 지정 (Vulkan에서는 CPU에서도 가능, DX12는 GPU만 가능)
+    vkGlobal.vkGetAccelerationStructureBuildSizesKHR(
+        vkGlobal.logicalDevice, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &tlasBuildInfo, &instanceCount, &tlasBuildSizeInfo
+    );
+
+    // TLAS가 저장 된 실제 버퍼의 사이즈 = blasBuildSizeInfo.accelerationStructureSize
+    // GPU에서 빌드되므로 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    auto& [tlasBuffer, tlasMemory] = vkGlobal.tlasBuffer;
+    std::tie(tlasBuffer, tlasMemory) = createBuffer(
+        tlasBuildSizeInfo.accelerationStructureSize,
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    // 빌드 과정에 추가적으로 필요한 용량 확보를 위한 버퍼
+    // GPU에서 빌드되므로 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    // 빌드가 끝나면 필요 없으므로 local 선언
+    auto [scratchBuffer, scratchMemory] = createBuffer(
+        tlasBuildSizeInfo.buildScratchSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    // TLAS에 대한 핸들과, 실제 TLAS가 저장되어 있는 곳 (버퍼) 이 존재
+    // 이 단계에서 TLAS의 핸들 획득
+    VkAccelerationStructureCreateInfoKHR asInfo {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+        .buffer = std::get<0>(vkGlobal.tlasBuffer),
+        .size = tlasBuildSizeInfo.accelerationStructureSize,
+        .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
+    };
+    // TLAS 핸들 생성 및 해당 핸들값 저장
+    vkGlobal.vkCreateAccelerationStructureKHR(vkGlobal.logicalDevice, &asInfo, nullptr, &vkGlobal.tlas);
+    vkGlobal.blasAddress = getDeviceAddress(vkGlobal.tlas);
+
+    // TLAS build
+    // GPU상에서 이루어지므로, Command Buffer 사용
+    VkCommandBufferBeginInfo commandBufferBeginInfo { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    vkBeginCommandBuffer(vkGlobal.commandBuffer, &commandBufferBeginInfo);
+    {
+        tlasBuildInfo.dstAccelerationStructure = vkGlobal.tlas;
+        tlasBuildInfo.scratchData.deviceAddress = getDeviceAddress(scratchBuffer);
+
+        VkAccelerationStructureBuildRangeInfoKHR tlasBuildRangeInfo = { .primitiveCount = instanceCount };
+        VkAccelerationStructureBuildRangeInfoKHR* tlasBuildRangeInfos[] = { &tlasBuildRangeInfo };
+
+        // 여러 개의 TLAS를 한 번의 호출로 동시에 생성할 수 있다는 점 인지
+        vkGlobal.vkCmdBuildAccelerationStructuresKHR(vkGlobal.commandBuffer, 1, &tlasBuildInfo, tlasBuildRangeInfos);
+    }
+    vkEndCommandBuffer(vkGlobal.commandBuffer);
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkGlobal.commandBuffer,
+    };
+    vkQueueSubmit(vkGlobal.graphicsQueue, 1, &submitInfo, nullptr);
+    vkQueueWaitIdle(vkGlobal.graphicsQueue);
+
+    vkFreeMemory(vkGlobal.logicalDevice, scratchMemory, nullptr);
+    vkDestroyBuffer(vkGlobal.logicalDevice, scratchBuffer, nullptr);
+}
+
+void render() {
+    const VkCommandBufferBeginInfo commandBufferBeginInfo { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+
+    vkWaitForFences(vkGlobal.logicalDevice, 1, &vkGlobal.fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(vkGlobal.logicalDevice, 1, &vkGlobal.fence);
+
+    unsigned int imgIndex{ };
+    vkAcquireNextImageKHR(vkGlobal.logicalDevice, vkGlobal.swapChain, UINT64_MAX, vkGlobal.availableSemaphore, nullptr, &imgIndex);
+
+    vkResetCommandBuffer(vkGlobal.commandBuffer, 0);
+    if (vkBeginCommandBuffer(vkGlobal.commandBuffer, &commandBufferBeginInfo) != VK_SUCCESS)
+        cout << "[ERROR]: vkBeginCommandBuffer()" << endl;
+    {
+        vkCmdBindPipeline(vkGlobal.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, vkGlobal.pipeline);
+        //
+    }
+    if (vkEndCommandBuffer(vkGlobal.commandBuffer) != VK_SUCCESS)
+        cout << "[ERROR]: vkEndCommandBuffer()" << endl;
+
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &vkGlobal.availableSemaphore,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkGlobal.commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &vkGlobal.renderDoneSemaphore
     };
 
-    VkAccelerationStructureBuildSizesInfoKHR requiredSize{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-    vk.vkGetAccelerationStructureBuildSizesKHR(
-        vk.device,
-        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &buildTlasInfo,
-        &instanceCount,
-        &requiredSize);
+    if (vkQueueSubmit(vkGlobal.graphicsQueue, 1, &submitInfo, vkGlobal.fence) != VK_SUCCESS)
+        cout << "[ERROR]: vkQueueSubmit()" << endl;
 
-    std::tie(vk.tlasBuffer, vk.tlasBufferMem) = createBuffer(
-        requiredSize.accelerationStructureSize,
-        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VkPresentInfoKHR presentInfo {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &vkGlobal.renderDoneSemaphore,
+        .swapchainCount = 1,
+        .pSwapchains = &vkGlobal.swapChain,
+        .pImageIndices = &imgIndex
+    };
 
-    auto [scratchBuffer, scratchBufferMem] = createBuffer(
-        requiredSize.buildScratchSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    // Generate TLAS handle
-    {
-        VkAccelerationStructureCreateInfoKHR asCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = vk.tlasBuffer,
-            .size = requiredSize.accelerationStructureSize,
-            .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-        };
-        vk.vkCreateAccelerationStructureKHR(vk.device, &asCreateInfo, nullptr, &vk.tlas);
-
-        vk.tlasAddress = getDeviceAddressOf(vk.tlas);
-    }
-
-    // Build TLAS using GPU operations
-    {
-        VkCommandBufferBeginInfo beginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
-        {
-            buildTlasInfo.dstAccelerationStructure = vk.tlas;
-            buildTlasInfo.scratchData.deviceAddress = getDeviceAddressOf(scratchBuffer);
-
-            VkAccelerationStructureBuildRangeInfoKHR buildTlasRangeInfo = { .primitiveCount = instanceCount };
-            VkAccelerationStructureBuildRangeInfoKHR* buildTlasRangeInfo_[] = { &buildTlasRangeInfo };
-            vk.vkCmdBuildAccelerationStructuresKHR(vk.commandBuffer, 1, &buildTlasInfo, buildTlasRangeInfo_);
-        }
-        vkEndCommandBuffer(vk.commandBuffer);
-
-        VkSubmitInfo submitInfo {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &vk.commandBuffer,
-        }; 
-        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(vk.graphicsQueue);
-    }
-
-    vkFreeMemory(vk.device, scratchBufferMem, nullptr);
-    vkFreeMemory(vk.device, instanceBufferMem, nullptr);
-    vkDestroyBuffer(vk.device, scratchBuffer, nullptr);
-    vkDestroyBuffer(vk.device, instanceBuffer, nullptr);
+    vkQueuePresentKHR(vkGlobal.graphicsQueue, &presentInfo);
 }
 
-void loadDeviceExtensionFunctions(VkDevice device)
-{
-    vk.vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
-    vk.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
-    vk.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
-    vk.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-    vk.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
-    vk.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
-}
+int main() {
+    App::init(WINDOW_WIDTH, WINDOW_HEIGHT, "Vulkan Raytracing");
 
-int main()
-{
-    glfwInit();
-    GLFWwindow* window = createWindow();
-    createVkInstance(window);
-    createVkDevice();
-    loadDeviceExtensionFunctions(vk.device);
+    createInstance(App::activeWindow()->handle());
+    createDevice();
+    loadDeviceExtensionFunctions();
     createSwapChain();
-    
-    // createRenderPass();
-    // createGraphicsPipeline();
-    createCommandCenter();
+    createDescSetLayout();
+    createCommandBuffers();
+    createDescPool();
     createSyncObjects();
 
     createBLAS();
     createTLAS();
 
-    while (!glfwWindowShouldClose(window))
-    {
+    // render loop
+    while (!glfwWindowShouldClose(App::activeWindow()->handle())) {
         glfwPollEvents();
-        //render();
+        render();
     }
 
-    vkDeviceWaitIdle(vk.device);
-    glfwDestroyWindow(window);
+    vkDeviceWaitIdle(vkGlobal.logicalDevice);
     glfwTerminate();
     return 0;
 }

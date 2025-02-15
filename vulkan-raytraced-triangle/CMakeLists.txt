@@ -1,56 +1,44 @@
-cmake_minimum_required(VERSION 3.10)
+# glfw: 3.4.0
+# vulkan: 1.4.304.0
 
-project(hello_triangle)
+cmake_minimum_required(VERSION 3.11)
+
+set(MINGW_PATH "C:/Program Files/MinGW-w64/bin")
+set(VULKAN_PATH "C:/VulkanSDK/1.4.304.0")
+
+set(CMAKE_CXX_COMPILER ${MINGW_PATH}/g++.exe)
+set(CMAKE_MAKE_PROGRAM ${MINGW_PATH}/mingw32-make.exe)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
-set(GLFW_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/glfw-3.4.bin.WIN64/include)
-set(GLFW_LIBRARY_DIR ${CMAKE_SOURCE_DIR}/glfw-3.4.bin.WIN64/lib-vc2022)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(${PROJECT_NAME} main.cpp)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
-endif()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE NDEBUG)
-    set(GLSLANG_LIB_NAMES 
-        glslang 
-        glslang-default-resource-limits 
-        SPIRV-Tools 
-        SPIRV-Tools-opt)
-else()
-    set(GLSLANG_LIB_NAMES 
-        glslangd 
-        glslang-default-resource-limitsd 
-        SPIRV-Toolsd 
-        SPIRV-Tools-optd)
-endif()
-
+project(vulkan_rt)
 
 include_directories(
-    ${GLFW_INCLUDE_DIR}
-    $ENV{VULKAN_SDK}/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/headers
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes
+    ${VULKAN_PATH}/Include
 )
 
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sources/*.cpp)
 
-find_library(GLFW_LIB glfw3 PATHS ${GLFW_LIBRARY_DIR})
-find_library(VULKAN_LIB vulkan-1 PATHS $ENV{VULKAN_SDK}/Lib)
+add_executable(${PROJECT_NAME}
+    ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+    ${SRC_FILES}
+)
+target_compile_definitions(
+    ${PROJECT_NAME}
 
-set(GLSLANG_LIBS "")
-foreach(LIB_NAME ${GLSLANG_LIB_NAMES})
-    find_library(LIB_${LIB_NAME} ${LIB_NAME} PATHS $ENV{VULKAN_SDK}/Lib)
-    if(LIB_${LIB_NAME})
-        list(APPEND GLSLANG_LIBS ${LIB_${LIB_NAME}})
-    else()
-        message(FATAL_ERROR "Failed to find library: ${LIB_NAME}")
-    endif()
-endforeach()
+    PRIVATE
+        DEBUG
+)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${GLFW_LIB}
-    ${VULKAN_LIB}
-    ${GLSLANG_LIBS}
+target_link_libraries(
+    ${PROJECT_NAME}
+
+    PRIVATE
+        ${VULKAN_PATH}/Lib/vulkan-1.lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/libs/binaries/glfw/libglfw3dll.a
 )
