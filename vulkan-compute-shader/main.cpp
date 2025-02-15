@@ -935,7 +935,7 @@ void createBuffers()
             {
                 std::default_random_engine rndEngine(/*(unsigned)time(nullptr)*/0);
                 std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
-
+                
                 std::vector<Particle> particles(PARTICLE_COUNT);
                 for (auto& [pos, vel, col] : particles)
                 {

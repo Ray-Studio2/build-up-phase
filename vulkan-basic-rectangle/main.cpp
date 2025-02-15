@@ -882,7 +882,18 @@ void createVertexBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
-    memcpy(dst, (*data).data(), size);
+    memcpy(dst, data, size);  
+    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+}
+
+void updateVertexBuffer(float t)
+{
+    size_t size = std::get<1>(Geometry::getVertices());
+    uint count = (uint)size / sizeof(float);
+    void* dst;
+    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
+    for (uint i = 0; i < count; i+=5)
+        ((float*)dst)[i] += t;
     vkUnmapMemory(vk.device, vk.vertexBufferMemory);
 }
 

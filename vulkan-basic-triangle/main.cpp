@@ -2,8 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
-#include <fstream>
-//#include "glsl2spv.h"
+#include <filesystem>
+#include "shader_module.h"
 
 typedef unsigned int uint;
 
@@ -15,6 +15,7 @@ const bool ON_DEBUG = false;
 #else
 const bool ON_DEBUG = true;
 #endif
+
 
 struct Global {
     VkInstance instance;
@@ -32,7 +33,7 @@ struct Global {
     std::vector<VkImageView> swapChainImageViews;
     const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format
     const VkExtent2D swapChainImageExtent = { .width = WIDTH, .height = HEIGHT };
-
+    
     VkRenderPass renderPass;
     std::vector<VkFramebuffer> framebuffers;
 
@@ -76,10 +77,10 @@ struct Global {
 } vk;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-    VkDebugUtilsMessageTypeFlagsEXT messageType, 
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
-    void* pUserData) 
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
     const char* severity;
     switch (messageSeverity) {
@@ -150,19 +151,6 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char
     return true;
 }
 
-static std::vector<char> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
-    }
-    size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-    return buffer;
-}
-
 GLFWwindow* createWindow()
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -175,16 +163,16 @@ void createVkInstance(GLFWwindow* window)
     VkApplicationInfo appInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Hello Triangle",
-        .apiVersion = VK_API_VERSION_1_0
+        .apiVersion = VK_API_VERSION_1_3
     };
 
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    if(ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (ON_DEBUG) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     std::vector<const char*> validationLayers;
-    if(ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
+    if (ON_DEBUG) validationLayers.push_back("VK_LAYER_KHRONOS_validation");
     if (!checkValidationLayerSupport(validationLayers)) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -233,9 +221,9 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-    for (const auto& device : devices) 
+    for (const auto& device : devices)
     {
-        if (checkDeviceExtensionSupport(device, extentions)) 
+        if (checkDeviceExtensionSupport(device, extentions))
         {
             vk.physicalDevice = device;
             break;
@@ -262,7 +250,7 @@ void createVkDevice()
                 break;
         }
 
-        if (vk.queueFamilyIndex >=  queueFamilyCount)
+        if (vk.queueFamilyIndex >= queueFamilyCount)
             throw std::runtime_error("failed to find a graphics & present queue!");
     }
     float queuePriority = 1.0f;
@@ -293,7 +281,7 @@ void createSwapChain()
 {
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk.physicalDevice, vk.surface, &capabilities);
-    
+
     const VkColorSpaceKHR defaultSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     {
         uint32_t formatCount;
@@ -344,7 +332,7 @@ void createSwapChain()
         .presentMode = presentMode,
         .clipped = VK_TRUE,
     };
-    
+
     if (vkCreateSwapchainKHR(vk.device, &createInfo, nullptr, &vk.swapChain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
@@ -427,39 +415,52 @@ void createRenderPass()
     }
 }
 
-void createGraphicsPipeline() 
+void createGraphicsPipeline()
 {
-    auto spv2shaderModule = [](const char* filename) {
-        auto vsSpv = readFile(filename);
-        VkShaderModuleCreateInfo createInfo{
-            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = vsSpv.size(),
-            .pCode = (uint*)vsSpv.data(),
-        };
+    const char* vs_src = R"(
+        #version 450
 
-        VkShaderModule shaderModule;
-        if (vkCreateShaderModule(vk.device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create shader module!");
+        layout(location = 0) out vec3 fragColor;
+
+        vec2 positions[3] = vec2[](
+            vec2(0.0, -0.5),
+            vec2(0.5, 0.5),
+            vec2(-0.5, 0.5)
+        );
+
+        vec3 colors[3] = vec3[](
+            vec3(1.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0),
+            vec3(0.0, 0.0, 1.0)
+        );
+
+        void main() {
+            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+            fragColor = colors[gl_VertexIndex];
         }
-        return shaderModule;
-    };
-    VkShaderModule vsModule = spv2shaderModule("simple_vs.spv");
-    VkShaderModule fsModule = spv2shaderModule("simple_fs.spv");
 
-    VkPipelineShaderStageCreateInfo vsStageInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vsModule,
-        .pName = "main",
-    };
-    VkPipelineShaderStageCreateInfo fsStageInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = fsModule,
-        .pName = "main",
-    };
+    )";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo, fsStageInfo };
+    const char* fs_src = R"(
+        #version 450
+
+        layout(location = 0) in vec3 fragColor;
+
+        layout(location = 0) out vec4 outColor;
+
+        void main() {
+            outColor = vec4(fragColor, 1.0);
+        }
+
+    )";
+
+    //ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, vs_src);
+    ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.glsl"));
+    //ShaderModule<VK_SHADER_STAGE_VERTEX_BIT> vsModule(vk.device, std::filesystem::path("simple_vs.spv"));
+
+    ShaderModule<VK_SHADER_STAGE_FRAGMENT_BIT> fsModule(vk.device, fs_src);
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vsModule.getStageInfo(), fsModule.getStageInfo()};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -537,12 +538,9 @@ void createGraphicsPipeline()
     if (vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vk.graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-    
-    vkDestroyShaderModule(vk.device, vsModule, nullptr);
-    vkDestroyShaderModule(vk.device, fsModule, nullptr);
 }
 
-void createCommandCenter() 
+void createCommandCenter()
 {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -565,13 +563,13 @@ void createCommandCenter()
     }
 }
 
-void createSyncObjects() 
+void createSyncObjects()
 {
-    VkSemaphoreCreateInfo semaphoreInfo{ 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
-    VkFenceCreateInfo fenceInfo{ 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 
+    VkFenceCreateInfo fenceInfo{
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
@@ -606,7 +604,7 @@ void render()
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = vk.renderPass,
             .framebuffer = vk.framebuffers[imageIndex],
-            .renderArea = { .extent = { .width = WIDTH, .height = HEIGHT } },
+            .renderArea = {.extent = {.width = WIDTH, .height = HEIGHT } },
             .clearValueCount = 1,
             .pClearValues = &clearColor,
         };
@@ -625,12 +623,12 @@ void render()
         }
     }
 
-    VkPipelineStageFlags waitStages[] = { 
+    VkPipelineStageFlags waitStages[] = {
         //VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
     };
 
-    VkSubmitInfo submitInfo{ 
+    VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &vk.imageAvailableSemaphore,
@@ -657,7 +655,7 @@ void render()
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 }
 
-int main() 
+int main()
 {
     glfwInit();
     GLFWwindow* window = createWindow();
@@ -669,12 +667,13 @@ int main()
     createCommandCenter();
     createSyncObjects();
 
-    while (!glfwWindowShouldClose(window)) 
+    while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         render();
     }
-    
+
+    vkDeviceWaitIdle(vk.device);
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
