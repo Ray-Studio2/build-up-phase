@@ -57,38 +57,34 @@ struct Global {
     VkSemaphore renderFinishedSemaphore;
     VkFence fence0;
 
-    ////////////////////////////////////////////////////////////////////
-
-    VkBuffer blasBuffer;                // BLAS Buffer
+    VkBuffer blasBuffer;
     VkDeviceMemory blasBufferMem;
     VkAccelerationStructureKHR blas;
     VkDeviceAddress blasAddress;
 
-    VkBuffer tlasBuffer;                // TLAS Buffer                                              // Binding 0
-    VkDeviceMemory tlasBufferMem;                     
+    VkBuffer tlasBuffer;
+    VkDeviceMemory tlasBufferMem;
     VkAccelerationStructureKHR tlas;
 
-    VkImage outImage;                   // Ray Tracing Pipeline 에서 Render Target 이 되는 이미지    // Binding 1
-    VkDeviceMemory outImageMem;                                                                 
+    VkImage outImage;
+    VkDeviceMemory outImageMem;
     VkImageView outImageView;
 
-    VkBuffer uniformBuffer;                                                                         // Binding 2
+    VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMem;
 
-    VkDescriptorSetLayout descriptorSetLayout;  // 총 1 개의 Discriptor Set Layout 이 있다. ( TLAS, outImage, Uniform Buffer )
-    VkPipelineLayout pipelineLayout;                // 총 3 개의 Binding Layout 이 있다. ( TLAS, outImage, Uniform Buffer )
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
 
     VkDescriptorPool descriptorPool;
-    VkDescriptorSet descriptorSet;              // Discriptor Set 은 총 1 개이다.
+    VkDescriptorSet descriptorSet;
 
     VkBuffer sbtBuffer;
     VkDeviceMemory sbtBufferMem;
     VkStridedDeviceAddressRegionKHR rgenSbt{};
     VkStridedDeviceAddressRegionKHR missSbt{};
     VkStridedDeviceAddressRegionKHR hitgSbt{};
-
-    ////////////////////////////////////////////////////////////////////
     
     ~Global() {
         vkDestroyBuffer(device, tlasBuffer, nullptr);
@@ -145,18 +141,16 @@ void loadDeviceExtensionFunctions(VkDevice device)
     vk.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
     vk.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
 	vk.vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
-                                                                            // Ray Tracing Pipeline 을 만드는 데에 사용하는 함수
 	vk.vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
     vk.vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
-                                                                            // GPU 가 Ray 를 추적하도록 명령하는 함수
 
-    VkPhysicalDeviceProperties2 deviceProperties2{                  // Ray Tracing 과 관련된 Vulkan 드라이버의 Property 들이 정의되어 있는 함수들이 있는데
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,    //  이 함수들을 얻어오는 과정 ( Ray Tracing Pipeline 과 관련된 property 들을 vk.rtProperties 에 넣는다. )
+    VkPhysicalDeviceProperties2 deviceProperties2{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = &vk.rtProperties,
     };
 	vkGetPhysicalDeviceProperties2(vk.physicalDevice, &deviceProperties2);
 
-    if (vk.rtProperties.shaderGroupHandleSize != SHADER_GROUP_HANDLE_SIZE) {        // shaderGroupHandleSize property 는 무조건 32 이어야 한다.
+    if (vk.rtProperties.shaderGroupHandleSize != SHADER_GROUP_HANDLE_SIZE) {
         throw std::runtime_error("shaderGroupHandleSize must be 32 mentioned in the vulakn spec (Table 69. Required Limits)!");
     }
 }
@@ -307,15 +301,15 @@ void createVkDevice()
     vkEnumeratePhysicalDevices(vk.instance, &deviceCount, devices.data());
 
     std::vector<const char*> extentions = { 
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                                                                        // Acceleration Structure 을 사용하려면
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,                    //  VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME 과
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // not used     //  VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME 과
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, // not used          //  VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME 을 추가해주어야 한다.
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,   // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME 자체가 계층구조로 이루어져 있어서 위 3 개의 extension 이 필요하다. (사용하지 않더라도)
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
+
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // not used
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, // not used
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 
         VK_KHR_SPIRV_1_4_EXTENSION_NAME, // not used
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,     // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME 또한 계층구조로 이루어져 있어서 VK_KHR_SPIRV_1_4_EXTENSION_NAME 가 필요하다.
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
     };
 
     for (const auto& device : devices)
@@ -457,11 +451,8 @@ void createSwapChain()
     vk.swapChainImages.resize(imageCount);
     vkGetSwapchainImagesKHR(vk.device, vk.swapChain, &imageCount, vk.swapChainImages.data());
 
-    // Swapchain 에서 나오는 이미지를 텍스쳐로 이용하지 않고, Graphics Pipeline 의 Render Target 으로도 사용하지 않을 것이다.
-    // 즉, View 를 만들 필요가 없다.
-
-    for (const auto& image : vk.swapChainImages) {        // Swapchain 에서 나오는 이미지를 텍스쳐로 이용하지 않고, Graphics Pipeline 의 Render Target 으로도 사용하지 않을 것이다.
-        VkImageViewCreateInfo createInfo{                   //  즉, View 를 만들 필요가 없다.
+    for (const auto& image : vk.swapChainImages) {
+        VkImageViewCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -773,7 +764,7 @@ void createBLAS()
     std::tie(vk.blasBuffer, vk.blasBufferMem) = createBuffer(
         requiredSize.accelerationStructureSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);           // Device (GPU) 의 주소를 가져오려면 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 가 꼭 필요하다.
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     auto [scratchBuffer, scratchBufferMem] = createBuffer(
         requiredSize.buildScratchSize,
@@ -839,7 +830,7 @@ void createBLAS()
     vkDestroyBuffer(vk.device, geoTransformBuffer, nullptr);
 }
 
-void createTLAS()                                   
+void createTLAS()
 {
     VkTransformMatrixKHR insTransforms[] = {
         {
@@ -869,7 +860,7 @@ void createTLAS()
     auto [instanceBuffer, instanceBufferMem] = createBuffer(
         sizeof(instanceData), 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);    
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void* dst;
     vkMapMemory(vk.device, instanceBufferMem, 0, sizeof(instanceData), 0, &dst);
@@ -909,7 +900,7 @@ void createTLAS()
     std::tie(vk.tlasBuffer, vk.tlasBufferMem) = createBuffer(
         requiredSize.accelerationStructureSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);       // TLAS 의 Buffer 주소는 사용하지 않아서 예전에 있었던 tlasAddress 를 이제는 사용하지 않는다.
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     auto [scratchBuffer, scratchBufferMem] = createBuffer(
         requiredSize.buildScratchSize,
