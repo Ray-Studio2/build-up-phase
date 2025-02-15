@@ -6,7 +6,11 @@
 #include <tuple>
 #include <bitset>
 #include <span>
+#include <glm/vec3.hpp>
+#include <glm/vec2.hpp>
 #include "shader_module.h"
+#define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
+#include "tiny_obj_loader.h"
 
 typedef unsigned int uint;
 
@@ -18,6 +22,17 @@ const uint32_t HEIGHT = 800;
 #else
     const bool ON_DEBUG = true;
 #endif
+
+struct Vertex
+{
+    glm::vec3 _position;
+};
+class StaticMesh
+{
+public:
+    std::vector<Vertex> vertices;
+    std::vector<uint16_t> indices;
+} staticMesh;
 
 
 struct Global {
@@ -513,13 +528,8 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 
 void createBLAS()
 {
-    float vertices[][3] = {
-        { -1.0f, -1.0f, 0.0f },
-        {  1.0f, -1.0f, 0.0f },
-        {  1.0f,  1.0f, 0.0f },
-        { -1.0f,  1.0f, 0.0f },
-    };
-    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+    const std::vector<Vertex>& vertices = staticMesh.vertices;
+    const std::vector<uint16_t>& indices = staticMesh.indices;
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
@@ -535,12 +545,12 @@ void createBLAS()
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices), 
+        sizeof(Vertex) * vertices.size(),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof(indices), 
+        sizeof(indices[0]) * indices.size(),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -551,12 +561,12 @@ void createBLAS()
     
     void* dst;
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices), 0, &dst);
-    memcpy(dst, vertices, sizeof(vertices));
+    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices[0]) * vertices.size(), 0, &dst);
+    memcpy(dst, vertices.data(), sizeof(vertices[0]) * vertices.size());
     vkUnmapMemory(vk.device, vertexBufferMem);
 
-    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices), 0, &dst);
-    memcpy(dst, indices, sizeof(indices));
+    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices[0]) * indices.size(), 0, &dst);
+    memcpy(dst, indices.data(), sizeof(indices[0]) * vertices.size());
     vkUnmapMemory(vk.device, indexBufferMem);
 
     vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
@@ -570,10 +580,10 @@ void createBLAS()
             .triangles = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
+                .vertexData = {.deviceAddress = getDeviceAddressOf(vertexBuffer) },
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
-                .indexType = VK_INDEX_TYPE_UINT32,
+                .maxVertex = static_cast<uint32_t>(vertices.size()),
+                .indexType = VK_INDEX_TYPE_UINT16,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
             },
@@ -582,7 +592,7 @@ void createBLAS()
     };
     VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
+    uint32_t triangleCount0 = indices.size() / 3;
     uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
@@ -796,6 +806,66 @@ void loadDeviceExtensionFunctions(VkDevice device)
     vk.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
 }
 
+void loadModel(const std::string& modelPath)
+{
+    tinyobj::attrib_t attributes;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warnings;
+    std::string errors;
+    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
+
+    for (int i = 0; i < shapes.size(); i++) {
+        tinyobj::shape_t& shape = shapes[i];
+        tinyobj::mesh_t& mesh = shape.mesh;
+
+        const int vertexCount = attributes.vertices.size() / 3;
+        std::vector<int> visitMap;
+        visitMap.resize(vertexCount);
+        for (int j = 0; j < vertexCount; ++j)
+            visitMap[j] = -1;
+
+        staticMesh.vertices.reserve(vertexCount);
+        staticMesh.indices.reserve(mesh.indices.size());
+
+        // Replace the ... above
+        for (int j = 0; j < mesh.indices.size(); j++) {
+            tinyobj::index_t i = mesh.indices[j];
+
+            int vertexIndex = -1;
+            if (visitMap[i.vertex_index] < 0)
+            {
+                glm::vec3 position = {
+                attributes.vertices[i.vertex_index * 3],
+                attributes.vertices[i.vertex_index * 3 + 1],
+                attributes.vertices[i.vertex_index * 3 + 2]
+                };
+                glm::vec3 normal = {
+                    attributes.normals[i.normal_index * 3],
+                    attributes.normals[i.normal_index * 3 + 1],
+                    attributes.normals[i.normal_index * 3 + 2]
+                };
+                glm::vec2 texCoord = {
+                    attributes.texcoords[i.texcoord_index * 2],
+                    attributes.texcoords[i.texcoord_index * 2 + 1],
+                };
+                // Not gonna care about texCoord right now.
+                Vertex vert = { position };
+                staticMesh.vertices.push_back(vert);
+
+                vertexIndex = staticMesh.vertices.size() - 1;
+                visitMap[i.vertex_index] = vertexIndex;
+            }
+            else
+            {
+                vertexIndex = visitMap[i.vertex_index];
+            }
+
+            staticMesh.indices.push_back(vertexIndex);
+        }
+    }
+}
+
 int main()
 {
     glfwInit();
@@ -809,6 +879,8 @@ int main()
     // createGraphicsPipeline();
     createCommandCenter();
     createSyncObjects();
+
+    loadModel("C:/Users/dhfla/Desktop/Projects/PathTracingStudy/vulkan-raytraced-triangle/teapot.obj");
 
     createBLAS();
     createTLAS();
