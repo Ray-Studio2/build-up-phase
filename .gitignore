@@ -1,2 +1,5 @@
 .vs
 x64
+model_view/.idea/
+model_view/cmake-build-debug/build.ninja
+model_view/cmake-build-debug/
