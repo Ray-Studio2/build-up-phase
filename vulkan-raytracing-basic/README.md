@@ -219,9 +219,8 @@ struct Global {
 
 
 ## 퀴즈:
-- 레이트레이싱 아웃 대상 : 스토리지 이미지 -> 스토리지 버퍼 변경
-- rgb -> bgr 변경 문제 해결 
-- render()부분 동기화 수정 및 최적화
+Quiz1: 레이트레이싱 아웃 대상 : 스토리지 이미지 -> 스토리지 버퍼 변경
+Quiz2: render()부분 동기화 수정 및 최적화
 
 ## 과제
 1. obj파일 로드 -> Acceleration structure 빌드 성공하기
