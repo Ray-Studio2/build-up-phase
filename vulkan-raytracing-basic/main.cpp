@@ -1010,10 +1010,6 @@ void createOutImage()
         .image = vk.outImage,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = format,
-        .components = {
-            .r = VK_COMPONENT_SWIZZLE_B,
-            .b = VK_COMPONENT_SWIZZLE_R,
-        },
         .subresourceRange = subresourceRange,
     };
     vkCreateImageView(vk.device, &ci0, nullptr, &vk.outImageView);
@@ -1093,7 +1089,7 @@ void main()
         g.cameraPos, 0.0, rayDir, 100.0,    // origin, tmin, direction, tmax
         0);                                 // payload
 
-    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue.bgr, 0.0));
 })";
 
 const char* miss_src = R"(
