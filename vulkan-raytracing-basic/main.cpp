@@ -784,7 +784,7 @@ void createBLAS()
     };
     VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
 
-    uint32_t triangleCount0 = indices.size() / 3;
+    uint32_t triangleCount0 = static_cast<uint32_t>(indices.size()) / 3;
     uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
