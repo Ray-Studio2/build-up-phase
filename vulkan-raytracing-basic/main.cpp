@@ -736,13 +736,16 @@ void createBLAS()
         },
     };
 
+    auto vertSize = sizeof(vertices[0]) * vertices.size();
+    auto indSize = sizeof(indices[0]) * indices.size();
+
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices[0]) * vertices.size(),
+        vertSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof(indices[0]) * indices.size(),
+        indSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -753,12 +756,12 @@ void createBLAS()
     
     void* dst;
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices), 0, &dst);
-    memcpy(dst, vertices.data(), sizeof(vertices));
+    vkMapMemory(vk.device, vertexBufferMem, 0, vertSize, 0, &dst);
+    memcpy(dst, vertices.data(), vertSize);
     vkUnmapMemory(vk.device, vertexBufferMem);
 
-    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices), 0, &dst);
-    memcpy(dst, indices.data(), sizeof(indices));
+    vkMapMemory(vk.device, indexBufferMem, 0, indSize, 0, &dst);
+    memcpy(dst, indices.data(), indSize);
     vkUnmapMemory(vk.device, indexBufferMem);
 
     vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
@@ -773,8 +776,8 @@ void createBLAS()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
-                .vertexStride = sizeof(vertices[0]),
-                .maxVertex = static_cast<uint32_t>(vertices.size()),
+                .vertexStride = sizeof(vertices[0]) * 3,
+                .maxVertex = static_cast<uint32_t>(vertices.size() / 3) - 1,
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
