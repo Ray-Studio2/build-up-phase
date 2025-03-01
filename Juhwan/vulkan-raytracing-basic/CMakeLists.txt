@@ -7,8 +7,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
 set(GLFW_INCLUDE_DIR "C:/Users/phgph/Desktop/build-up-phase/glfw-3.4.bin.WIN64/include")
 set(GLFW_LIBRARY_DIR "C:/Users/phgph/Desktop/build-up-phase/glfw-3.4.bin.WIN64/lib-vc2022")
-set(GLFW_INCLUDE_DIR "C:/ExternalDevFiles/ExternalInclude")
-set(GLFW_LIBRARY_DIR "C:/ExternalDevFiles/ExternalLib")
 
 add_executable(${PROJECT_NAME} main.cpp)
 

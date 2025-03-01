@@ -235,9 +235,9 @@ void createVkDevice()
 
     std::vector<const char*> extentions = { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,            // 해당 extension 을 추가해서 이를 지원하는 device 를 찾는다고 바로 사용할 수 있는 것은 아니다.
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,         //  이후에, extension 에 대한 상세한 설정이 반드시 필요하다.
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,            
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,         // 해당 extension 을 추가해서 이를 지원하는 device 를 찾는다고 바로 사용할 수 있는 것은 아니다.
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,           //  이후에, extension 에 대한 상세한 설정이 반드시 필요하다.
     };
 
     for (const auto& device : devices)
@@ -292,7 +292,7 @@ void createVkDevice()
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR f1{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
         .accelerationStructure = VK_TRUE,       // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME extension 에 대한 상세한 설정이 필요한데, 
-    };                                          //  , accelerationStructure 을 true 로 설정해야 비로소 해당 extension 을 사용할 수 있다.
+    };                                          //  accelerationStructure 을 true 로 설정해야 비로소 해당 extension 을 사용할 수 있다.
 
 	VkPhysicalDeviceBufferDeviceAddressFeatures f2{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
