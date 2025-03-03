@@ -1504,15 +1504,16 @@ void render()
         
         setImageLayout(
             vk.commandBuffer, 
-            vk.outImage,
-            VK_IMAGE_LAYOUT_GENERAL,
+            vk.outImage,                    // outImage dml Layout 은 VK_IMAGE_LAYOUT_GENERAL 인데,
+                                            //  Raytracing Pipeline 에서 write 가 가능하게 하려면 Layout 이 VK_IMAGE_LAYOUT_GENERAL 이어야 한다.
+            VK_IMAGE_LAYOUT_GENERAL,        // 이러한 VK_IMAGE_LAYOUT_GENERAL Layout 을 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL 로 바꿔주어야 한다.
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             subresourceRange);
             
         setImageLayout(
             vk.commandBuffer,
-            vk.swapChainImages[imageIndex],
-            VK_IMAGE_LAYOUT_UNDEFINED,
+            vk.swapChainImages[imageIndex],     // swapChainImages[imageIndex] 의 Layout 이 VK_IMAGE_LAYOUT_UNDEFINED 로 간주하고 있으니
+            VK_IMAGE_LAYOUT_UNDEFINED,          //  이를 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL 로 바꿔야 한다.
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange);
         
@@ -1521,20 +1522,23 @@ void render()
             vk.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,  // 복사 전 outImage 가 가지고 있을 Layout
             vk.swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 복사 전 swapChainImages 가 가지고 있을 Layout
             1, &copyRegion);
-
+                                                // 복사 후에는 다음 프레임을 위해 Layout 을 각각 원래대로 되돌려놔야 한다.
         setImageLayout(
             vk.commandBuffer,
-            vk.outImage,
+            vk.outImage,                            // outImage 를 VK_IMAGE_LAYOUT_GENERAL 로 되돌려놓는다.
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_GENERAL,
             subresourceRange);
 
         setImageLayout(
             vk.commandBuffer,
-            vk.swapChainImages[imageIndex],
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            subresourceRange);
+            vk.swapChainImages[imageIndex],         // swapChainImages[imageIndex] 를 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR 로 바꾼다.
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 왜냐하면 이 다음에 swapChainImages[imageIndex] 로 Present 를 진행해야 하기 때문에
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,        //  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR Layout 이어야 한다.
+            subresourceRange);                  // swapChainImages[imageIndex] 의 시작 Layout 과 끝 Layout 이 서로 다른데
+                                                //  이는 render() 함수 초기에 실행되는 vkAcquireNextImageKHR 함수에서 VK_IMAGE_LAYOUT_UNDEFINED 로 초기화되어 괜찮기 때문이다.
+                                                // 또한, 기존 Layout 에서 다른 Layout 로 바꾸는 과정에서 기존의 내용을 읽을 필요가 없으면 (기존의 Layout 으로 기존의 내용을 읽을 필요가 없는 경우)
+                                                //  기존의 것을 VK_IMAGE_LAYOUT_UNDEFINED 로 간주하고 변환을 이어가도 무방하기 때문이기도 하다.
     }
     if (vkEndCommandBuffer(vk.commandBuffer) != VK_SUCCESS) {                   // Encoding 종료
         throw std::runtime_error("failed to record command buffer!");
