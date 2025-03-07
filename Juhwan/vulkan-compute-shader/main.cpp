@@ -233,7 +233,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 }
 
 template <typename T, typename F, typename... Args>
-inline std::vector<T> arrayOf(F pFunc, Args... args)
+inline std::vector<T> arrayOf(F pFunc, Args... args)    
 {
     uint32_t count;
     pFunc(args..., &count, nullptr);

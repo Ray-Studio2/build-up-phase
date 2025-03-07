@@ -1646,7 +1646,7 @@ void readOBJ(string inputfile) {
     cout << attrib.normals.size() << endl;
     cout << shapes[0].mesh.indices.size() << endl;
 
-    vData = new float[attrib.vertices.size() + attrib.normals.size()];
+    /*vData = new float[attrib.vertices.size() + attrib.normals.size()];
 
     int dataIndex = 0;
 	int vertexIndex = 0;
@@ -1658,7 +1658,7 @@ void readOBJ(string inputfile) {
 
 		for(int k = 0; k < 3; k++)
 			vData[dataIndex++] = attrib.normals[normalIndex++];
-	}
+	}*/
 
     /*auto [data_v, size_v] = Geometry::getVertices();
     for (int i = 0; i < size_v / 4; i++)
@@ -1676,7 +1676,7 @@ int main()
 {
     readOBJ("teapot.obj");
 
-    {
+    /*{
         auto [data_v, size_v] = Geometry::getVertices();
 
         //Geometry::putVertices(vData, size_v);
@@ -1690,7 +1690,7 @@ int main()
         Geometry::data_i = new uint16_t[shapes[0].mesh.indices.size()];
         for (int i = 0; i < size_i / 2; i++)
             Geometry::data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;
-    }
+    }*/
 
     glfwInit();
     GLFWwindow* window = createWindow();
