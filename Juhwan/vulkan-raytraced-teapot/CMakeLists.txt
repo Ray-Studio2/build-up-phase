@@ -8,7 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
 set(GLFW_INCLUDE_DIR "C:/ExternalDevFiles/ExternalInclude")
 set(GLFW_LIBRARY_DIR "C:/ExternalDevFiles/ExternalLib")
 #set(CUSTOM_INCLUDE_DIR "C:/Users/Juhwan_Bae/Desktop/build-up-phase/Juhwan/vulkan-raytraced-teapot")
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp tiny_obj_loader.cc)     #######
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
@@ -35,7 +35,6 @@ include_directories(
     #${CUSTOM_INCLUDE_DIR}
     $ENV{VULKAN_SDK}/Include
 )
-
 
 find_library(GLFW_LIB glfw3 PATHS ${GLFW_LIBRARY_DIR})
 find_library(VULKAN_LIB vulkan-1 PATHS $ENV{VULKAN_SDK}/Lib)

@@ -721,13 +721,30 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 
 void createBLAS()
 {
-    float vertices[][3] = {
+    /*float vertices1[][3] = {
         { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
         { -1.0f,  1.0f, 0.0f },
-    };
-    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+    };*/
+
+    float* vertices = new float[attrib.vertices.size()];
+
+    for (int i = 0; i < attrib.vertices.size(); i++) {
+        vertices[i] = attrib.vertices[i];
+    }
+
+    size_t verticesSize = attrib.vertices.size() * sizeof(float);
+
+    //uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+
+    uint32_t* indices = new uint32_t[shapes[0].mesh.indices.size()];
+
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
+        indices[i] = shapes[0].mesh.indices[i].vertex_index; 
+    }
+    
+    size_t indicesSize = shapes[0].mesh.indices.size() * sizeof(uint32_t);
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
@@ -743,12 +760,12 @@ void createBLAS()
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices), 
+        verticesSize/*sizeof(vertices)*/, 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof(indices), 
+        indicesSize /*sizeof(indices)*/, 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -759,12 +776,12 @@ void createBLAS()
     
     void* dst;
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices), 0, &dst);
-    memcpy(dst, vertices, sizeof(vertices));
+    vkMapMemory(vk.device, vertexBufferMem, 0, verticesSize /*sizeof(vertices)*/, 0, &dst);
+    memcpy(dst, vertices, verticesSize /*sizeof(vertices)*/);
     vkUnmapMemory(vk.device, vertexBufferMem);
 
-    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices), 0, &dst);
-    memcpy(dst, indices, sizeof(indices));
+    vkMapMemory(vk.device, indexBufferMem, 0, indicesSize /*sizeof(indices)*/, 0, &dst);
+    memcpy(dst, indices, indicesSize /*sizeof(indices)*/);
     vkUnmapMemory(vk.device, indexBufferMem);
 
     vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
@@ -780,7 +797,7 @@ void createBLAS()
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
+                .maxVertex = (uint32_t)verticesSize/*sizeof(vertices)*/ / sizeof(vertices[0]) - 1,
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
@@ -790,7 +807,7 @@ void createBLAS()
     };
     VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
+    uint32_t triangleCount0 = (uint32_t)indicesSize/*sizeof(indices)*/ / (sizeof(indices[0]) * 3);
     uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
@@ -1066,7 +1083,7 @@ void createUniformBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
-    *(Data*) dst = {0, 0, 10, 60};
+    *(Data*) dst = {0, 0, 50, 60};                  ////////////////////////
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
                                                 // Vulkan 의 쉐이더 파일은 spv 이고, 어셈블리 언어의 형식을 가지고 있다.
@@ -1585,6 +1602,8 @@ void render()
     };
     
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
+
+    //vkWaitForFences(vk.device, 1, &vk.fence0, VK_TRUE, UINT64_MAX); //////////////////
 }
 
 void readOBJ(string inputfile) {
