@@ -1334,7 +1334,7 @@ void main()
 
     const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     const vec3 normal = v0.nrm * barycentrics.x + v1.nrm * barycentrics.y + v2.nrm * barycentrics.z;
-    hitValue = v0.nrm;
+    hitValue = normal;
 })"; 
 #pragma endregion
 
