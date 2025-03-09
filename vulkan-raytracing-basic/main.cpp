@@ -26,18 +26,6 @@ const uint32_t SHADER_GROUP_HANDLE_SIZE = 32;
     const bool ON_DEBUG = true;
 #endif
 
-struct Vertex
-{
-    glm::vec3 _position;
-};
-class StaticMesh
-{
-public:
-    std::vector<Vertex> vertices;
-    std::vector<uint16_t> indices;
-} staticMesh;
-
-
 struct Global {
     PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
@@ -97,16 +85,23 @@ struct Global {
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
+    VkDescriptorSetLayout descriptorSetLayout2;
     VkPipeline pipeline;
 
     VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSet;
+    
+    VkDescriptorPool descriptorPool2;
+    VkDescriptorSet descriptorSet2;
 
     VkBuffer sbtBuffer;
     VkDeviceMemory sbtBufferMem;
     VkStridedDeviceAddressRegionKHR rgenSbt{};
     VkStridedDeviceAddressRegionKHR missSbt{};
     VkStridedDeviceAddressRegionKHR hitgSbt{};
+
+    VkBuffer _objDescBuffer;
+    VkDeviceMemory _objDescBufferMem;
     
     ~Global() {
         vkDestroyBuffer(device, tlasBuffer, nullptr);
@@ -134,8 +129,10 @@ struct Global {
         vkDestroyPipeline(device, pipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout2, nullptr);
         
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        vkDestroyDescriptorPool(device, descriptorPool2, nullptr);
 
 
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
@@ -155,8 +152,68 @@ struct Global {
         }
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
+
+        vkDestroyBuffer(device, _objDescBuffer, nullptr);
+        vkFreeMemory(device, _objDescBufferMem, nullptr);
     }
 } vk;
+
+struct Vertex
+{
+    glm::vec3 _position;
+    glm::vec3 _normal;
+    glm::vec3 _color;
+    glm::vec2 _texcoord;
+};
+class StaticMesh
+{
+public:
+    ~StaticMesh()
+    {
+        vkFreeMemory(vk.device, _vertexBufferMem, nullptr);
+        vkDestroyBuffer(vk.device, _vertexBuffer, nullptr);
+
+        vkFreeMemory(vk.device, _indexBufferMem, nullptr);
+        vkDestroyBuffer(vk.device, _indexBuffer, nullptr);
+
+        vkDestroyImageView(vk.device, _diffuseTextureView, nullptr);
+        vkDestroyImage(vk.device, _diffuseTexture, nullptr);
+        vkFreeMemory(vk.device, _diffuseTextureMem, nullptr);
+
+        vkDestroyImageView(vk.device, _normalTextureView, nullptr);
+        vkDestroyImage(vk.device, _normalTexture, nullptr);
+        vkFreeMemory(vk.device, _normalTextureMem, nullptr);
+    }
+
+    std::vector<glm::vec3> _positions;
+    std::vector<Vertex> _vertices;
+    std::vector<uint32_t> _indices;
+
+    VkBuffer _vertexBuffer;
+    VkDeviceMemory _vertexBufferMem;
+
+    VkBuffer _indexBuffer;
+    VkDeviceMemory _indexBufferMem;
+
+    VkImage _diffuseTexture;
+    VkDeviceMemory _diffuseTextureMem;
+    VkImageView _diffuseTextureView;
+
+    VkImage _normalTexture;
+    VkDeviceMemory _normalTextureMem;
+    VkImageView _normalTextureView;
+
+    struct ObjDesc
+    {
+        int      txtOffset;             // Texture index offset in the array of textures
+        uint64_t vertexAddress;         // Address of the Vertex buffer
+        uint64_t indexAddress;          // Address of the index buffer
+        uint64_t materialAddress;       // Address of the material buffer
+        uint64_t materialIndexAddress;  // Address of the triangle material index buffer
+    };
+    ObjDesc _desc;
+
+} staticMesh;
 
 void loadDeviceExtensionFunctions(VkDevice device)
 {
@@ -728,7 +785,7 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 
 void createBLAS()
 {
-#if 1
+#if 0
     float vertices[][3] = {
         { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
@@ -800,8 +857,8 @@ void createBLAS()
 
     uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
 #else
-    const std::vector<Vertex>& vertices = staticMesh.vertices;
-    const std::vector<uint16_t>& indices = staticMesh.indices;
+    const std::vector<glm::vec3>& vertices = staticMesh._positions;
+    const std::vector<uint32_t>& indices = staticMesh._indices;
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
@@ -817,7 +874,7 @@ void createBLAS()
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(12) * vertices.size(),
+        sizeof(vertices[0]) * vertices.size(),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
@@ -855,7 +912,7 @@ void createBLAS()
                 .vertexData = {.deviceAddress = getDeviceAddressOf(vertexBuffer) },
                 .vertexStride = sizeof(vertices[0]),
                 .maxVertex = static_cast<uint32_t>(vertices.size()),
-                .indexType = VK_INDEX_TYPE_UINT16,
+                .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = {.deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = {.deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
             },
@@ -958,12 +1015,12 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 2,
+            0.0f, 1.0f, 0.0f, 15,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -2,
+            0.0f, 1.0f, 0.0f, -15,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
@@ -1139,7 +1196,7 @@ void createUniformBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
-    *(Data*) dst = {0, 0, 10, 60};
+    *(Data*) dst = {0, 0, 50, 60};
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
 
@@ -1158,7 +1215,7 @@ layout(binding = 2) uniform CameraProperties
 
 layout(location = 0) rayPayloadEXT vec3 hitValue;
 
-const float tMax = 11.0;
+const float tMax = 100.0;
 
 void main() 
 {
@@ -1198,63 +1255,144 @@ void main()
 const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
 
 layout(shaderRecordEXT) buffer CustomData
 {
     vec3 color;
 };
 
+// Information of a obj model when referenced in a shader
+struct ObjDesc
+{
+  int      txtOffset;             // Texture index offset in the array of textures
+  uint64_t vertexAddress;         // Address of the Vertex buffer
+  uint64_t indexAddress;          // Address of the index buffer
+  uint64_t materialAddress;       // Address of the material buffer
+  uint64_t materialIndexAddress;  // Address of the triangle material index buffer
+};
+struct Vertex  // See ObjLoader, copy of VertexObj, could be compressed for device
+{
+  vec3 pos;
+  vec3 nrm;
+  vec3 color;
+  vec2 texCoord;
+};
+struct WaveFrontMaterial  // See ObjLoader, copy of MaterialObj, could be compressed for device
+{
+  vec3  ambient;
+  vec3  diffuse;
+  vec3  specular;
+  vec3  transmittance;
+  vec3  emission;
+  float shininess;
+  float ior;       // index of refraction
+  float dissolve;  // 1 == opaque; 0 == fully transparent
+  int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
+  int   textureId;
+};
+
+layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Positions of an object
+layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indices
+layout(buffer_reference, scalar) buffer Materials {WaveFrontMaterial m[]; }; // Array of all materials on an object
+layout(buffer_reference, scalar) buffer MatIndices {int i[]; }; // Material ID for each triangle
+layout(set = 1, binding = 0, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc;
+
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 hitAttributeEXT vec2 attribs;
 
 void main()
 {
-    if (gl_PrimitiveID == 1 && 
-        gl_InstanceID == 1 && 
-        gl_InstanceCustomIndexEXT == 100 && 
-        gl_GeometryIndexEXT == 1) {
-        hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-    }
-    else {
-        hitValue = color;
-    }
+    ObjDesc    objResource = objDesc.i[0];  //원래 0대신 gl_InstanceCustomIndexEXT가 들어가야함
+    MatIndices matIndices  = MatIndices(objResource.materialIndexAddress);
+    Materials  materials   = Materials(objResource.materialAddress);
+    Indices    indices     = Indices(objResource.indexAddress);
+    Vertices   vertices    = Vertices(objResource.vertexAddress);
+
+    // Indices of the triangle
+    ivec3 ind = indices.i[gl_PrimitiveID];
+  
+    // Vertex of the triangle
+    Vertex v0 = vertices.v[ind.x];
+    Vertex v1 = vertices.v[ind.y];
+    Vertex v2 = vertices.v[ind.z];
+
+    //if (gl_PrimitiveID == 1 && 
+    //    gl_InstanceID == 1 && 
+    //    gl_InstanceCustomIndexEXT == 100 && 
+    //    gl_GeometryIndexEXT == 1) {
+    //    hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    //}
+    //else {
+    //    hitValue = color;
+    //}
+
+    const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    const vec3 normal = v0.nrm * barycentrics.x + v1.nrm * barycentrics.y + v2.nrm * barycentrics.z;
+    hitValue = v0.nrm;
 })"; 
 #pragma endregion
 
 void createRayTracingPipeline()
 {
-    VkDescriptorSetLayoutBinding bindings[] = {
-        {
-            .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        },
-        {
-            .binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        },
-        {
-            .binding = 2,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        },
-    };
+    {
+        VkDescriptorSetLayoutBinding bindings[] = {
+            {
+                .binding = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            },
+            {
+                .binding = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            },
+            {
+                .binding = 2,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            },
+        };
 
-    VkDescriptorSetLayoutCreateInfo ci0{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = sizeof(bindings) / sizeof(bindings[0]),
-        .pBindings = bindings,
-    };
-    vkCreateDescriptorSetLayout(vk.device, &ci0, nullptr, &vk.descriptorSetLayout);
+        VkDescriptorSetLayoutCreateInfo ci0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = sizeof(bindings) / sizeof(bindings[0]),
+            .pBindings = bindings,
+        };
+        vkCreateDescriptorSetLayout(vk.device, &ci0, nullptr, &vk.descriptorSetLayout);
+    }
 
+    {
+        VkDescriptorSetLayoutBinding bindings[] = {
+            {
+                .binding = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            }, 
+        };
+
+        VkDescriptorSetLayoutCreateInfo ci0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = sizeof(bindings) / sizeof(bindings[0]),
+            .pBindings = bindings,
+        };
+        vkCreateDescriptorSetLayout(vk.device, &ci0, nullptr, &vk.descriptorSetLayout2);
+    }
+    
+    std::vector<VkDescriptorSetLayout> rtDescSetLayouts = { vk.descriptorSetLayout, vk.descriptorSetLayout2 };
     VkPipelineLayoutCreateInfo ci1{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &vk.descriptorSetLayout,
+        .setLayoutCount = static_cast<uint32_t>(rtDescSetLayouts.size()),
+        .pSetLayouts = rtDescSetLayouts.data(),
     };
     vkCreatePipelineLayout(vk.device, &ci1, nullptr, &vk.pipelineLayout);
 
@@ -1304,72 +1442,115 @@ void createRayTracingPipeline()
 
 void createDescriptorSets()
 {
-    VkDescriptorPoolSize poolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-    };
-    VkDescriptorPoolCreateInfo ci0 {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = 1,
-        .poolSizeCount = sizeof(poolSizes) / sizeof(poolSizes[0]),
-        .pPoolSizes = poolSizes,
-    };
-    vkCreateDescriptorPool(vk.device, &ci0, nullptr, &vk.descriptorPool);
+    {
+        VkDescriptorPoolSize poolSizes[] = {
+            { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+        };
+        VkDescriptorPoolCreateInfo ci0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .maxSets = 1,
+            .poolSizeCount = sizeof(poolSizes) / sizeof(poolSizes[0]),
+            .pPoolSizes = poolSizes,
+        };
+        vkCreateDescriptorPool(vk.device, &ci0, nullptr, &vk.descriptorPool);
 
-    VkDescriptorSetAllocateInfo ai0 {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = vk.descriptorPool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &vk.descriptorSetLayout,
-    };
-    vkAllocateDescriptorSets(vk.device, &ai0, &vk.descriptorSet);
+        VkDescriptorSetAllocateInfo ai0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = vk.descriptorPool,
+            .descriptorSetCount = 1,
+            .pSetLayouts = &vk.descriptorSetLayout,
+        };
+        vkAllocateDescriptorSets(vk.device, &ai0, &vk.descriptorSet);
 
-    VkWriteDescriptorSet write_temp{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = vk.descriptorSet,
-        .descriptorCount = 1,
-    };
+        VkWriteDescriptorSet write_temp{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = vk.descriptorSet,
+            .descriptorCount = 1,
+        };
 
-    // Descriptor(binding = 0), VkAccelerationStructure
-    VkWriteDescriptorSetAccelerationStructureKHR desc0{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-        .accelerationStructureCount = 1,
-        .pAccelerationStructures = &vk.tlas,  
-    };
-    VkWriteDescriptorSet write0 = write_temp;
-    write0.pNext = &desc0;
-    write0.dstBinding = 0;
-    write0.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    
-    // Descriptor(binding = 1), VkImage for output
-    VkDescriptorImageInfo desc1{
-        .imageView = vk.outImageView,
-        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-    };
-    VkWriteDescriptorSet write1 = write_temp;
-    write1.dstBinding = 1;
-    write1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    write1.pImageInfo = &desc1;
- 
-    // Descriptor(binding = 2), VkBuffer for uniform
-    VkDescriptorBufferInfo desc2{
-        .buffer = vk.uniformBuffer,
-        .offset = 0,
-        .range = VK_WHOLE_SIZE,
-    };
-    VkWriteDescriptorSet write2 = write_temp;
-    write2.dstBinding = 2;
-    write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write2.pBufferInfo = &desc2;
+        // Descriptor(binding = 0), VkAccelerationStructure
+        VkWriteDescriptorSetAccelerationStructureKHR desc0{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+            .accelerationStructureCount = 1,
+            .pAccelerationStructures = &vk.tlas,
+        };
+        VkWriteDescriptorSet write0 = write_temp;
+        write0.pNext = &desc0;
+        write0.dstBinding = 0;
+        write0.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 
-    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2 };
-    vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
-    /*
-    [VUID-VkWriteDescriptorSet-descriptorType-00336]
-    If descriptorType is VK_DESCRIPTOR_TYPE_STORAGE_IMAGE or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 
-    the imageView member of each element of pImageInfo must have been created with the identity swizzle.
-    */
+        // Descriptor(binding = 1), VkImage for output
+        VkDescriptorImageInfo desc1{
+            .imageView = vk.outImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+        };
+        VkWriteDescriptorSet write1 = write_temp;
+        write1.dstBinding = 1;
+        write1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        write1.pImageInfo = &desc1;
+
+        // Descriptor(binding = 2), VkBuffer for uniform
+        VkDescriptorBufferInfo desc2{
+            .buffer = vk.uniformBuffer,
+            .offset = 0,
+            .range = VK_WHOLE_SIZE,
+        };
+        VkWriteDescriptorSet write2 = write_temp;
+        write2.dstBinding = 2;
+        write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write2.pBufferInfo = &desc2;
+
+        VkWriteDescriptorSet writeInfos[] = { write0, write1, write2 };
+        vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
+        /*
+        [VUID-VkWriteDescriptorSet-descriptorType-00336]
+        If descriptorType is VK_DESCRIPTOR_TYPE_STORAGE_IMAGE or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        the imageView member of each element of pImageInfo must have been created with the identity swizzle.
+        */
+    }
+
+    {
+        VkDescriptorPoolSize poolSizes[] = {
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 }, //object desc
+        };
+        VkDescriptorPoolCreateInfo ci0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .maxSets = 1,
+            .poolSizeCount = sizeof(poolSizes) / sizeof(poolSizes[0]),
+            .pPoolSizes = poolSizes,
+        };
+        vkCreateDescriptorPool(vk.device, &ci0, nullptr, &vk.descriptorPool2);
+
+        VkDescriptorSetAllocateInfo ai0{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = vk.descriptorPool2,
+            .descriptorSetCount = 1,
+            .pSetLayouts = &vk.descriptorSetLayout2,
+        };
+        vkAllocateDescriptorSets(vk.device, &ai0, &vk.descriptorSet2);
+
+        VkWriteDescriptorSet write_temp{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = vk.descriptorSet2,
+            .descriptorCount = 1,
+        };
+
+        // Descriptor(binding = 3), object description
+        VkDescriptorBufferInfo desc3{
+            .buffer = vk._objDescBuffer,
+            .offset = 0,
+            .range = VK_WHOLE_SIZE,
+        };
+        VkWriteDescriptorSet write3 = write_temp;
+        write3.dstBinding = 1;
+        write3.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        write3.pBufferInfo = &desc3;
+
+        VkWriteDescriptorSet writeInfos[] = { write3 };
+        vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
+    }
 }
 
 struct ShaderGroupHandle {
@@ -1450,6 +1631,110 @@ void createShaderBindingTable()
     vkUnmapMemory(vk.device, vk.sbtBufferMem);
 }
 
+void loadModel(const std::string& modelPath)
+{
+    tinyobj::attrib_t attributes;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warnings;
+    std::string errors;
+    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
+
+    for (int i = 0; i < shapes.size(); i++) {
+        tinyobj::shape_t& shape = shapes[i];
+        tinyobj::mesh_t& mesh = shape.mesh;
+
+        const int vertexCount = attributes.vertices.size() / 3;
+        std::vector<int> visitMap;
+        visitMap.resize(vertexCount);
+        for (int j = 0; j < vertexCount; ++j)
+            visitMap[j] = -1;
+
+        staticMesh._positions.reserve(vertexCount);
+        staticMesh._vertices.reserve(vertexCount);
+        staticMesh._indices.reserve(mesh.indices.size());
+
+        // Replace the ... above
+        for (int j = 0; j < mesh.indices.size(); j++) {
+            tinyobj::index_t i = mesh.indices[j];
+
+            int vertexIndex = -1;
+            if (visitMap[i.vertex_index] < 0)
+            {
+                glm::vec3 position = {
+                attributes.vertices[i.vertex_index * 3],
+                attributes.vertices[i.vertex_index * 3 + 1],
+                attributes.vertices[i.vertex_index * 3 + 2]
+                };
+                glm::vec3 normal = {
+                    attributes.normals[i.normal_index * 3],
+                    attributes.normals[i.normal_index * 3 + 1],
+                    attributes.normals[i.normal_index * 3 + 2]
+                };
+                glm::vec2 texCoord = {
+                    attributes.texcoords[i.texcoord_index * 2],
+                    attributes.texcoords[i.texcoord_index * 2 + 1],
+                };
+                staticMesh._positions.push_back(position);
+                // Not gonna care about texCoord right now.
+                Vertex vert = { position, normal, glm::vec3(0, 1, 0), texCoord};
+                staticMesh._vertices.push_back(vert);
+
+                vertexIndex = staticMesh._vertices.size() - 1;
+                visitMap[i.vertex_index] = vertexIndex;
+            }
+            else
+            {
+                vertexIndex = visitMap[i.vertex_index];
+            }
+
+            staticMesh._indices.push_back(vertexIndex);
+        }
+    }
+
+    std::tie(staticMesh._vertexBuffer, staticMesh._vertexBufferMem) = createBuffer(
+        sizeof(staticMesh._vertices[0]) * staticMesh._vertices.size(),
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    uint8_t* dst;
+    vkMapMemory(vk.device, staticMesh._vertexBufferMem, 0, sizeof(staticMesh._vertices[0]) * staticMesh._vertices.size(), 0, (void**)&dst);
+    {
+        memcpy(dst, staticMesh._vertices.data(), sizeof(staticMesh._vertices[0]) * staticMesh._vertices.size());
+    }
+    vkUnmapMemory(vk.device, staticMesh._vertexBufferMem);
+
+    std::tie(staticMesh._indexBuffer, staticMesh._indexBufferMem) = createBuffer(
+        sizeof(staticMesh._indices[0]) * staticMesh._indices.size(),
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    vkMapMemory(vk.device, staticMesh._indexBufferMem, 0, sizeof(staticMesh._indices[0]) * staticMesh._indices.size(), 0, (void**)&dst);
+    {
+        memcpy(dst, staticMesh._indices.data(), sizeof(staticMesh._indices[0]) * staticMesh._indices.size());
+    }
+    vkUnmapMemory(vk.device, staticMesh._indexBufferMem);
+
+    //staticMesh._desc.txtOffset = 0;
+    staticMesh._desc.vertexAddress = getDeviceAddressOf(staticMesh._vertexBuffer);
+    staticMesh._desc.indexAddress = getDeviceAddressOf(staticMesh._indexBuffer);
+    //staticMesh._desc.materialAddress = getDeviceAddressOf(staticMesh.matColorBuffer);
+    //staticMesh._desc.materialIndexAddress = getDeviceAddressOf(staticMesh.matIndexBuffer);
+}
+
+void createObjectDescriptionBuffer()
+{
+    std::tie(vk._objDescBuffer, vk._objDescBufferMem) = createBuffer(
+        sizeof(staticMesh._vertices[0]) * staticMesh._vertices.size(),
+        /*VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | */VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    uint8_t* dst;
+    vkMapMemory(vk.device, vk._objDescBufferMem, 0, sizeof(staticMesh._desc), 0, (void**)&dst);
+    {
+        memcpy(dst, &staticMesh._desc, sizeof(staticMesh._desc));
+    }
+    vkUnmapMemory(vk.device, vk._objDescBufferMem);
+}
+
 void render()
 {
     static const VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -1472,10 +1757,11 @@ void render()
         throw std::runtime_error("failed to begin recording command buffer!");
     }
     {
+        std::vector<VkDescriptorSet> descSets{ vk.descriptorSet, vk.descriptorSet2 };
         vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, vk.pipeline);
         vkCmdBindDescriptorSets(
-            vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 
-            vk.pipelineLayout, 0, 1, &vk.descriptorSet, 0, 0);
+            vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+            vk.pipelineLayout, 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, 0);
 
         vk.vkCmdTraceRaysKHR(
             vk.commandBuffer,
@@ -1484,21 +1770,21 @@ void render()
             &vk.hitgSbt,
             &callSbt,
             WIDTH, HEIGHT, 1);
-        
+
         setImageLayout(
             vk.commandBuffer,
             vk.outImage,
             VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             subresourceRange);
-            
+
         setImageLayout(
             vk.commandBuffer,
             vk.swapChainImages[imageIndex],
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange);
-        
+
         vkCmdCopyImage(
             vk.commandBuffer,
             vk.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1523,14 +1809,14 @@ void render()
         throw std::runtime_error("failed to record command buffer!");
     }
 
-    VkSemaphore waitSemaphores[] = { 
-        vk.imageAvailableSemaphore 
+    VkSemaphore waitSemaphores[] = {
+        vk.imageAvailableSemaphore
     };
-    VkPipelineStageFlags waitStages[] = { 
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
+    VkPipelineStageFlags waitStages[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     };
-    
-    VkSubmitInfo submitInfo{ 
+
+    VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = sizeof(waitSemaphores) / sizeof(waitSemaphores[0]),
         .pWaitSemaphores = waitSemaphores,
@@ -1538,79 +1824,19 @@ void render()
         .commandBufferCount = 1,
         .pCommandBuffers = &vk.commandBuffer,
     };
-    
+
     if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.fence0) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
-    
+
     VkPresentInfoKHR presentInfo{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .swapchainCount = 1,
         .pSwapchains = &vk.swapChain,
         .pImageIndices = &imageIndex,
     };
-    
+
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
-}
-
-void loadModel(const std::string& modelPath)
-{
-    tinyobj::attrib_t attributes;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warnings;
-    std::string errors;
-    tinyobj::LoadObj(&attributes, &shapes, &materials, &warnings, &errors, modelPath.c_str(), nullptr);
-
-    for (int i = 0; i < shapes.size(); i++) {
-        tinyobj::shape_t& shape = shapes[i];
-        tinyobj::mesh_t& mesh = shape.mesh;
-
-        const int vertexCount = attributes.vertices.size() / 3;
-        std::vector<int> visitMap;
-        visitMap.resize(vertexCount);
-        for (int j = 0; j < vertexCount; ++j)
-            visitMap[j] = -1;
-
-        staticMesh.vertices.reserve(vertexCount);
-        staticMesh.indices.reserve(mesh.indices.size());
-
-        // Replace the ... above
-        for (int j = 0; j < mesh.indices.size(); j++) {
-            tinyobj::index_t i = mesh.indices[j];
-
-            int vertexIndex = -1;
-            if (visitMap[i.vertex_index] < 0)
-            {
-                glm::vec3 position = {
-                attributes.vertices[i.vertex_index * 3],
-                attributes.vertices[i.vertex_index * 3 + 1],
-                attributes.vertices[i.vertex_index * 3 + 2]
-                };
-                glm::vec3 normal = {
-                    attributes.normals[i.normal_index * 3],
-                    attributes.normals[i.normal_index * 3 + 1],
-                    attributes.normals[i.normal_index * 3 + 2]
-                };
-                glm::vec2 texCoord = {
-                    attributes.texcoords[i.texcoord_index * 2],
-                    attributes.texcoords[i.texcoord_index * 2 + 1],
-                };
-                // Not gonna care about texCoord right now.
-                Vertex vert = { position };
-                staticMesh.vertices.push_back(vert);
-
-                vertexIndex = staticMesh.vertices.size() - 1;
-                visitMap[i.vertex_index] = vertexIndex;
-            }
-            else
-            {
-                vertexIndex = visitMap[i.vertex_index];
-            }
-
-            staticMesh.indices.push_back(vertexIndex);
-        }
-    }
 }
 
 int main()
@@ -1625,6 +1851,7 @@ int main()
     createSyncObjects();
 
     loadModel("C:/Users/Lee/Desktop/Projects/build-up-phase/vulkan-raytracing-basic/teapot.obj");
+    createObjectDescriptionBuffer();
 
     createBLAS();
     createTLAS();
