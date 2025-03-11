@@ -79,6 +79,9 @@ struct Global {
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMem;
 
+    VkBuffer vertexStorageBuffer;
+    VkDeviceMemory vertexStorageBufferMem;
+
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
@@ -107,6 +110,9 @@ struct Global {
 
         vkDestroyBuffer(device, uniformBuffer, nullptr);
         vkFreeMemory(device, uniformBufferMem, nullptr);
+
+        vkDestroyBuffer(device, vertexStorageBuffer, nullptr);
+        vkFreeMemory(device, vertexStorageBufferMem, nullptr);
 
         vkDestroyBuffer(device, sbtBuffer, nullptr);
         vkFreeMemory(device, sbtBufferMem, nullptr);
@@ -246,12 +252,20 @@ struct tuple_hash {
     }
 };
 
+struct Vert
+{
+    float pos[4];
+    float norm[4];
+    float color[4];
+    float uv[2];
+};
+
 struct Geometry
 {
     tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
-    std::vector<float> vertData;
+    std::vector<Vert> vertData;
     std::vector<uint32_t> idxData;
 
     void readfile(const std::string& inputfile) {
@@ -269,12 +283,37 @@ struct Geometry
         const auto& attrib = reader.GetAttrib();
         const auto& shapes = reader.GetShapes();
 
-        vertData = attrib.vertices;
+        for (const auto& shape : shapes) {
+            vertData.reserve(shape.mesh.indices.size() + vertData.size());
+            idxData.reserve(shape.mesh.indices.size() + idxData.size());
+            
+            for (const auto& index : shape.mesh.indices) {
+                Vert v = {};
 
-        idxData.resize(shapes[0].mesh.indices.size());
-        for (uint32_t idx = 0; idx < shapes[0].mesh.indices.size(); ++idx) {
-            const auto& vertIdx = shapes[0].mesh.indices[idx].vertex_index;
-            idxData[idx] = static_cast<uint32_t>(vertIdx);
+                v.pos[0] = attrib.vertices[3 * index.vertex_index + 0];
+                v.pos[1] = attrib.vertices[3 * index.vertex_index + 1];
+                v.pos[2] = attrib.vertices[3 * index.vertex_index + 2];
+
+                if (!attrib.normals.empty() && index.normal_index >= 0) {
+                    v.norm[0] = attrib.normals[3 * index.normal_index + 0];
+                    v.norm[1] = attrib.normals[3 * index.normal_index + 1];
+                    v.norm[2] = attrib.normals[3 * index.normal_index + 2];
+                }
+
+                if (!attrib.colors.empty()) {
+                    v.color[0] = attrib.colors[3 * index.vertex_index + 0];
+                    v.color[1] = attrib.colors[3 * index.vertex_index + 1];
+                    v.color[2] = attrib.colors[3 * index.vertex_index + 2];
+                }
+
+                if (!attrib.texcoords.empty() && index.texcoord_index >= 0) {
+                    v.uv[0] = attrib.texcoords[2 * index.texcoord_index + 0];
+                    v.uv[1] = attrib.texcoords[2 * index.texcoord_index + 1];
+                }
+
+                vertData.push_back(v);
+                idxData.push_back(static_cast<uint32_t>(idxData.size())); // TODO: repeated vertex
+            }
         }
     }
 } geo;
@@ -718,9 +757,33 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
     return vk.vkGetAccelerationStructureDeviceAddressKHR(vk.device, &info);
 }
 
+void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        //.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,  
+    };
+
+    vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
+    {
+        VkBufferCopy copyRegion{ .size = size };
+        vkCmdCopyBuffer(vk.commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    }
+    vkEndCommandBuffer(vk.commandBuffer);
+
+    VkSubmitInfo submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vk.commandBuffer,
+    };
+
+    vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(vk.graphicsQueue);
+}
+
 void createBLAS()
 {
-    std::vector<float> vertices = geo.vertData;
+    std::vector<Vert> vertices = geo.vertData;
     std::vector<uint32_t> indices = geo.idxData;
 
     VkTransformMatrixKHR geoTransforms[] = {
@@ -739,10 +802,13 @@ void createBLAS()
     auto vertSize = sizeof(vertices[0]) * vertices.size();
     auto indSize = sizeof(indices[0]) * indices.size();
 
-    auto [vertexBuffer, vertexBufferMem] = createBuffer(
+    std::tie(vk.vertexStorageBuffer, vk.vertexStorageBufferMem) = createBuffer(
         vertSize,
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 
+        | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+        | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
     auto [indexBuffer, indexBufferMem] = createBuffer(
         indSize,
@@ -755,10 +821,21 @@ void createBLAS()
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     void* dst;
+    {
+        auto [stagingBuffer, stagingBufferMemory] = createBuffer(
+            vertSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, vertSize, 0, &dst);
-    memcpy(dst, vertices.data(), vertSize);
-    vkUnmapMemory(vk.device, vertexBufferMem);
+        vkMapMemory(vk.device, stagingBufferMemory, 0, vertSize, 0, &dst);
+        memcpy(dst, vertices.data(), vertSize);
+        vkUnmapMemory(vk.device, stagingBufferMemory);
+        
+        copyBuffer(stagingBuffer, vk.vertexStorageBuffer, vertSize);
+        vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+        vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
+    }
 
     vkMapMemory(vk.device, indexBufferMem, 0, indSize, 0, &dst);
     memcpy(dst, indices.data(), indSize);
@@ -775,9 +852,9 @@ void createBLAS()
             .triangles = {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
-                .vertexStride = sizeof(vertices[0]) * 3,
-                .maxVertex = static_cast<uint32_t>(vertices.size() / 3) - 1,
+                .vertexData = { .deviceAddress = getDeviceAddressOf(vk.vertexStorageBuffer) },
+                .vertexStride = sizeof(vertices[0]),
+                .maxVertex = static_cast<uint32_t>(vertices.size()) - 1,
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
@@ -866,11 +943,11 @@ void createBLAS()
     }
 
     vkFreeMemory(vk.device, scratchBufferMem, nullptr);
-    vkFreeMemory(vk.device, vertexBufferMem, nullptr);
+    //vkFreeMemory(vk.device, vertexBufferMem, nullptr);
     vkFreeMemory(vk.device, indexBufferMem, nullptr);
     vkFreeMemory(vk.device, geoTransformBufferMem, nullptr);
     vkDestroyBuffer(vk.device, scratchBuffer, nullptr);
-    vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
+    //vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
     vkDestroyBuffer(vk.device, indexBuffer, nullptr);
     vkDestroyBuffer(vk.device, geoTransformBuffer, nullptr);
 }
@@ -1110,6 +1187,17 @@ const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+struct Vert {
+    vec4 pos;
+    vec4 norm;
+    vec4 color;
+    vec2 uv;
+};
+
+layout(binding = 3) buffer Vertices {
+    Vert data[];
+};
+
 layout(shaderRecordEXT) buffer CustomData
 {
     vec3 color;
@@ -1120,16 +1208,18 @@ hitAttributeEXT vec2 attribs;
 
 void main()
 {
-    if (gl_PrimitiveID == 1 && 
-        gl_InstanceID == 1 && 
-        gl_InstanceCustomIndexEXT == 100 && 
-        gl_GeometryIndexEXT == 1) {
-        hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-    }
-    else {
-        hitValue = color;
-    }
-})";
+    Vert v0 = data[gl_PrimitiveID * 3 + 0]; // TODO: if indices data are modified, need to pass the index data also, repeated vertex rn
+    Vert v1 = data[gl_PrimitiveID * 3 + 1];
+    Vert v2 = data[gl_PrimitiveID * 3 + 2];
+
+    const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    
+    const vec3 norm = v0.norm.xyz * barycentrics.x 
+                      + v1.norm.xyz * barycentrics.y 
+                      + v2.norm.xyz * barycentrics.z;
+    hitValue = normalize(vec3(norm * gl_WorldToObjectEXT));
+}
+)";
 
 void createRayTracingPipeline()
 {
@@ -1151,6 +1241,12 @@ void createRayTracingPipeline()
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        },
+        {
+            .binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
         },
     };
 
@@ -1218,6 +1314,7 @@ void createDescriptorSets()
         { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
     };
     VkDescriptorPoolCreateInfo ci0 {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1273,7 +1370,18 @@ void createDescriptorSets()
     write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write2.pBufferInfo = &desc2;
 
-    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2 };
+    // Descriptor(binding = 3), VkBuffer for storage buffer
+    VkDescriptorBufferInfo desc3{
+        .buffer = vk.vertexStorageBuffer,
+        .offset = 0,
+        .range = VK_WHOLE_SIZE,
+    };
+    VkWriteDescriptorSet write3 = write_temp;
+    write3.dstBinding = 3;
+    write3.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write3.pBufferInfo = &desc3;
+
+    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2, write3 };
     vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
     /*
     [VUID-VkWriteDescriptorSet-descriptorType-00336]
@@ -1474,7 +1582,7 @@ int main()
     createCommandCenter();
     createSyncObjects();
 
-    geo.readfile("box.obj");
+    geo.readfile("teapot.obj");
     createBLAS();
     createTLAS();
     createOutImage();
