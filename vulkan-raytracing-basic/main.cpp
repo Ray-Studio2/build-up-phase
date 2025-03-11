@@ -11,8 +11,8 @@
 #include "shader_module.h"
 #define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
 #include "tiny_obj_loader.h"
-
-#define OUTPUT_RAYTRACING_IMAGE
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 typedef unsigned int uint;
 
@@ -71,14 +71,9 @@ struct Global {
     VkDeviceMemory tlasBufferMem;
     VkAccelerationStructureKHR tlas;
 
-#if defined(OUTPUT_RAYTRACING_IMAGE)
     VkImage outImage;
     VkDeviceMemory outImageMem;
     VkImageView outImageView;
-#else
-    VkBuffer outBuffer;
-    VkDeviceMemory outBufferMem;
-#endif
 
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMem;
@@ -102,6 +97,8 @@ struct Global {
 
     VkBuffer _objDescBuffer;
     VkDeviceMemory _objDescBufferMem;
+
+    VkSampler textureSampler;
     
     ~Global() {
         vkDestroyBuffer(device, tlasBuffer, nullptr);
@@ -112,13 +109,9 @@ struct Global {
         vkFreeMemory(device, blasBufferMem, nullptr);
         vkDestroyAccelerationStructureKHR(device, blas, nullptr);
 
-#if defined(OUTPUT_RAYTRACING_IMAGE)
         vkDestroyImageView(device, outImageView, nullptr);
         vkDestroyImage(device, outImage, nullptr);
         vkFreeMemory(device, outImageMem, nullptr);
-#else
-        vkDestroyBuffer(device, outBuffer, nullptr);
-#endif
 
         vkDestroyBuffer(device, uniformBuffer, nullptr);
         vkFreeMemory(device, uniformBufferMem, nullptr);
@@ -155,6 +148,8 @@ struct Global {
 
         vkDestroyBuffer(device, _objDescBuffer, nullptr);
         vkFreeMemory(device, _objDescBufferMem, nullptr);
+
+        vkDestroySampler(device, textureSampler, nullptr);
     }
 } vk;
 
@@ -208,8 +203,8 @@ public:
         int      txtOffset;             // Texture index offset in the array of textures
         uint64_t vertexAddress;         // Address of the Vertex buffer
         uint64_t indexAddress;          // Address of the index buffer
-        uint64_t materialAddress;       // Address of the material buffer
-        uint64_t materialIndexAddress;  // Address of the triangle material index buffer
+        //uint64_t materialAddress;       // Address of the material buffer
+        //uint64_t materialIndexAddress;  // Address of the triangle material index buffer
     };
     ObjDesc _desc;
 
@@ -736,35 +731,6 @@ void setImageLayout(
         0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-#if !defined(OUTPUT_RAYTRACING_IMAGE)
-void setBufferLayout(
-    VkCommandBuffer              cmdBuffer, 
-    VkPipelineStageFlags         srcStageMask,
-    VkPipelineStageFlags         dstStageMask,
-    VkDependencyFlags            dependencyFlags,
-    uint32_t                     memoryBarrierCount,
-    const VkMemoryBarrier*       pMemoryBarriers,
-    uint32_t                     bufferMemoryBarrierCount,
-    const VkBufferMemoryBarrier* pBufferMemoryBarriers,
-    uint32_t                     imageMemoryBarrierCount,
-    const VkImageMemoryBarrier*  pImageMemoryBarriers)
-{
-    VkBufferMemoryBarrier barrier{
-        .sType = , 
-        .pNext = , 
-        .srcAccessMask = , 
-        .dstAccessMask = , 
-        .srcQueueFamilyIndex = , 
-        .dstQueueFamilyIndex = , 
-        .buffer = , 
-        .offset = , 
-        .size = 
-    };
-
-    vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-}
-#endif
-
 inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)
 {
     VkBufferDeviceAddressInfoKHR info{
@@ -1130,7 +1096,6 @@ void createTLAS()
 
 void createOutImage()
 {
-#if defined(OUTPUT_RAYTRACING_IMAGE)
     VkFormat format = VK_FORMAT_R8G8B8A8_UNORM; //VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB(==vk.swapChainImageFormat)
     std::tie(vk.outImage, vk.outImageMem) = createImage(
         { WIDTH, HEIGHT },
@@ -1177,9 +1142,6 @@ void createOutImage()
     }; 
     vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(vk.graphicsQueue);
-#else
-    std::tie(vk.outBuffer, vk.outBufferMem) = createBuffer(WIDTH * HEIGHT, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-#endif
 }
 
 void createUniformBuffer()
@@ -1273,8 +1235,8 @@ struct ObjDesc
   int      txtOffset;             // Texture index offset in the array of textures
   uint64_t vertexAddress;         // Address of the Vertex buffer
   uint64_t indexAddress;          // Address of the index buffer
-  uint64_t materialAddress;       // Address of the material buffer
-  uint64_t materialIndexAddress;  // Address of the triangle material index buffer
+  //uint64_t materialAddress;       // Address of the material buffer
+  //uint64_t materialIndexAddress;  // Address of the triangle material index buffer
 };
 struct Vertex  // See ObjLoader, copy of VertexObj, could be compressed for device
 {
@@ -1283,25 +1245,26 @@ struct Vertex  // See ObjLoader, copy of VertexObj, could be compressed for devi
   vec3 color;
   vec2 texCoord;
 };
-struct WaveFrontMaterial  // See ObjLoader, copy of MaterialObj, could be compressed for device
-{
-  vec3  ambient;
-  vec3  diffuse;
-  vec3  specular;
-  vec3  transmittance;
-  vec3  emission;
-  float shininess;
-  float ior;       // index of refraction
-  float dissolve;  // 1 == opaque; 0 == fully transparent
-  int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
-  int   textureId;
-};
+//struct WaveFrontMaterial  // See ObjLoader, copy of MaterialObj, could be compressed for device
+//{
+//  vec3  ambient;
+//  vec3  diffuse;
+//  vec3  specular;
+//  vec3  transmittance;
+//  vec3  emission;
+//  float shininess;
+//  float ior;       // index of refraction
+//  float dissolve;  // 1 == opaque; 0 == fully transparent
+//  int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
+//  int   textureId;
+//};
 
 layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indices
-layout(buffer_reference, scalar) buffer Materials {WaveFrontMaterial m[]; }; // Array of all materials on an object
-layout(buffer_reference, scalar) buffer MatIndices {int i[]; }; // Material ID for each triangle
+//layout(buffer_reference, scalar) buffer Materials {WaveFrontMaterial m[]; }; // Array of all materials on an object
+//layout(buffer_reference, scalar) buffer MatIndices {int i[]; }; // Material ID for each triangle
 layout(set = 1, binding = 0, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc;
+layout(set = 1, binding = 1) uniform sampler2D texSampler;
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 hitAttributeEXT vec2 attribs;
@@ -1309,8 +1272,8 @@ hitAttributeEXT vec2 attribs;
 void main()
 {
     ObjDesc    objResource = objDesc.i[0];  //원래 0대신 gl_InstanceCustomIndexEXT가 들어가야함
-    MatIndices matIndices  = MatIndices(objResource.materialIndexAddress);
-    Materials  materials   = Materials(objResource.materialAddress);
+    //MatIndices matIndices  = MatIndices(objResource.materialIndexAddress);
+    //Materials  materials   = Materials(objResource.materialAddress);
     Indices    indices     = Indices(objResource.indexAddress);
     Vertices   vertices    = Vertices(objResource.vertexAddress);
 
@@ -1334,7 +1297,12 @@ void main()
 
     const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     const vec3 normal = v0.nrm * barycentrics.x + v1.nrm * barycentrics.y + v2.nrm * barycentrics.z;
+    const vec2 texCoord = v0.texCoord * barycentrics.x + v1.texCoord * barycentrics.y + v2.texCoord * barycentrics.z;
     hitValue = normal;
+    //hitValue = vec3(0, texCoord.y, texCoord.x);
+    hitValue = texture(texSampler, texCoord).xyz;
+    //hitValue = vec3(0, 1, 0);
+    //hitValue = vec3(0, texCoord.y, texCoord.x);
 })"; 
 #pragma endregion
 
@@ -1378,6 +1346,12 @@ void createRayTracingPipeline()
                 .descriptorCount = 1,
                 .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
             }, 
+            {
+                .binding = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            },
         };
 
         VkDescriptorSetLayoutCreateInfo ci0{
@@ -1513,7 +1487,8 @@ void createDescriptorSets()
 
     {
         VkDescriptorPoolSize poolSizes[] = {
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 }, //object desc
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
         };
         VkDescriptorPoolCreateInfo ci0{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1537,18 +1512,29 @@ void createDescriptorSets()
             .descriptorCount = 1,
         };
 
-        // Descriptor(binding = 3), object description
-        VkDescriptorBufferInfo desc3{
+        // Descriptor(binding = 0), object description
+        VkDescriptorBufferInfo desc0{
             .buffer = vk._objDescBuffer,
             .offset = 0,
             .range = VK_WHOLE_SIZE,
         };
-        VkWriteDescriptorSet write3 = write_temp;
-        write3.dstBinding = 1;
-        write3.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        write3.pBufferInfo = &desc3;
+        VkWriteDescriptorSet write0 = write_temp;
+        write0.dstBinding = 0;
+        write0.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        write0.pBufferInfo = &desc0;
 
-        VkWriteDescriptorSet writeInfos[] = { write3 };
+        // Descriptor(binding = 1), Sampler
+        VkDescriptorImageInfo desc2{
+            .sampler = vk.textureSampler,
+            .imageView = staticMesh._diffuseTextureView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        VkWriteDescriptorSet write2 = write_temp;
+        write2.dstBinding = 1;
+        write2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write2.pImageInfo = &desc2;
+
+        VkWriteDescriptorSet writeInfos[] = { write0, write2 };
         vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
     }
 }
@@ -1718,6 +1704,193 @@ void loadModel(const std::string& modelPath)
     staticMesh._desc.indexAddress = getDeviceAddressOf(staticMesh._indexBuffer);
     //staticMesh._desc.materialAddress = getDeviceAddressOf(staticMesh.matColorBuffer);
     //staticMesh._desc.materialIndexAddress = getDeviceAddressOf(staticMesh.matIndexBuffer);
+
+    // texture
+    {
+        int texWidth, texHeight, texChannels;
+        stbi_uc* pixels = stbi_load("../diffuse.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+        if (!pixels)
+            throw std::runtime_error("failed to load texture image!");
+
+        VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        std::tie(stagingBuffer, stagingBufferMemory) = createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        void* data;
+        vkMapMemory(vk.device, stagingBufferMemory, 0, imageSize, 0, &data);
+        {
+            memcpy(data, pixels, static_cast<size_t>(imageSize));
+        }
+        vkUnmapMemory(vk.device, stagingBufferMemory);
+
+        stbi_image_free(pixels);
+
+        VkFormat format = VK_FORMAT_R8G8B8A8_SRGB; //VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB(==vk.swapChainImageFormat)
+        std::tie(staticMesh._diffuseTexture, staticMesh._diffuseTextureMem) = createImage(
+            { static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight) },
+            format,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        vkResetCommandBuffer(vk.commandBuffer, 0);
+        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
+        {
+            auto copyBuffer = [](VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) -> void {
+                VkBufferCopy copyRegion{};
+                copyRegion.size = size;
+                vkCmdCopyBuffer(vk.commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+            };
+            auto transitionImageLayout = [](VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+                VkImageMemoryBarrier barrier{};
+                barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                barrier.oldLayout = oldLayout;
+                barrier.newLayout = newLayout;
+
+                barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+                barrier.image = image;
+                barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                barrier.subresourceRange.baseMipLevel = 0;
+                barrier.subresourceRange.levelCount = 1;
+                barrier.subresourceRange.baseArrayLayer = 0;
+                barrier.subresourceRange.layerCount = 1;
+
+                barrier.srcAccessMask = 0; // TODO
+                barrier.dstAccessMask = 0; // TODO
+
+                VkPipelineStageFlags sourceStage;
+                VkPipelineStageFlags destinationStage;
+
+                if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+                    barrier.srcAccessMask = 0;
+                    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+                    sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                    destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                }
+                else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+                    sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                    destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                }
+                else {
+                    throw std::invalid_argument("unsupported layout transition!");
+                }
+
+                vkCmdPipelineBarrier(
+                    vk.commandBuffer,
+                    sourceStage, destinationStage,
+                    0,
+                    0, nullptr,
+                    0, nullptr,
+                    1, &barrier
+                );
+            };
+            auto copyBufferToImage = [](VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+                VkBufferImageCopy region{};
+                region.bufferOffset = 0;
+                region.bufferRowLength = 0;
+                region.bufferImageHeight = 0;
+
+                region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                region.imageSubresource.mipLevel = 0;
+                region.imageSubresource.baseArrayLayer = 0;
+                region.imageSubresource.layerCount = 1;
+
+                region.imageOffset = { 0, 0, 0 };
+                region.imageExtent = {
+                    width,
+                    height,
+                    1
+                };
+
+                vkCmdCopyBufferToImage(
+                    vk.commandBuffer,
+                    buffer,
+                    image,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1,
+                    &region
+                );
+            };
+
+            transitionImageLayout(staticMesh._diffuseTexture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            copyBufferToImage(stagingBuffer, staticMesh._diffuseTexture, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+            transitionImageLayout(staticMesh._diffuseTexture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        vkEndCommandBuffer(vk.commandBuffer);
+
+        // view
+        VkImageSubresourceRange subresourceRange{
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
+        VkImageViewCreateInfo ci0{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = staticMesh._diffuseTexture,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = format,
+            .subresourceRange = subresourceRange,
+        };
+        vkCreateImageView(vk.device, &ci0, nullptr, &staticMesh._diffuseTextureView);
+
+        VkSubmitInfo submitInfo{
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &vk.commandBuffer,
+        };
+        vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(vk.graphicsQueue);
+
+        vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+        vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
+
+        
+    }
+}
+
+void createTextureSampler()
+{
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+#if 0
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(vk.physicalDevice, &properties);
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+#else
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+#endif
+
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    if (vkCreateSampler(vk.device, &samplerInfo, nullptr, &vk.textureSampler) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
 }
 
 void createObjectDescriptionBuffer()
@@ -1850,8 +2023,10 @@ int main()
     createCommandCenter();
     createSyncObjects();
 
-    loadModel("C:/Users/Lee/Desktop/Projects/build-up-phase/vulkan-raytracing-basic/teapot.obj");
+    loadModel("../teapot.obj");
     createObjectDescriptionBuffer();
+
+    createTextureSampler();
 
     createBLAS();
     createTLAS();

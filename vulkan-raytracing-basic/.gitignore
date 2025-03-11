@@ -5,3 +5,5 @@
 !CMakeLists.txt
 !shader_module.h
 !main.cpp
+!*.jpg
+!*.obj
