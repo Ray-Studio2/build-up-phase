@@ -1237,10 +1237,15 @@ void main()
     Vert v1 = data[ind[gl_PrimitiveID * 3 + 1]];
     Vert v2 = data[ind[gl_PrimitiveID * 3 + 2]];
     
-    const vec3 norm = v0.norm.xyz * barycentrics.x 
-                      + v1.norm.xyz * barycentrics.y 
-                      + v2.norm.xyz * barycentrics.z;
-    hitValue = normalize(vec3(norm * gl_WorldToObjectEXT));
+    const vec3 barycentrics = {1.0f - attribs.x - attribs.y, attribs.x, attribs.y};
+
+    vec3 norm1 = (v0.norm.xyz * barycentrics.x);
+    vec3 norm2 = (v1.norm.xyz * barycentrics.y);
+    vec3 norm3 = (v2.norm.xyz * barycentrics.z);
+
+    vec3 normColor = (normalize(norm1 + norm2 + norm3) + 1.0f) * 0.5f;
+    hitValue = normColor;
+    //hitValue = normalize((gl_ObjectToWorldEXT * vec4(normColor, 0.0f)).xyz);
 }
 )";
 
