@@ -794,12 +794,12 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -2.0f,
+            1.0f, 0.0f, 0.0f, -3.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 2.0f,
+            1.0f, 0.0f, 0.0f, 3.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
@@ -978,12 +978,12 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 2.0f,
+            0.0f, 1.0f, 0.0f, 3.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -2.0f,
+            0.0f, 1.0f, 0.0f, -3.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
@@ -1151,7 +1151,7 @@ void createUniformBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
-    *(Data*) dst = {0, 0, 10, 60};
+    *(Data*) dst = {0, 1.5, 10, 60};
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
 
