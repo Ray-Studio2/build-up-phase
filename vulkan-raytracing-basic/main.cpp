@@ -82,6 +82,9 @@ struct Global {
     VkBuffer vertexStorageBuffer;
     VkDeviceMemory vertexStorageBufferMem;
 
+    VkBuffer indexStorageBuffer;
+    VkDeviceMemory indexStorageBufferMem;
+
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
@@ -113,6 +116,9 @@ struct Global {
 
         vkDestroyBuffer(device, vertexStorageBuffer, nullptr);
         vkFreeMemory(device, vertexStorageBufferMem, nullptr);
+
+        vkDestroyBuffer(device, indexStorageBuffer, nullptr);
+        vkFreeMemory(device, indexStorageBufferMem, nullptr);
 
         vkDestroyBuffer(device, sbtBuffer, nullptr);
         vkFreeMemory(device, sbtBufferMem, nullptr);
@@ -810,10 +816,13 @@ void createBLAS()
         | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
-    auto [indexBuffer, indexBufferMem] = createBuffer(
+    std::tie(vk.indexStorageBuffer, vk.indexStorageBufferMem) = createBuffer(
         indSize,
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+        | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+        | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+        | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     auto [geoTransformBuffer, geoTransformBufferMem] = createBuffer(
         sizeof(geoTransforms), 
@@ -837,9 +846,21 @@ void createBLAS()
         vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
     }
 
-    vkMapMemory(vk.device, indexBufferMem, 0, indSize, 0, &dst);
-    memcpy(dst, indices.data(), indSize);
-    vkUnmapMemory(vk.device, indexBufferMem);
+    {
+        auto [stagingBuffer, stagingBufferMemory] = createBuffer( // TODO: staging buffer reuse?
+            indSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        vkMapMemory(vk.device, stagingBufferMemory, 0, indSize, 0, &dst);
+        memcpy(dst, indices.data(), indSize);
+        vkUnmapMemory(vk.device, stagingBufferMemory);
+
+        copyBuffer(stagingBuffer, vk.indexStorageBuffer, indSize);
+        vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+        vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
+    }
 
     vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
     memcpy(dst, geoTransforms, sizeof(geoTransforms));
@@ -856,7 +877,7 @@ void createBLAS()
                 .vertexStride = sizeof(vertices[0]),
                 .maxVertex = static_cast<uint32_t>(vertices.size()) - 1,
                 .indexType = VK_INDEX_TYPE_UINT32,
-                .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
+                .indexData = { .deviceAddress = getDeviceAddressOf(vk.indexStorageBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
             },
         },
@@ -944,11 +965,11 @@ void createBLAS()
 
     vkFreeMemory(vk.device, scratchBufferMem, nullptr);
     //vkFreeMemory(vk.device, vertexBufferMem, nullptr);
-    vkFreeMemory(vk.device, indexBufferMem, nullptr);
+    //vkFreeMemory(vk.device, indexBufferMem, nullptr);
     vkFreeMemory(vk.device, geoTransformBufferMem, nullptr);
     vkDestroyBuffer(vk.device, scratchBuffer, nullptr);
     //vkDestroyBuffer(vk.device, vertexBuffer, nullptr);
-    vkDestroyBuffer(vk.device, indexBuffer, nullptr);
+    //vkDestroyBuffer(vk.device, indexBuffer, nullptr);
     vkDestroyBuffer(vk.device, geoTransformBuffer, nullptr);
 }
 
@@ -1194,8 +1215,12 @@ struct Vert {
     vec2 uv;
 };
 
-layout(binding = 3) buffer Vertices {
+layout(std430, binding = 3) buffer Vertices {
     Vert data[];
+};
+
+layout(std430, binding = 4) buffer Indices {
+    uint ind[];
 };
 
 layout(shaderRecordEXT) buffer CustomData
@@ -1208,11 +1233,9 @@ hitAttributeEXT vec2 attribs;
 
 void main()
 {
-    Vert v0 = data[gl_PrimitiveID * 3 + 0]; // TODO: if indices data are modified, need to pass the index data also, repeated vertex rn
-    Vert v1 = data[gl_PrimitiveID * 3 + 1];
-    Vert v2 = data[gl_PrimitiveID * 3 + 2];
-
-    const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    Vert v0 = data[ind[gl_PrimitiveID * 3 + 0]]; // TODO: if indices data are modified, need to pass the index data also, repeated vertex rn
+    Vert v1 = data[ind[gl_PrimitiveID * 3 + 1]];
+    Vert v2 = data[ind[gl_PrimitiveID * 3 + 2]];
     
     const vec3 norm = v0.norm.xyz * barycentrics.x 
                       + v1.norm.xyz * barycentrics.y 
@@ -1223,7 +1246,7 @@ void main()
 
 void createRayTracingPipeline()
 {
-    VkDescriptorSetLayoutBinding bindings[] = {
+    VkDescriptorSetLayoutBinding bindings[] = { // TODO: separated sets? or one set?
         {
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
@@ -1243,7 +1266,13 @@ void createRayTracingPipeline()
             .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
         },
         {
-            .binding = 3,
+            .binding = 3,                                           // TODO: use different set for storage buffers?
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+        },
+        {
+            .binding = 4,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
@@ -1315,6 +1344,7 @@ void createDescriptorSets()
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
     };
     VkDescriptorPoolCreateInfo ci0 {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1370,7 +1400,7 @@ void createDescriptorSets()
     write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write2.pBufferInfo = &desc2;
 
-    // Descriptor(binding = 3), VkBuffer for storage buffer
+    // Descriptor(binding = 3), VkBuffer for vertex storage buffer
     VkDescriptorBufferInfo desc3{
         .buffer = vk.vertexStorageBuffer,
         .offset = 0,
@@ -1381,7 +1411,18 @@ void createDescriptorSets()
     write3.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     write3.pBufferInfo = &desc3;
 
-    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2, write3 };
+    // Descriptor(binding = 4), VkBuffer for index storage buffer
+    VkDescriptorBufferInfo desc4{
+        .buffer = vk.indexStorageBuffer,
+        .offset = 0,
+        .range = VK_WHOLE_SIZE,
+    };
+    VkWriteDescriptorSet write4 = write_temp;
+    write4.dstBinding = 4;
+    write4.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write4.pBufferInfo = &desc4;
+
+    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2, write3, write4 };
     vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
     /*
     [VUID-VkWriteDescriptorSet-descriptorType-00336]
