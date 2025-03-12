@@ -263,7 +263,7 @@ struct Vert
     float pos[4];
     float norm[4];
     float color[4];
-    float uv[2];
+    float uv[4];
 };
 
 struct Geometry
@@ -1212,7 +1212,7 @@ struct Vert {
     vec4 pos;
     vec4 norm;
     vec4 color;
-    vec2 uv;
+    vec4 uv;
 };
 
 layout(std430, binding = 3) buffer Vertices {
