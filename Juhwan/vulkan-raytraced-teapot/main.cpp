@@ -732,7 +732,10 @@ void createBLAS()
 
     for (int i = 0; i < attrib.vertices.size(); i++) {
         vertices[i] = attrib.vertices[i];
+
+        cout << vertices[i] << " / ";
     }
+    cout << endl << endl;
 
     size_t verticesSize = attrib.vertices.size() * sizeof(float);
 
@@ -742,21 +745,24 @@ void createBLAS()
 
     for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
         indices[i] = shapes[0].mesh.indices[i].vertex_index; 
+
+        cout << indices[i] << " / ";
     }
+    cout << endl << endl;
     
     size_t indicesSize = shapes[0].mesh.indices.size() * sizeof(uint32_t);
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -2.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
+            10.0f, 0.0f, 0.0f, -15.0f,
+            0.0f, 10.0f, 0.0f, 5.0f,
+            0.0f, 0.0f, 10.0f, 0.0f
         }, 
-        {
-            1.0f, 0.0f, 0.0f, 2.0f,
+        /*{
+            1.0f, 0.0f, 0.0f, 10.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
-        },
+        },*/
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
@@ -797,7 +803,7 @@ void createBLAS()
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
                 .vertexStride = sizeof(vertices[0]),
-                .maxVertex = (uint32_t)verticesSize/*sizeof(vertices)*/ / sizeof(vertices[0]) - 1,
+                .maxVertex = (uint32_t)((unsigned long long)verticesSize/*sizeof(vertices)*/ / sizeof(vertices[0]) - 1),
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
@@ -900,14 +906,14 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 2.0f,
+            0.0f, 1.0f, 0.0f, 10.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
-        {
+        /*{
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -2.0f,
+            0.0f, 1.0f, 0.0f, -10.0f,
             0.0f, 0.0f, 1.0f, 0.0f
-        },
+        },*/
     };
 
     VkAccelerationStructureInstanceKHR instance0 {
@@ -917,10 +923,10 @@ void createTLAS()
         .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
         .accelerationStructureReference = vk.blasAddress,
     };
-    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
+    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, };//instance0 };
     instanceData[0].transform = insTransforms[0];
-    instanceData[1].transform = insTransforms[1];
-    instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
+    //instanceData[1].transform = insTransforms[1];
+    //instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
                                                                     // 두 번째 Instance 는 instanceShaderBindingTableRecordOffset 를 2 로 설정.
 
     auto [instanceBuffer, instanceBufferMem] = createBuffer(
@@ -945,7 +951,7 @@ void createTLAS()
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
 
-    uint32_t instanceCount = 2;
+    uint32_t instanceCount = 1;// 2;
 
     VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -1173,7 +1179,7 @@ hitAttributeEXT vec2 attribs;   // 삼각형 내부의 점은 삼각형의 3 개
 
 void main()
 {
-    if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
+    /*if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
                                         //  BLAS 생성할 때 삼각형 Index 들을 넣을 때 Index 3 개마다 Primitive (삼각형 ID) 가 자동으로 추가된다.
         gl_InstanceID == 1 &&           // TLAS 생성에서 2 개의 Instance 를 만들었는데, 각 Instance 들은 각각 동일한 BLAS 를 포함하고 있다.
                                         //  그리고 이 Instance 들 각각은 자동으로 순서대로 배정된 Instance ID 를 가지고 있다.
@@ -1181,9 +1187,9 @@ void main()
         gl_GeometryIndexEXT == 1) {     // BLAS 생성에서 하나의 BLAS 밑에 2 개의 Geometry 를 추가했는데, 추가한 순서대로 Geometry ID 가 자동으로 붙는다.
         hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);    // 삼각형의 v0, v1, v2 각각에 대한 가중치들 
     }                                                                               // ray 와 삼각형의 교차점에 대한 가중치들을 알 수 있다.
-    else {
+    else {*/
         hitValue = color;
-    }
+    //}
 })";
 
 //      결과는
@@ -1693,7 +1699,8 @@ void readOBJ(string inputfile) {
 
 int main()
 {
-    readOBJ("teapot.obj");
+    //readOBJ("teapot.obj");
+    readOBJ("box.obj");
 
     /*{
         auto [data_v, size_v] = Geometry::getVertices();
@@ -1712,6 +1719,7 @@ int main()
     }*/
 
     glfwInit();
+
     GLFWwindow* window = createWindow();
     createVkInstance(window);
     createVkDevice();
