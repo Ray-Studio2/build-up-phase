@@ -754,15 +754,15 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            10.0f, 0.0f, 0.0f, -15.0f,
-            0.0f, 10.0f, 0.0f, 5.0f,
-            0.0f, 0.0f, 10.0f, 0.0f
+            3.0f, 0.0f, 0.0f, -40.0f,
+            0.0f, 3.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 3.0f, 0.0f
         }, 
-        /*{
-            1.0f, 0.0f, 0.0f, 10.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
-        },*/
+        {
+            2.0f, 0.0f, 0.0f, 40.0f,                //////////////////
+            0.0f, 2.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 2.0f, 0.0f
+        },
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
@@ -802,8 +802,8 @@ void createBLAS()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
-                .vertexStride = sizeof(vertices[0]),
-                .maxVertex = (uint32_t)((unsigned long long)verticesSize/*sizeof(vertices)*/ / sizeof(vertices[0]) - 1),
+                .vertexStride = (uint64_t)sizeof(float) * 3,    //////////////////////////////////////////////////////////////////////////////////////
+                .maxVertex = (uint32_t)verticesSize/*sizeof(vertices)*/ / sizeof(vertices[0]) - 1,    // (uint32_t)attrib.vertices.size() - 1
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
@@ -811,10 +811,10 @@ void createBLAS()
         },
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
-    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
+    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };        //////////////////
 
     uint32_t triangleCount0 = (uint32_t)indicesSize/*sizeof(indices)*/ / (sizeof(indices[0]) * 3);
-    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
+    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };        //////////////////
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -868,10 +868,10 @@ void createBLAS()
                     .primitiveCount = triangleCounts[0],
                     .transformOffset = 0,
                 },
-                { 
-                    .primitiveCount = triangleCounts[1],
+                {
+                    .primitiveCount = triangleCounts[1],                //////////////////
                     .transformOffset = sizeof(geoTransforms[0]),
-                }
+                },
             };
 
             VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };
@@ -906,14 +906,14 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 10.0f,
+            0.0f, 1.0f, 0.0f, 30.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
-        /*{
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -10.0f,
+        {
+            1.0f, 0.0f, 0.0f, 0.0f,                 //////////////////
+            0.0f, 1.0f, 0.0f, -30.0f,
             0.0f, 0.0f, 1.0f, 0.0f
-        },*/
+        },
     };
 
     VkAccelerationStructureInstanceKHR instance0 {
@@ -923,10 +923,10 @@ void createTLAS()
         .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
         .accelerationStructureReference = vk.blasAddress,
     };
-    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, };//instance0 };
+    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };               //////////////////
     instanceData[0].transform = insTransforms[0];
-    //instanceData[1].transform = insTransforms[1];
-    //instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
+    instanceData[1].transform = insTransforms[1];                                                                                         //////////////////
+    instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
                                                                     // 두 번째 Instance 는 instanceShaderBindingTableRecordOffset 를 2 로 설정.
 
     auto [instanceBuffer, instanceBufferMem] = createBuffer(
@@ -951,7 +951,7 @@ void createTLAS()
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
 
-    uint32_t instanceCount = 1;// 2;
+    uint32_t instanceCount = 2;                //////////////////
 
     VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -1089,7 +1089,7 @@ void createUniformBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
-    *(Data*) dst = {0, 0, 50, 60};                  ////////////////////////
+    *(Data*) dst = {0, 0, 120, 60};                  ////////////////////////
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
                                                 // Vulkan 의 쉐이더 파일은 spv 이고, 어셈블리 언어의 형식을 가지고 있다.
@@ -1141,7 +1141,7 @@ void main()
         0, 1, 0,                            // sbtRecordOffset, sbtRecordStride, missIndex
                                                 // sbtRecordStride 는 필요한 geometry 의 record 를 찾을 때 몇 칸을 이동해야 하는 지 결정하는 데에 사용된다. 
                                                 // missIndex 는 어떠한 miss Shader 을 호출할 지 결정할 때 참고함다.
-        g.cameraPos, 0.0, rayDir, 100.0,    // origin, tmin, direction, tmax    
+        g.cameraPos, 0.0, rayDir, 300.0,    // origin, tmin, direction, tmax    
                                                 // origin 은 카메라의 위치 ( ray 의 시작점 )
                                                 //  origin 으로부터 direction 방향으로 tmin 부터 tmax 거리까지 ray 를 설정 ( rayDir 크기의 100 배까지로 설정됨 )
                                                 // 매번, ray 와 삼각형의 발견된 교차점이 tamx 보다 가까우면 (그리고 opaque 하면) tmax 는 업데이트된다.
@@ -1179,7 +1179,7 @@ hitAttributeEXT vec2 attribs;   // 삼각형 내부의 점은 삼각형의 3 개
 
 void main()
 {
-    /*if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
+    if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
                                         //  BLAS 생성할 때 삼각형 Index 들을 넣을 때 Index 3 개마다 Primitive (삼각형 ID) 가 자동으로 추가된다.
         gl_InstanceID == 1 &&           // TLAS 생성에서 2 개의 Instance 를 만들었는데, 각 Instance 들은 각각 동일한 BLAS 를 포함하고 있다.
                                         //  그리고 이 Instance 들 각각은 자동으로 순서대로 배정된 Instance ID 를 가지고 있다.
@@ -1187,9 +1187,9 @@ void main()
         gl_GeometryIndexEXT == 1) {     // BLAS 생성에서 하나의 BLAS 밑에 2 개의 Geometry 를 추가했는데, 추가한 순서대로 Geometry ID 가 자동으로 붙는다.
         hitValue = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);    // 삼각형의 v0, v1, v2 각각에 대한 가중치들 
     }                                                                               // ray 와 삼각형의 교차점에 대한 가중치들을 알 수 있다.
-    else {*/
+    else {
         hitValue = color;
-    //}
+    }
 })";
 
 //      결과는
@@ -1700,7 +1700,7 @@ void readOBJ(string inputfile) {
 int main()
 {
     //readOBJ("teapot.obj");
-    readOBJ("box.obj");
+    readOBJ("teapot.obj");
 
     /*{
         auto [data_v, size_v] = Geometry::getVertices();
