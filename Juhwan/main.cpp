@@ -25,6 +25,7 @@ const uint32_t SHADER_GROUP_HANDLE_SIZE = 32;   // 무조건 32 이어야 한다
 
 
 float* vData;
+uint16_t* iData;
 
 tinyobj::attrib_t attrib;
 std::vector<tinyobj::shape_t> shapes;
@@ -100,6 +101,11 @@ struct Global {
     VkStridedDeviceAddressRegionKHR rgenSbt{};
     VkStridedDeviceAddressRegionKHR missSbt{};
     VkStridedDeviceAddressRegionKHR hitgSbt{};
+
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
 
     ////////////////////////////////////////////////////////////////////
     
@@ -721,34 +727,80 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 
 void createBLAS()
 {
-    float vertices[][3] = {
+    /*float vertices1[][3] = {
         { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
         { -1.0f,  1.0f, 0.0f },
-    };
-    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+    };*/
+
+    /*float* vertices = new float[attrib.vertices.size() + attrib.normals.size()];
+
+    int vertexNum = 0;
+    int normalNum = 0;
+
+    for (int i = 0; i < attrib.vertices.size() + attrib.normals.size(); ) {        
+        for (int j = 0; j < 3; j++) {
+            vertices[i] = attrib.vertices[vertexNum];
+
+            i++;
+            vertexNum++;
+        }
+
+        for (int j = 0; j < 3; j++) {
+            vertices[i] = attrib.normals[normalNum];
+
+            i++;
+            normalNum++;
+        }
+    }
+
+    size_t verticesSize = (attrib.vertices.size() + attrib.normals.size()) * sizeof(float);*/
+
+    float* vertices = new float[attrib.vertices.size()];
+
+    for (int i = 0; i < attrib.vertices.size(); i++) {
+        vertices[i] = attrib.vertices[i];
+
+        //cout << vertices[i] << " / ";
+    }
+    //cout << endl << endl;
+
+    size_t verticesSize = attrib.vertices.size() * sizeof(float);
+
+    //uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+
+    uint32_t* indices = new uint32_t[shapes[0].mesh.indices.size()];
+
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
+        indices[i] = shapes[0].mesh.indices[i].vertex_index; 
+
+        //cout << indices[i] << " / ";
+    }
+    //cout << endl << endl;
+    
+    size_t indicesSize = shapes[0].mesh.indices.size() * sizeof(uint32_t);
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -2.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
+            3.0f, 0.0f, 0.0f, -40.0f,
+            0.0f, 3.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 3.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 2.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f
+            2.0f, 0.0f, 0.0f, 40.0f,                //////////////////
+            0.0f, 2.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 2.0f, 0.0f
         },
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof(vertices), 
+        verticesSize/*sizeof(vertices)*/, 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof(indices), 
+        indicesSize /*sizeof(indices)*/, 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -759,12 +811,12 @@ void createBLAS()
     
     void* dst;
 
-    vkMapMemory(vk.device, vertexBufferMem, 0, sizeof(vertices), 0, &dst);
-    memcpy(dst, vertices, sizeof(vertices));
+    vkMapMemory(vk.device, vertexBufferMem, 0, verticesSize /*sizeof(vertices)*/, 0, &dst);
+    memcpy(dst, vertices, verticesSize /*sizeof(vertices)*/);
     vkUnmapMemory(vk.device, vertexBufferMem);
 
-    vkMapMemory(vk.device, indexBufferMem, 0, sizeof(indices), 0, &dst);
-    memcpy(dst, indices, sizeof(indices));
+    vkMapMemory(vk.device, indexBufferMem, 0, indicesSize /*sizeof(indices)*/, 0, &dst);
+    memcpy(dst, indices, indicesSize /*sizeof(indices)*/);
     vkUnmapMemory(vk.device, indexBufferMem);
 
     vkMapMemory(vk.device, geoTransformBufferMem, 0, sizeof(geoTransforms), 0, &dst);
@@ -779,8 +831,9 @@ void createBLAS()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = { .deviceAddress = getDeviceAddressOf(vertexBuffer) },
-                .vertexStride = sizeof(vertices[0]),
-                .maxVertex = sizeof(vertices) / sizeof(vertices[0]) - 1,
+                //.vertexStride = (uint64_t)sizeof(float) * 3,    //////////////////////////////////////////////////////////////////////////////////////
+                .vertexStride = (uint64_t)sizeof(float) * 6,
+                .maxVertex = (uint32_t)verticesSize/*sizeof(vertices)*/ / (sizeof(vertices[0]) * 6) - 1,    // (uint32_t)attrib.vertices.size() - 1
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = { .deviceAddress = getDeviceAddressOf(indexBuffer) },
                 .transformData = { .deviceAddress = getDeviceAddressOf(geoTransformBuffer) },
@@ -788,10 +841,10 @@ void createBLAS()
         },
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
-    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
+    VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };        //////////////////
 
-    uint32_t triangleCount0 = sizeof(indices) / (sizeof(indices[0]) * 3);
-    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
+    uint32_t triangleCount0 = (uint32_t)indicesSize/*sizeof(indices)*/ / (sizeof(indices[0]) * 3);
+    uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };        //////////////////
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -845,10 +898,10 @@ void createBLAS()
                     .primitiveCount = triangleCounts[0],
                     .transformOffset = 0,
                 },
-                { 
-                    .primitiveCount = triangleCounts[1],
+                {
+                    .primitiveCount = triangleCounts[1],                //////////////////
                     .transformOffset = sizeof(geoTransforms[0]),
-                }
+                },
             };
 
             VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfos[] = { buildBlasInfo };
@@ -883,12 +936,12 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 2.0f,
+            0.0f, 1.0f, 0.0f, 30.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -2.0f,
+            1.0f, 0.0f, 0.0f, 0.0f,                 //////////////////
+            0.0f, 1.0f, 0.0f, -30.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
@@ -900,9 +953,9 @@ void createTLAS()
         .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
         .accelerationStructureReference = vk.blasAddress,
     };
-    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
+    VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };               //////////////////
     instanceData[0].transform = insTransforms[0];
-    instanceData[1].transform = insTransforms[1];
+    instanceData[1].transform = insTransforms[1];                                                                                         //////////////////
     instanceData[1].instanceShaderBindingTableRecordOffset = 2; // 2 geometry (in instance0) + 2 geometry (in instance1)
                                                                     // 두 번째 Instance 는 instanceShaderBindingTableRecordOffset 를 2 로 설정.
 
@@ -928,7 +981,7 @@ void createTLAS()
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
 
-    uint32_t instanceCount = 2;
+    uint32_t instanceCount = 2;                //////////////////
 
     VkAccelerationStructureBuildGeometryInfoKHR buildTlasInfo{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -1019,10 +1072,10 @@ void createOutImage()
         .image = vk.outImage,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = format,                               // 특수한 상황이 아닌 이상, View 와 출력 Image 의 Format 을 일치시켜주면 된다.
-        .components = {                     // VK_COMPONENT_SWIZZLE_IDENTITY 는 R 값은 그대로 R 값으로 B 값은 그대로 B 값으로 유지하게 하는 역할을 한다.
-            .r = VK_COMPONENT_SWIZZLE_B,    // R 값은 사실상 B 값이 되도록 설정
-            .b = VK_COMPONENT_SWIZZLE_R,    // B 값 또한 사실상 R 값임
-        },
+        //.components = {                     // VK_COMPONENT_SWIZZLE_IDENTITY 는 R 값은 그대로 R 값으로 B 값은 그대로 B 값으로 유지하게 하는 역할을 한다.
+        //    .r = VK_COMPONENT_SWIZZLE_B,    // R 값은 사실상 B 값이 되도록 설정
+        //    .b = VK_COMPONENT_SWIZZLE_R,    // B 값 또한 사실상 R 값임
+        //},
         .subresourceRange = subresourceRange,
     };
     vkCreateImageView(vk.device, &ci0, nullptr, &vk.outImageView);  // Ray Tracing Shader 의 출력으로 사용될 View 를 만들어서 이 View 에 접근해야 한다.
@@ -1066,7 +1119,7 @@ void createUniformBuffer()
 
     void* dst;
     vkMapMemory(vk.device, vk.uniformBufferMem, 0, sizeof(dataSrc), 0, &dst);
-    *(Data*) dst = {0, 0, 10, 60};
+    *(Data*) dst = {0, 0, 120, 60};                  ////////////////////////
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
                                                 // Vulkan 의 쉐이더 파일은 spv 이고, 어셈블리 언어의 형식을 가지고 있다.
@@ -1118,7 +1171,7 @@ void main()
         0, 1, 0,                            // sbtRecordOffset, sbtRecordStride, missIndex
                                                 // sbtRecordStride 는 필요한 geometry 의 record 를 찾을 때 몇 칸을 이동해야 하는 지 결정하는 데에 사용된다. 
                                                 // missIndex 는 어떠한 miss Shader 을 호출할 지 결정할 때 참고함다.
-        g.cameraPos, 0.0, rayDir, 100.0,    // origin, tmin, direction, tmax    
+        g.cameraPos, 0.0, rayDir, 300.0,    // origin, tmin, direction, tmax    
                                                 // origin 은 카메라의 위치 ( ray 의 시작점 )
                                                 //  origin 으로부터 direction 방향으로 tmin 부터 tmax 거리까지 ray 를 설정 ( rayDir 크기의 100 배까지로 설정됨 )
                                                 // 매번, ray 와 삼각형의 발견된 교차점이 tamx 보다 가까우면 (그리고 opaque 하면) tmax 는 업데이트된다.
@@ -1145,18 +1198,37 @@ const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#define MAX_VERTICES 1024
+#define MAX_TRIANGLES 512
+
 layout(shaderRecordEXT) buffer CustomData
 {
     vec3 color;
 };
 
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+layout(location = 0) in vec3 inPosition[MAX_VERTICES];
+layout(location = 1) in vec3 inNormal[MAX_VERTICES];
+layout(location = 2) in ivec3 inIndex[MAX_TRIANGLES];
+
+layout(location = 3) rayPayloadInEXT vec3 hitValue;
 hitAttributeEXT vec2 attribs;   // 삼각형 내부의 점은 삼각형의 3 개의 vertices 에 대한 가충치로 표현이 가능한데,
                                 //  이 3 개의 가중치들의 합은 항상 1 이라서 vec2 로도 충분하다.
 
 void main()
 {
-    if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
+    ivec3 index = ivec3(inIndex[gl_PrimitiveID]);
+
+    vec3 v0 = inPosition[index.x];
+    vec3 v1 = inPosition[index.y];
+    vec3 v2 = inPosition[index.z];    
+
+    const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+
+    const vec3 normal = inNormal[index.x] * barycentrics.x + inNormal[index.y] * barycentrics.y + inNormal[index.z] * barycentrics.z;
+
+    hitValue = normal;
+
+    /*if (gl_PrimitiveID > 300 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
                                         //  BLAS 생성할 때 삼각형 Index 들을 넣을 때 Index 3 개마다 Primitive (삼각형 ID) 가 자동으로 추가된다.
         gl_InstanceID == 1 &&           // TLAS 생성에서 2 개의 Instance 를 만들었는데, 각 Instance 들은 각각 동일한 BLAS 를 포함하고 있다.
                                         //  그리고 이 Instance 들 각각은 자동으로 순서대로 배정된 Instance ID 를 가지고 있다.
@@ -1166,7 +1238,7 @@ void main()
     }                                                                               // ray 와 삼각형의 교차점에 대한 가중치들을 알 수 있다.
     else {
         hitValue = color;
-    }
+    }*/
 })";
 
 //      결과는
@@ -1585,6 +1657,78 @@ void render()
     };
     
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
+
+    //vkWaitForFences(vk.device, 1, &vk.fence0, VK_TRUE, UINT64_MAX); //////////////////
+}
+
+void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        //.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,  
+    };
+
+    vkBeginCommandBuffer(vk.commandBuffer, &beginInfo);
+    {
+        VkBufferCopy copyRegion{ .size = size };
+        vkCmdCopyBuffer(vk.commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    }
+    vkEndCommandBuffer(vk.commandBuffer);
+
+    VkSubmitInfo submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vk.commandBuffer,
+    };
+
+    vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(vk.graphicsQueue);
+}
+
+void createVertexBuffer()
+{
+    int vertexBytesSize = 24U;
+
+    VkDeviceSize size = attrib.vertices.size() / 3 * vertexBytesSize;
+    
+    std::tie(vk.vertexBuffer, vk.vertexBufferMemory) = createBuffer(
+        size,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* dst;
+    vkMapMemory(vk.device, vk.vertexBufferMemory, 0, size, 0, &dst);
+    memcpy(dst, vData, size);
+    //memcpy(dst, Geometry::data_v, size);
+    vkUnmapMemory(vk.device, vk.vertexBufferMemory);
+}
+
+void createIndexBuffer()
+{
+    int indexBytesSize = 2U;
+
+    size_t size = shapes[0].mesh.indices.size() * indexBytesSize;
+
+    auto [stagingBuffer, stagingBufferMemory] = createBuffer(
+        size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    std::tie(vk.indexBuffer, vk.indexBufferMemory) = createBuffer(
+        size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    void* dst;
+    vkMapMemory(vk.device, stagingBufferMemory, 0, size, 0, &dst);
+    memcpy(dst, iData, size);
+    //memcpy(dst, Geometry::data_i, size);
+    vkUnmapMemory(vk.device, stagingBufferMemory);
+
+    copyBuffer(stagingBuffer, vk.indexBuffer, size);
+
+    vkDestroyBuffer(vk.device, stagingBuffer, nullptr);
+    vkFreeMemory(vk.device, stagingBufferMemory, nullptr);
 }
 
 void readOBJ(string inputfile) {
@@ -1644,6 +1788,7 @@ void readOBJ(string inputfile) {
 
     cout << attrib.vertices.size() << endl;
     cout << attrib.normals.size() << endl;
+    cout << attrib.texcoords.size() << endl;
     cout << shapes[0].mesh.indices.size() << endl;
 
     vData = new float[attrib.vertices.size() + attrib.normals.size()];
@@ -1669,14 +1814,19 @@ void readOBJ(string inputfile) {
     for (int i = 0; i < size_i / 2; i++)
         data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;*/
 
+    iData = new uint16_t[shapes[0].mesh.indices.size()];
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i++)
+        iData[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;
+
     return;
 }
 
 int main()
 {
+    //readOBJ("teapot.obj");
     readOBJ("teapot.obj");
 
-    {
+    /*{
         auto [data_v, size_v] = Geometry::getVertices();
 
         //Geometry::putVertices(vData, size_v);
@@ -1690,9 +1840,10 @@ int main()
         Geometry::data_i = new uint16_t[shapes[0].mesh.indices.size()];
         for (int i = 0; i < size_i / 2; i++)
             Geometry::data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;
-    }
+    }*/
 
     glfwInit();
+
     GLFWwindow* window = createWindow();
     createVkInstance(window);
     createVkDevice();
@@ -1700,6 +1851,8 @@ int main()
     createSwapChain();
     createCommandCenter();
     createSyncObjects();
+
+    createVertexBuffer();
 
     createBLAS();
     createTLAS();
