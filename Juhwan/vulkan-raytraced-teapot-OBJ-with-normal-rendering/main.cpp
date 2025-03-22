@@ -32,7 +32,7 @@ std::string err;
 
 vector<float> vData;
 vector<float> nData;
-vector<uint16_t> iData;
+vector<uint32_t> iData;
 
 struct UBO {
     VkDeviceAddress vb;
@@ -1137,7 +1137,7 @@ void createIndirectBuffer()
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     std::tie(vk.ibBuffer, vk.ibBufferMem) = createBuffer(
-        iData.size() * sizeof(uint16_t),
+        iData.size() * sizeof(uint32_t),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -1202,7 +1202,7 @@ void createIndirectBuffer()
 
     /// Index Data 를 GPU 로 복사 ///
 
-    bufferSize = iData.size() * sizeof(uint16_t);
+    bufferSize = iData.size() * sizeof(uint32_t);
 
     std::tie(stagingBuffer, stagingMemory) = createBuffer(
         bufferSize,
@@ -1374,13 +1374,13 @@ void main()
     Normals     normals     = ubo.nb;
     Indices     indices     = ubo.ib;
 
-    ivec3 index = indices.data[gl_PrimitiveID].xyz;
+    ivec3 index = indices.data[0].xyz;
 
-    vec3 v0 = vertices.data[index.x].pos.xyz;
+    vec3 v0 = vertices.data[0].pos.xyz;
     vec3 v1 = vertices.data[index.y].pos.xyz;
     vec3 v2 = vertices.data[index.z].pos.xyz;
 
-    vec3 n0 = normals.data[index.x].nor.xyz;
+    vec3 n0 = normals.data[0].nor.xyz;
     vec3 n1 = normals.data[index.y].nor.xyz;
     vec3 n2 = normals.data[index.z].nor.xyz;
 
@@ -1388,7 +1388,10 @@ void main()
     const vec3 normal = n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z;
     const vec3 worldNormal = normalize(vec3(normal * gl_WorldToObjectEXT));
     
-    hitValue = worldNormal;
+    //hitValue = (worldNormal + 1.0) / 2.0;
+
+    if(index.y == 6)//(v0.x - 5.929688) < 0.001)
+        hitValue = vec3(1, 1, 1);
 
     /*if (gl_PrimitiveID < 200 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
                                         //  BLAS 생성할 때 삼각형 Index 들을 넣을 때 Index 3 개마다 Primitive (삼각형 ID) 가 자동으로 추가된다.
@@ -1958,7 +1961,7 @@ void readOBJ(string inputfile) {
         if (i % 4 == 3)
             iData[i] = 1;
         else {
-            iData[i] = (uint16_t)shapes[0].mesh.indices[j].vertex_index;
+            iData[i] = (uint32_t)shapes[0].mesh.indices[j].vertex_index;
             j++;
         }
     }
@@ -1970,22 +1973,6 @@ int main()
 {
     //readOBJ("box.obj");
     readOBJ("teapot.obj");
-
-    /*{
-        auto [data_v, size_v] = Geometry::getVertices();
-
-        //Geometry::putVertices(vData, size_v);
-
-        Geometry::data_v = new float[attrib.vertices.size() + attrib.normals.size()]; 
-        for (int i = 0; i < size_v / 4; i++)
-            Geometry::data_v[i] = vData[i];
-
-        auto [data_i, size_i] = Geometry::getIndices();
-
-        Geometry::data_i = new uint16_t[shapes[0].mesh.indices.size()];
-        for (int i = 0; i < size_i / 2; i++)
-            Geometry::data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;
-    }*/
 
     glfwInit();
 
