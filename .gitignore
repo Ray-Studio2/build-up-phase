@@ -3,3 +3,9 @@ x64
 model_view/.idea/
 model_view/cmake-build-debug/build.ninja
 model_view/cmake-build-debug/
+Seohyuk/cmake-build-debug/
+Seohyuk/external/glfw3.dll
+Seohyuk/external/glfw3.lib
+Seohyuk/external/glfw3_mt.lib
+Seohyuk/external/glfw3dll.lib
+Seohyuk/.idea/
