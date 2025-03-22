@@ -11,6 +11,7 @@
 
 1. vulkan sdk
 2. glfw3 (bin)
+3. tinyobj (.h file)
 
 벌칸은 자동으로 추가되어야합니다. VULKAN_SDK 환경변수가 잘 설정되었다면 말이죠.
 

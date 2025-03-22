@@ -11,6 +11,7 @@ the folowing librarys are required
 
 1. vulkan sdk
 2. glfw
+3. tinyobj (.h file)
 
 the vulkan sdk should added automatically because it hase VULKAN_SDK enviroment veriable.
 
