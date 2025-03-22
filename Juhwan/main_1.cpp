@@ -1430,25 +1430,21 @@ void main()
 
     ivec3 index = indices.i[gl_PrimitiveID].xyz;
 
-    vec3 v0 = vertices.v[0].pos.xyz;
-
-    /*vec3 v0 = vertices.v[index.x].pos.xyz;
+    vec3 v0 = vertices.v[index.x].pos.xyz;
     vec3 v1 = vertices.v[index.y].pos.xyz;
-    vec3 v2 = vertices.v[index.z].pos.xyz;*/
-    
-    vec3 n0 = normals.n[0].nor.xyz;    
+    vec3 v2 = vertices.v[index.z].pos.xyz;
 
-    /*vec3 n0 = normals.n[index.x].nor.xyz;
+    vec3 n0 = normals.n[index.x].nor.xyz;
     vec3 n1 = normals.n[index.y].nor.xyz;
-    vec3 n2 = normals.n[index.z].nor.xyz;*/
+    vec3 n2 = normals.n[index.z].nor.xyz;
 
-    //const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
-    //const vec3 normal = n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z;
-    //const vec3 worldNormal = normalize(vec3(normal * gl_WorldToObjectEXT));
+    const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    const vec3 normal = n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z;
+    const vec3 worldNormal = normalize(vec3(normal * gl_WorldToObjectEXT));
     
     //hitValue = (worldNormal + 1.0) / 2.0;
 
-    if(abs(v0.x - /*-0.966742*/5.929688) < 0.0001)
+    if((n0.x - /*-0.966742*/5.929688) < 0.0001)
         hitValue = vec3(1, 1, 1);
 
     /*if (gl_PrimitiveID < 200 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
