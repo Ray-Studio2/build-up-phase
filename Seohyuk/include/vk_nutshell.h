@@ -4,6 +4,8 @@
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
+#include "vulkan_utility.h"
+
 #define DEVICE_SELECTION 0
 
 namespace nutshell {
@@ -36,6 +38,9 @@ namespace nutshell {
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
 
+    const std::string instanceLayerRequest[] = {
+        "VK_LAYER_KHRONOS_validation"
+    };
 
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
@@ -71,17 +76,28 @@ namespace nutshell {
     inline VkContext_::VkContext_() {
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
         {
+            std::vector<char const *> filteredLayerList{};
 
+            for (const auto layers: instanceLayerRequest) {
+
+
+                if (vkut::isInstanceExtensionSupported(layers)) {
+                    char * layer_char;
+                    strcpy_s(layer_char, layers.c_str());
+
+                    filteredLayerList.push_back(layer_char);
+                }
+            }
 
             instance = createInstance(
                 vk::InstanceCreateInfo{
                     //vk::InstanceCreateInfo
                     {},
                     &appInfo,
-                    static_cast<unsigned int>(sizeof(vecInstanceLayers) ), // enabled instnace layer count
-                    vecInstanceLayers, // enabled extensions
-                    static_cast<unsigned int>(sizeof(vecInstanceExtensions) ), //enabled extention count
-                    vecInstanceExtensions// enabled extensions
+                    static_cast<unsigned int>(filteredLayerList.capacity()), // enabled instnace layer count
+                    filteredLayerList.data(), // enabled extensions
+                    0, //enabled extention count
+                    {}// enabled extensions
                 }
             );
         }
