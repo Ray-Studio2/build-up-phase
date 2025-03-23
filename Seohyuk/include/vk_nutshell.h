@@ -126,17 +126,21 @@ namespace nutshell {
         std::cout << "ready to render. please inject glfw window if you wish to render on screen." << std::endl;
     }
 
-    inline void VkContext::injectGLFWWindow(GLFWwindow * pptrWindow) {
+    inline void VkContext_::injectGLFWWindow(GLFWwindow * pptrWindow) {
         this->window = pptrWindow;
     }
 
+    inline void VkContext_::drawCallback(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {
+        return;
+    }
 
-    inline void VkContext::programLoop() {
+
+    inline void VkContext_::programLoop() {
         while ( !glfwWindowShouldClose(window) ) {
-            glfwSwapBuffers(window);
+            //glfwSwapBuffers(window);
 
             if ( window != nullptr ) {
-                drawCallback(window, instance, device, queue);
+                //this->drawCallback(window, instance, device, queue);
             } else {
                 //blank screen
             }
@@ -155,5 +159,11 @@ namespace nutshell {
     }
 
 
+    /*
+     * The renderpass option implementation unit.
+     *
+     */
+    typedef struct RenderPassBoundary_ {
+    } RenderPassBoundary;
 }
 
