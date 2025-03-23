@@ -2,52 +2,23 @@
 #include <random>
 #include <vector>
 #include <iostream>
-//#include <glm/glm.hpp>
-#include <omp.h>
-
-using namespace std;
-//using namespace glm;
-
-int samplingCount[180][180];
-
-void RandomSampling(int maxCount)
-{
-		std::random_device generator;
-		std::uniform_real_distribution<double> distributionX(-90.0, 90.0);
-		std::uniform_real_distribution<double> distributionY(-90.0, 90.0);
-
-		double x, y;
-
-#pragma omp parallel for
-	for (int i = 0; i < maxCount; i++) {
-		x = distributionX(generator);
-		y = distributionY(generator);
-
-		samplingCount[(int)floor(x) + 90][(int)floor(y) + 90]++;
-
-		//cout << x << " , " << y << endl;
-	}
-}
 
 int main() {
-	int maxCount = 100000000;
+	std::default_random_engine generator;
+	std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
-	RandomSampling(maxCount);
-	
-	double average = (double)maxCount / (double)(180 * 180);
-	double uniformity = 0.0;
+	std::vector<int> a(40);
 
-	for (int i = 0; i < 180; i++)
-		for (int j = 0; j < 180; j++) {
-			if(i == 179 && j >= 170)
-				cout << "x : " << i - 90 << " , y : " << j - 90 << " => " << samplingCount[i][j] << " times." << endl;
+	for (int i = 0; i < a.size(); i++)
+		a[i] = 0;
 
-			uniformity += abs((average - (double)samplingCount[i][j]) / average);
-		}
+	for (int i = 0; i < 1000000000; i++) {
+		double temp = distribution(generator);
+		a[temp / (1.0 / (double)a.size())]++;
+	}
 
-	uniformity = 100.0 - (uniformity / (double)(180 * 180));
-
-	cout << endl << "Uniformity : " << uniformity << endl;
+	for (int i = 0; i < a.size(); i++)
+		std::cout << i << " : " << a[i] << " times." << std::endl;
 
 	return 0;
 }
