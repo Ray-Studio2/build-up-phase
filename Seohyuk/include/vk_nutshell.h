@@ -7,6 +7,13 @@
 #define DEVICE_SELECTION 0
 
 namespace nutshell {
+    constexpr char * const vecInstanceLayers[] = {
+        //R"(VK_LAYER_KHRONOS_validation)"
+    };
+
+    constexpr char * const vecInstanceExtensions[] = {
+        //R"(VK_EXT_debug_report)"
+    };
 
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
@@ -23,13 +30,17 @@ namespace nutshell {
 
         GLFWwindow*window = nullptr;
 
+        void(drawCallback)(GLFWwindow* pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);
+
         VkContext_();
+
+
         void injectGLFWWindow(GLFWwindow * pptrWindow);
 
         /**
          * After call this function the program will be started and loops.
          */
-        void programLoop() const;
+        void programLoop();
 
 
         ~VkContext_();
@@ -37,27 +48,28 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl; {
-            const auto vecInstanceLayers = std::vector<std::string>{
-                "VK_LAYER_KHRONOS_validation"
-            };
 
-            constexpr auto vecInstanceExtensions = std::vector<std::string>{
-            };
+
+        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
+
+        {
+
 
             /*
              * Functional filter to filter the supported ones.
              */
+
+
 
             instance = createInstance(
                 vk::InstanceCreateInfo{
                     //vk::InstanceCreateInfo
                     {},
                     &appInfo,
-                    static_cast<uint32_t>(vecInstanceLayers.size()), // enabled instnace layer count
-                    reinterpret_cast<const char * const *>(vecInstanceLayers.data()), // enabled extentions
-                    static_cast<uint32_t>(vecInstanceExtensions.size()), //enabled extention count
-                    reinterpret_cast<const char * const *>(vecInstanceExtensions.data()) // enabled extentions
+                    static_cast<unsigned int>(sizeof(vecInstanceLayers) - 1), // enabled instnace layer count
+                    vecInstanceLayers, // enabled extensions
+                    static_cast<unsigned int>(sizeof(vecInstanceExtensions) - 1), //enabled extention count
+                    vecInstanceExtensions// enabled extensions
                 }
             );
         }
@@ -65,12 +77,14 @@ namespace nutshell {
         physicalDevices = instance.enumeratePhysicalDevices();
 
 
-        constexpr uint32_t queueFamilyIndex = 0;
 
+
+        constexpr uint32_t queueFamilyIndex = 0;
 
         {
             int a = 0;
-            for (auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties(); vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
+            for (const auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties();
+                 vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
                 /*
                  * Queue family needs to support transfer, graphics.
                  */
@@ -108,6 +122,8 @@ namespace nutshell {
             queueFamilyIndex, //Queue family index
             0 // Queue index
         );
+
+        std::cout << "ready to render. please inject glfw window if you wish to render on screen." << std::endl;
     }
 
     inline void VkContext::injectGLFWWindow(GLFWwindow * pptrWindow) {
@@ -115,8 +131,16 @@ namespace nutshell {
     }
 
 
-    inline void VkContext::programLoop() const {
+    inline void VkContext::programLoop() {
         while ( !glfwWindowShouldClose(window) ) {
+            glfwSwapBuffers(window);
+
+            if ( window != nullptr ) {
+                drawCallback(window, instance, device, queue);
+            } else {
+                //blank screen
+            }
+
             glfwPollEvents();
         }
     }
@@ -127,7 +151,9 @@ namespace nutshell {
         device.destroy();
         instance.destroy();
 
-        std::cout << "Nutshell says goodbye~" << std::endl; // if this dosent happen, you are doing destroy in wrong way.
+        std::cout << "Nutshell says goodbye~" << std::endl; // if this doesn't happen, you are doing destroy in wrong way.
     }
+
+
 }
 
