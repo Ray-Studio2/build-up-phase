@@ -47,11 +47,16 @@ set( LIBS ${VULKAN_LIBRARIES} glfw3 )
 
 # 이 아래에서 작업 시작
 
+add_executable(CMDUtility CMDUtility.cpp) # 커멘드라인 도구
+target_include_directories( CMDUtility PUBLIC ${INCLUDES})
+target_link_directories( CMDUtility PUBLIC ${LIB_DIR} )
+target_link_libraries(CMDUtility PUBLIC ${LIBS} )
+
 add_executable(Triangle triangle.cpp
         include/seohyuk.h) # 삼각형만 출력
 target_include_directories( Triangle PUBLIC ${INCLUDES} seohyuk.h )
-target_link_directories( Triangle PUBLIC $LIB_DIR )
-target_link_libraries(Triangle PUBLIC $LIBS )
+target_link_directories( Triangle PUBLIC ${LIB_DIR} )
+target_link_libraries(Triangle PUBLIC ${LIBS} )
 
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
