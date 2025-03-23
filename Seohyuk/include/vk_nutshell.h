@@ -35,20 +35,14 @@ namespace nutshell {
     void (drawCallPostRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue); /* after the rendering inside a renderpass */
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
-    constexpr char * const vecInstanceLayers[] = {
-        //"(VK_LAYER_KHRONOS_validation)"
-    };
 
-    constexpr char * const vecInstanceExtensions[] = {
-        //"(VK_EXT_debug_report)"
-    };
 
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
      **/
     typedef struct VkContext_ {
         vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell");
-
+        char * const * instanceLayers;
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
         vk::Device device;
@@ -75,17 +69,8 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-
-
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
-
         {
-
-
-            /*
-             * Functional filter to filter the supported ones.
-             */
-
 
 
             instance = createInstance(

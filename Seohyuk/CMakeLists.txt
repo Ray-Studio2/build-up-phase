@@ -43,13 +43,15 @@ set( LIBS ${VULKAN_LIBRARIES} glfw3 )
 
 # 이 아래에서 작업 시작
 
-add_executable(CMDUtility CMDUtility.cpp) # 커멘드라인 도구
+add_executable(CMDUtility CMDUtility.cpp
+        include/vulkan_utility.h) # 커멘드라인 도구
 target_include_directories( CMDUtility PUBLIC ${INCLUDES})
 target_link_directories( CMDUtility PUBLIC ${LIB_DIR} )
 target_link_libraries(CMDUtility PUBLIC ${LIBS} )
 
 add_executable(Triangle triangle.cpp
-        include/seohyuk.h) # 삼각형만 출력
+        include/seohyuk.h
+        include/vulkan_utility.h) # 삼각형만 출력
 target_include_directories( Triangle PUBLIC ${INCLUDES} seohyuk.h )
 target_link_directories( Triangle PUBLIC ${LIB_DIR} )
 target_link_libraries(Triangle PUBLIC ${LIBS} )
@@ -65,7 +67,8 @@ target_link_libraries(teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIBRARIES
 ]==]
 
 add_executable(TeapotBasic TeapotBasic.cpp
-        include/vk_nutshell.h)
+        include/vk_nutshell.h
+        include/vulkan_utility.h)
 target_include_directories( TeapotBasic PUBLIC ${INCLUDES} )
 target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
 target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
