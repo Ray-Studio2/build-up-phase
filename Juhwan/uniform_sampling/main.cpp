@@ -2,11 +2,11 @@
 #include <random>
 #include <vector>
 #include <iostream>
-#include <glm/glm.hpp>
+//#include <glm/glm.hpp>
 #include <omp.h>
 
 using namespace std;
-using namespace glm;
+//using namespace glm;
 
 int samplingCount[180][180];
 
