@@ -733,6 +733,7 @@ inline VkDeviceAddress getDeviceAddressOf(VkBuffer buffer)
     return vk.vkGetBufferDeviceAddressKHR(vk.device, &info);
 }
 
+/*
 inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
 {
     VkAccelerationStructureDeviceAddressInfoKHR info{
@@ -741,7 +742,7 @@ inline VkDeviceAddress getDeviceAddressOf(VkAccelerationStructureKHR as)
     };
     return vk.vkGetAccelerationStructureDeviceAddressKHR(vk.device, &info);
 }
-
+*/
 void createBLAS()
 {
     /*float vertices1[][3] = {

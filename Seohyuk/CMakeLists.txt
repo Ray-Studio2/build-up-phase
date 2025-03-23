@@ -9,10 +9,12 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_executable(Seohyuk main.cpp
-        seokyuk.h) # Hello, world 출력
+        include/seohyuk.h) # Hello, world 출력
 
-if (${CMAKE_SYSTEM_NAME} STREQUAL WIN32)
-    message(For Win32)
+message(${CMAKE_SYSTEM_NAME})
+
+if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
+    message("For Win32")
 
     set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
     set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
@@ -35,28 +37,36 @@ else ()
     message("Not supported OS")
 endif ()
 
-
-
 #만약 무언가를 출력하고싶다면 이렇게! message(STATUS "${VULKAN_LIB}")
-#message(STATUS "${VULKAN_LIB}")
-#message(STATUS "$ENV{USER}")
 
-set(GLFW_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/external/include") #GLFW include 폴더
-set(GLFW_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external") #GLFW 폴더의 .lib 파일과 dll 파일
-set(EXTRA_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/external")
-
+set( GLFW_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/external/include" ) # 외부 인클루드
+set( GLFW_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lib" ) # 외부 라이브러리
+set( INCLUDES ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE} "${CMAKE_CURRENT_SOURCE_DIR}/include")
+set( LIB_DIR ${VULKAN_LIB} ${GLFW_LIB_DIR} )
+set( LIBS ${VULKAN_LIBRARIES} glfw3 )
 
 # 이 아래에서 작업 시작
 
 add_executable(Triangle triangle.cpp
-        seokyuk.h) # 삼각형만 출력
-target_include_directories( Triangle PUBLIC ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE})
-target_link_directories( Triangle PUBLIC ${VULKAN_LIB} ${GLFW_LIB_DIR} )
-target_link_libraries(Triangle PUBLIC ${VULKAN_LIBRARIES} glfw3)
+        include/seohyuk.h) # 삼각형만 출력
+target_include_directories( Triangle PUBLIC ${INCLUDES} seohyuk.h )
+target_link_directories( Triangle PUBLIC $LIB_DIR )
+target_link_libraries(Triangle PUBLIC $LIBS )
 
+
+#[==[ 여러 줄 주석은 이렇게 합니다!
 
 add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
 target_include_directories( teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE})
 target_link_directories( teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIB} ${GLFW_LIB_DIR} )
 target_link_libraries(teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIBRARIES} glfw3)
+
+]==]
+
+add_executable(TeapotBasic TeapotBasic.cpp
+        include/vk_nutshell.h)
+target_include_directories( TeapotBasic PUBLIC ${INCLUDES} )
+target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
+target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
+
 
