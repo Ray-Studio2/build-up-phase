@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD 20)
 # 실행 파일을 추가할 때는 add_executable 을 사용합니다.
 #
 
-
-add_executable(Seohyuk main.cpp
-        include/seohyuk.h) # Hello, world 출력
-
 message(${CMAKE_SYSTEM_NAME})
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)

@@ -7,12 +7,40 @@
 #define DEVICE_SELECTION 0
 
 namespace nutshell {
+    /**
+     * all the draw callbacks must be implemented allways.
+     * it can be done like this
+     *
+     * void nutshell::drawCallBackMain(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {
+     *
+     * }
+     *
+     *
+     * here. copy this.
+     *
+    void nutshell::beforeRender() {}
+    void nutshell::drawCallPreRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
+    void nutshell::whileRendering() {}
+    void nutshell::drawCallBackMain(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
+    void nutshell::drawCallPostRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
+    void nutshell::afterRedner() {}
+     *
+     */
+
+
+    void (beforeRender)();                                                                                     /* anything before the renderpass starets */
+    void (drawCallPreRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);  /* inside the renderpass before something renders */
+    void (whileRendering)();                                                                                   /* something to dso in program loop */
+    void (drawCallBackMain)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);   /* main rendering stage */
+    void (drawCallPostRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue); /* after the rendering inside a renderpass */
+    void (afterRedner)();                                                                                      /* last thing to do in main loop */
+
     constexpr char * const vecInstanceLayers[] = {
-        //R"(VK_LAYER_KHRONOS_validation)"
+        //"(VK_LAYER_KHRONOS_validation)"
     };
 
     constexpr char * const vecInstanceExtensions[] = {
-        //R"(VK_EXT_debug_report)"
+        //"(VK_EXT_debug_report)"
     };
 
     /**
@@ -30,7 +58,6 @@ namespace nutshell {
 
         GLFWwindow*window = nullptr;
 
-        void(drawCallback)(GLFWwindow* pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);
 
         VkContext_();
 
@@ -66,9 +93,9 @@ namespace nutshell {
                     //vk::InstanceCreateInfo
                     {},
                     &appInfo,
-                    static_cast<unsigned int>(sizeof(vecInstanceLayers) - 1), // enabled instnace layer count
+                    static_cast<unsigned int>(sizeof(vecInstanceLayers) ), // enabled instnace layer count
                     vecInstanceLayers, // enabled extensions
-                    static_cast<unsigned int>(sizeof(vecInstanceExtensions) - 1), //enabled extention count
+                    static_cast<unsigned int>(sizeof(vecInstanceExtensions) ), //enabled extention count
                     vecInstanceExtensions// enabled extensions
                 }
             );
@@ -130,25 +157,33 @@ namespace nutshell {
         this->window = pptrWindow;
     }
 
-    inline void VkContext_::drawCallback(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {
-        return;
-    }
-
 
     inline void VkContext_::programLoop() {
         while ( !glfwWindowShouldClose(window) ) {
-            //glfwSwapBuffers(window);
+            beforeRender();
+            {
+                drawCallPreRender(window, instance, device, queue);
+                {
+                    whileRendering();
+                    drawCallBackMain(window, instance, device, queue);
+                }
+                drawCallPostRender(window, instance, device, queue);
+            }
+            afterRedner();
+
+
 
             if ( window != nullptr ) {
-                //this->drawCallback(window, instance, device, queue);
             } else {
-                //blank screen
+                //offscreen
             }
 
+            glfwSwapBuffers(window);
             glfwPollEvents();
+
+
         }
     }
-
 
     inline VkContext_::~VkContext_() {
 

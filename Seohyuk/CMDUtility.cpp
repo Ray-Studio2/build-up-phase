@@ -10,7 +10,7 @@ constexpr char * const* enabledExtensionNames = {
 constexpr uint32_t enabledExtensionCount = sizeof(enabledExtensionNames) / sizeof(char*);
 
 constexpr char * const enabledLayerNames[] = {
-    "VK_LAYER_KHRONOS_validation"
+    //"VK_LAYER_KHRONOS_validation"
 };
 constexpr uint32_t enabledLayerCount = sizeof(enabledLayerNames) / sizeof(char*);
 
