@@ -7,13 +7,15 @@ set(CMAKE_CXX_STANDARD 20)
 # 실행 파일을 추가할 때는 add_executable 을 사용합니다.
 #
 
+
+
 message(${CMAKE_SYSTEM_NAME})
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
     message("For Win32")
 
     set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
-    set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
+    set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/Bin")
 
     set(VULKAN_LIBRARIES vulkan-1
             glslangd
@@ -37,7 +39,7 @@ endif ()
 
 set( GLFW_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/external/include" ) # 외부 인클루드
 set( GLFW_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lib" ) # 외부 라이브러리
-set( INCLUDES ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE} "${CMAKE_CURRENT_SOURCE_DIR}/include")
+set( INCLUDES ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE} "${CMAKE_SOURCE_DIR}/include")
 set( LIB_DIR ${VULKAN_LIB} ${GLFW_LIB_DIR} )
 set( LIBS ${VULKAN_LIBRARIES} glfw3 )
 
@@ -66,11 +68,29 @@ target_link_libraries(teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIBRARIES
 
 ]==]
 
-add_executable(TeapotBasic TeapotBasic.cpp
-        include/vk_nutshell.h
-        include/vulkan_utility.h)
+add_subdirectory(TeapotBasic)
+
 target_include_directories( TeapotBasic PUBLIC ${INCLUDES} )
 target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
 target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
+target_sources(TeapotBasic PUBLIC include/vk_nutshell.h include/vulkan_utility.h)
 
 
+
+
+
+#[==[
+이하 테스트 유닛.
+]==]
+
+add_executable(TestVulkanUtility test/TestVulkanUtility.cpp include/vulkan_utility.h)
+target_include_directories( TestVulkanUtility PUBLIC ${INCLUDES} )
+target_link_directories( TestVulkanUtility PUBLIC ${LIB_DIR} )
+target_link_libraries(TestVulkanUtility PUBLIC ${LIBS} )
+
+#[==[
+add_executable(TestVectorTools test/TestVectorTools.cpp include/vector_tools.h)
+target_include_directories( TestVectorTools PUBLIC ${INCLUDES} )
+target_link_directories( TestVectorTools PUBLIC ${LIB_DIR} )
+target_link_libraries(TestVectorTools PUBLIC ${LIBS} )
+]==]

@@ -9,7 +9,7 @@ void nutshell::beforeRender() {}
 void nutshell::drawCallPreRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
 
 void nutshell::whileRendering() {
-  std::cout << "Hello, World!" << std::endl;
+  //std::cout << "Hello, World!" << std::endl;
 }
 
 void nutshell::drawCallBackMain(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}

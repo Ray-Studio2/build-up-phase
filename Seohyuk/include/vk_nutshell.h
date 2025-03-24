@@ -7,6 +7,7 @@
 #include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
+#define INSTANCE_LAYER_COUNT 20
 
 namespace nutshell {
     /**
@@ -38,16 +39,17 @@ namespace nutshell {
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
 
-    const std::string instanceLayerRequest[] = {
+    std::vector<std::string> instanceLayerRequestList = {
         "VK_LAYER_KHRONOS_validation"
     };
+
 
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
      **/
     typedef struct VkContext_ {
-        vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell");
-        char * const * instanceLayers;
+        vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", VK_API_VERSION_1_4);
+        char * const * instanceLayers[INSTANCE_LAYER_COUNT][255] = {};
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
         vk::Device device;
@@ -76,17 +78,24 @@ namespace nutshell {
     inline VkContext_::VkContext_() {
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
         {
-            std::vector<char const *> filteredLayerList{};
+            std::cout << "Filtering the layers which can be usable" << std::endl;
 
-            for (const auto layers: instanceLayerRequest) {
+            /*  for the printing
+            uint32_t enumerate = 0;
+            for (const auto element: instanceLayerRequestList) {
+                std::cout << element << (enumerate >= instanceLayerRequestList.capacity() ? ", " : "") << std::endl;
+                enumerate += 1;
+            }
+            */
 
+            vkut::filterSupportedInstanceLayers(instanceLayerRequestList);
 
-                if (vkut::isInstanceExtensionSupported(layers)) {
-                    char * layer_char;
-                    strcpy_s(layer_char, layers.c_str());
+            const char* filteredInstanceLayerList[INSTANCE_LAYER_COUNT] = {};
 
-                    filteredLayerList.push_back(layer_char);
-                }
+            uint32_t index = 0;
+            for (auto layerName: instanceLayerRequestList) {
+                filteredInstanceLayerList[index] = layerName.c_str();
+                index += 1;
             }
 
             instance = createInstance(
@@ -94,8 +103,8 @@ namespace nutshell {
                     //vk::InstanceCreateInfo
                     {},
                     &appInfo,
-                    static_cast<unsigned int>(filteredLayerList.capacity()), // enabled instnace layer count
-                    filteredLayerList.data(), // enabled extensions
+                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
+                    filteredInstanceLayerList, // enabled extensions             const char * const *
                     0, //enabled extention count
                     {}// enabled extensions
                 }
