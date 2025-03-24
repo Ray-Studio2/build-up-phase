@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Juhwan_Bae\Desktop\build-up-phase\Juhwan\Seohyuk\test\TestVulkanUtility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\Juhwan_Bae\Desktop\build-up-phase\Juhwan\Seohyuk\include\vulkan_utility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Juhwan_Bae\Desktop\build-up-phase\Juhwan\Seohyuk\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{250C242F-D6BE-3502-8558-FC8032529962}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{2B15B888-88C8-3935-A3E1-41EBE144B624}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

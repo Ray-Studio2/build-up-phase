@@ -1,0 +1,10 @@
+﻿  Building Custom Rule C:/Users/Juhwan_Bae/Desktop/build-up-phase/Juhwan/Seohyuk/TeapotBasic/CMakeLists.txt
+  모듈 종속성의 소스를 검사하는 중...
+  TeapotBasic.cpp
+  컴파일하는 중...
+  TeapotBasic.cpp
+C:\Users\Juhwan_Bae\Desktop\build-up-phase\Juhwan\Seohyuk\external\include\GLFW\glfw3.h(3235,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 '../../TeapotBasic/TeapotBasic.cpp'을(를) 컴파일하는 중)
+  
+LINK : warning LNK4098: 'MSVCRT' defaultlib가 다른 라이브러리와 충돌합니다. /NODEFAULTLIB:library를 사용하십시오.
+  TeapotBasic.vcxproj -> C:\Users\Juhwan_Bae\Desktop\build-up-phase\Juhwan\Seohyuk\build\TeapotBasic\Debug\TeapotBasic.exe

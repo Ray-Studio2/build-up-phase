@@ -8,10 +8,10 @@
 #include <span>
 #include "shader_module.h"
 #include "tiny_obj_loader.h"
-//#include <vulkan/vulkan.hpp>
-#include <glm/glm.hpp>
+//#include <glm/glm.hpp>
 
 using namespace std;
+//using namespace glm;
 
 typedef unsigned int uint;
 
@@ -25,6 +25,9 @@ const uint32_t SHADER_GROUP_HANDLE_SIZE = 32;   // 무조건 32 이어야 한다
     const bool ON_DEBUG = true;
 #endif
 
+
+//float* vData;
+
 tinyobj::attrib_t attrib;
 std::vector<tinyobj::shape_t> shapes;
 std::vector<tinyobj::material_t> materials;
@@ -32,21 +35,13 @@ std::vector<tinyobj::material_t> materials;
 std::string warn;
 std::string err;
 
-vector<float> vData;
-vector<float> nData;
-vector<uint32_t> iData;
+struct Object {
+	vector<float> vData;
+	vector<float> nData;
+	vector<uint32_t> iData;
+} object;
 
-//struct UBO {
-//    VkDeviceAddress vb;
-//    VkDeviceAddress nb;
-//    VkDeviceAddress ib;
-//};
-
-//struct UBO {
-//    glm::uvec2 vb;
-//    glm::uvec2 nb;
-//    glm::uvec2 ib;
-//};
+vector<float> objectData;
 
 struct Global {
     PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
@@ -115,25 +110,10 @@ struct Global {
     VkStridedDeviceAddressRegionKHR missSbt{};
     VkStridedDeviceAddressRegionKHR hitgSbt{};
 
-    /////////////////////
-
-    VkBuffer vUboBuffer;
-    VkDeviceMemory vUboMemory;
-    VkBuffer nUboBuffer;
-    VkDeviceMemory nUboMemory;
-    VkBuffer iUboBuffer;
-    VkDeviceMemory iUboMemory;
-    
-    VkDeviceAddress vbAddress;
-    VkDeviceAddress nbAddress;
-    VkDeviceAddress ibAddress;
-
-    VkBuffer vbBuffer;
-    VkDeviceMemory vbBufferMem;
-    VkBuffer nbBuffer;
-    VkDeviceMemory nbBufferMem;
-    VkBuffer ibBuffer;
-    VkDeviceMemory ibBufferMem;
+    VkBuffer objectDataBuffer;
+    VkDeviceMemory objectDataBufferMem;
+    VkBufferDeviceAddressInfo objectDataAddressInfo;
+    VkDeviceAddress objectDataAddress;
 
     ////////////////////////////////////////////////////////////////////
     
@@ -318,6 +298,13 @@ void createVkInstance(GLFWwindow* window)
         .pfnUserCallback = debugCallback,
     };
 
+    /// Shader 내에서 Debug 가능케 만들기 ///
+    std::vector<VkValidationFeatureEnableEXT>  validation_feature_enables = {VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+
+    VkValidationFeaturesEXT validation_features{VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT};
+    validation_features.enabledValidationFeatureCount = 1;
+    validation_features.pEnabledValidationFeatures    = validation_feature_enables.data();
+
     VkInstanceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = ON_DEBUG ? &debugCreateInfo : nullptr,
@@ -326,6 +313,7 @@ void createVkInstance(GLFWwindow* window)
         .ppEnabledLayerNames = validationLayers.data(),
         .enabledExtensionCount = (uint)extensions.size(),
         .ppEnabledExtensionNames = extensions.data(),
+        //.pNext = &validation_features,                  /////////////////////////
     };
 
     if (vkCreateInstance(&createInfo, nullptr, &vk.instance) != VK_SUCCESS) {
@@ -624,7 +612,7 @@ std::tuple<VkBuffer, VkDeviceMemory> createBuffer(
     if (vkCreateBuffer(vk.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vertex buffer!");
     }
-    
+
     VkMemoryRequirements memRequirements;
     vkGetBufferMemoryRequirements(vk.device, buffer, &memRequirements);
 
@@ -1080,15 +1068,10 @@ void createOutImage()
         .image = vk.outImage,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = format,                               // 특수한 상황이 아닌 이상, View 와 출력 Image 의 Format 을 일치시켜주면 된다.
-        /*.components = {                     // VK_COMPONENT_SWIZZLE_IDENTITY 는 R 값은 그대로 R 값으로 B 값은 그대로 B 값으로 유지하게 하는 역할을 한다.
-            .r = VK_COMPONENT_SWIZZLE_B,    // R 값은 사실상 B 값이 되도록 설정
-            .b = VK_COMPONENT_SWIZZLE_R,    // B 값 또한 사실상 R 값임
-        },*/
-        .components = {                     
-            .r = VK_COMPONENT_SWIZZLE_IDENTITY,   
-            .b = VK_COMPONENT_SWIZZLE_IDENTITY, 
+        .components = {                     // VK_COMPONENT_SWIZZLE_IDENTITY 는 R 값은 그대로 R 값으로 B 값은 그대로 B 값으로 유지하게 하는 역할을 한다.
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY, //VK_COMPONENT_SWIZZLE_B,    // R 값은 사실상 B 값이 되도록 설정
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY, //VK_COMPONENT_SWIZZLE_R,    // B 값 또한 사실상 R 값임
         },
-
         .subresourceRange = subresourceRange,
     };
     vkCreateImageView(vk.device, &ci0, nullptr, &vk.outImageView);  // Ray Tracing Shader 의 출력으로 사용될 View 를 만들어서 이 View 에 접근해야 한다.
@@ -1142,141 +1125,6 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
     vkQueueWaitIdle(vk.graphicsQueue);
 }
 
-glm::uvec2 makeAddress(uint64_t addr) {
-    return glm::uvec2(uint32_t(addr & 0xFFFFFFFF), uint32_t(addr >> 32));
-}
-
-void createIndirectBuffer()
-{
-    /// vertex, normal, index 각각에 대한 버퍼 생성 ///
-
-    std::tie(vk.vbBuffer, vk.vbBufferMem) = createBuffer(
-        vData.size() * sizeof(float),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    std::tie(vk.nbBuffer, vk.nbBufferMem) = createBuffer(
-        nData.size() * sizeof(float),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    std::tie(vk.ibBuffer, vk.ibBufferMem) = createBuffer(
-        iData.size() * sizeof(uint32_t),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    VkBufferDeviceAddressInfo vbAddressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
-    vbAddressInfo.buffer = vk.vbBuffer;
-    vk.vbAddress = vkGetBufferDeviceAddress(vk.device, &vbAddressInfo);
-
-    VkBufferDeviceAddressInfo nbAddressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
-    nbAddressInfo.buffer = vk.nbBuffer;
-    vk.nbAddress = vkGetBufferDeviceAddress(vk.device, &nbAddressInfo);
-
-    VkBufferDeviceAddressInfo ibAddressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
-    ibAddressInfo.buffer = vk.ibBuffer;
-    vk.ibAddress = vkGetBufferDeviceAddress(vk.device, &ibAddressInfo);
-
-    /// Vertex Data 를 GPU 로 복사 ///
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    VkDeviceSize bufferSize = vData.size() * sizeof(float);
-
-    std::tie(stagingBuffer, stagingMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	void* data;
-	vkMapMemory(vk.device, stagingMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vData.data(), (size_t)bufferSize);
-	vkUnmapMemory(vk.device, stagingMemory);
-
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexMemory;
-    std::tie(vertexBuffer, vertexMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-    /// Normal Data 를 GPU 로 복사 ///
-
-    bufferSize = nData.size() * sizeof(float);
-
-    std::tie(stagingBuffer, stagingMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	vkMapMemory(vk.device, stagingMemory, 0, bufferSize, 0, &data);
-	memcpy(data, nData.data(), (size_t)bufferSize);
-	vkUnmapMemory(vk.device, stagingMemory);
-
-    VkBuffer normalBuffer;
-    VkDeviceMemory normalMemory;
-    std::tie(normalBuffer, normalMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    copyBuffer(stagingBuffer, normalBuffer, bufferSize);
-
-    /// Index Data 를 GPU 로 복사 ///
-
-    bufferSize = iData.size() * sizeof(uint32_t);
-
-    std::tie(stagingBuffer, stagingMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	vkMapMemory(vk.device, stagingMemory, 0, bufferSize, 0, &data);
-	memcpy(data, iData.data(), (size_t)bufferSize);
-	vkUnmapMemory(vk.device, stagingMemory);
-
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexMemory;
-    std::tie(indexBuffer, indexMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-    /// 쉐이더의 Indirect 참조를 위한 버퍼 주소들의 집합힌 UBO 를 보내주기 위한 작업 ///
-
-    //UBO uboData = {
-    //    .vb = vbAddress,// makeAddress(vbAddress),
-    //    .nb = nbAddress,// makeAddress(nbAddress),
-    //    .ib = ibAddress,//makeAddress(ibAddress),
-    //};
-    //bufferSize = sizeof(uboData);
-
-    bufferSize = sizeof(vk.vbAddress);
-
-    std::tie(vk.vUboBuffer, vk.vUboMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    bufferSize = sizeof(vk.nbAddress);
-
-    std::tie(vk.nUboBuffer, vk.nUboMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    bufferSize = sizeof(vk.ibAddress);
-
-    std::tie(vk.iUboBuffer, vk.iUboMemory) = createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-}
-
 void createUniformBuffer()
 {
     struct Data{                    // 16 Bytes 단위로 나뉘도록 설정
@@ -1294,6 +1142,56 @@ void createUniformBuffer()
     *(Data*) dst = {0, 0, 120, 60};                  ////////////////////////
     vkUnmapMemory(vk.device, vk.uniformBufferMem);
 }
+
+void createIndirectBuffer()
+{
+    std::tie(vk.objectDataBuffer, vk.objectDataBufferMem) = createBuffer(
+        objectData.size() * sizeof(float),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    vk.objectDataAddressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    vk.objectDataAddressInfo.buffer = vk.objectDataBuffer;
+    vk.objectDataAddress = vkGetBufferDeviceAddress(vk.device, &vk.objectDataAddressInfo);
+
+    /// Object Data 를 GPU 로 복사 ///
+
+    VkDeviceSize bufferSize = objectData.size() * sizeof(float);
+
+    void* dst;
+    vkMapMemory(vk.device, vk.objectDataBufferMem, 0, bufferSize, 0, &dst);
+    memcpy(dst, objectData.data(), bufferSize);
+    //memcpy(dst, Geometry::data_v, size);
+    vkUnmapMemory(vk.device, vk.objectDataBufferMem);
+
+    //vk.objectDataAddress = (VkDeviceAddress)dst;
+
+    /*
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    VkDeviceSize bufferSize = objectData.size() * sizeof(float);
+
+    std::tie(stagingBuffer, stagingMemory) = createBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	void* data;
+	vkMapMemory(vk.device, stagingMemory, 0, bufferSize, 0, &data);
+	memcpy(data, objectData.data(), (size_t)bufferSize);
+	vkUnmapMemory(vk.device, stagingMemory);
+
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexMemory;
+    std::tie(vertexBuffer, vertexMemory) = createBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    */
+}
+
                                                 // Vulkan 의 쉐이더 파일은 spv 이고, 어셈블리 언어의 형식을 가지고 있다.
                                                 // glsl 은 하나의 Shader 파일에 1 가지 종류의 Shader 1 개만 넣을 수 있지만,
                                                 //  hlsl 은 하나의 Shader 파일에 여러 가지 종류의 Shader 여러 개를 넣을 수 있다.
@@ -1369,89 +1267,66 @@ void main()
 const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
+
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_GOOGLE_include_directive : enable
 
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_spirv_intrinsics : enable
+#extension GL_EXT_buffer_reference : require
 
-//#include "sjhader_h.h"
-//#include <stdint.h>
+//layout(shaderRecordEXT) buffer CustomData
+//{
+//    vec3 color;
+//};
 
 layout(shaderRecordEXT) buffer CustomData
 {
-    vec3 color;
+    uint64_t objectDataAddress;
 };
+
+layout(buffer_reference, scalar) buffer Data { float d[]; };
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 hitAttributeEXT vec2 attribs;   // 삼각형 내부의 점은 삼각형의 3 개의 vertices 에 대한 가충치로 표현이 가능한데,
                                 //  이 3 개의 가중치들의 합은 항상 1 이라서 vec2 로도 충분하다.
 
-//struct UBO
-//{
-//  uint64_t vb;         // Address of the Vertex buffer
-//  uint64_t nb; 
-//  uint64_t ib;          // Address of the index buffer
-//};
-
-struct Vertex{
-    vec4 pos;
-};
-
-struct Normal{
-    vec4 nor;
-};
-
-//struct UBO
-//{
-//  uvec2 vb;         // Address of the Vertex buffer
-//  uvec2 nb; 
-//  uvec2 ib;          // Address of the index buffer
-//};
-
-layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Positions of an object
-layout(buffer_reference, scalar) buffer Normals {Normal n[]; }; // Normals of an object
-layout(buffer_reference, scalar) buffer Indices {ivec4 i[]; }; // Triangle indices
-//layout(buffer_reference, scalar) buffer Materials {WaveFrontMaterial m[]; }; // Array of all materials on an object
-//layout(buffer_reference, scalar) buffer MatIndices {int i[]; }; // Material ID for each triangle
-//layout(set = 0, binding = eTlas) uniform accelerationStructureEXT topLevelAS;
-//layout(set = 0, binding = 3) uniform UBO ubo;
-layout(scalar, binding = 3) uniform vUBO { uint64_t vb;} vUbo;
-layout(scalar, binding = 4) uniform nUBO { uint64_t nb; } nUbo;
-layout(scalar, binding = 5) uniform iUBO { uint64_t ib; } iUbo;
-//layout(set = 1, binding = eTextures) uniform sampler2D textureSamplers[];
-
 void main()
 {
-    Vertices    vertices    = Vertices(vUbo.vb);
-    Normals     normals     = Normals(nUbo.nb);
-    Indices     indices     = Indices(iUbo.ib);
+    Data    data    = Data(objectDataAddress);
 
-    ivec3 index = indices.i[gl_PrimitiveID].xyz;
+    //if(abs(objectDataAddress - 77000704) < 0.001)     // GPU 로 데이터 주소가 잘 전달되었음을 확인
+    //if(abs(data.d[3] - 39.0) < 0.001)             // 데이터의 내용 또한 잘 전달되었음을 확인
+    //    hitValue = vec3(1.0, 1.0, 1.0);
 
-    vec3 v0 = vertices.v[0].pos.xyz;
+    int dataStartOffset     = int(data.d[0]);
+    int vertexOffset        = int(data.d[1]);
+    int vertexCount         = int(data.d[2]);
+    int normalOffset        = int(data.d[3]);
+    int normalCount         = int(data.d[4]);
+    int indexOffset         = int(data.d[5]);
+    int indexCount          = int(data.d[6]); 
 
-    /*vec3 v0 = vertices.v[index.x].pos.xyz;
-    vec3 v1 = vertices.v[index.y].pos.xyz;
-    vec3 v2 = vertices.v[index.z].pos.xyz;*/
-    
-    vec3 n0 = normals.n[0].nor.xyz;    
+    int i0 = int(data.d[indexOffset + gl_PrimitiveID * 3 + 0]);
+    int i1 = int(data.d[indexOffset + gl_PrimitiveID * 3 + 1]);
+    int i2 = int(data.d[indexOffset + gl_PrimitiveID * 3 + 2]);
 
-    /*vec3 n0 = normals.n[index.x].nor.xyz;
-    vec3 n1 = normals.n[index.y].nor.xyz;
-    vec3 n2 = normals.n[index.z].nor.xyz;*/
+    vec3 n0 = vec3(data.d[normalOffset + i0 * 3 + 0], data.d[normalOffset + i0 * 3 + 1], data.d[normalOffset + i0 * 3 + 2]);
+    vec3 n1 = vec3(data.d[normalOffset + i1 * 3 + 0], data.d[normalOffset + i1 * 3 + 1], data.d[normalOffset + i1 * 3 + 2]);
+    vec3 n2 = vec3(data.d[normalOffset + i2 * 3 + 0], data.d[normalOffset + i2 * 3 + 1], data.d[normalOffset + i2 * 3 + 2]);
 
-    //const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
-    //const vec3 normal = n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z;
-    //const vec3 worldNormal = normalize(vec3(normal * gl_WorldToObjectEXT));
-    
-    //hitValue = (worldNormal + 1.0) / 2.0;
+    const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    const vec3 normal = n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z;
+    const vec3 worldNormal = normalize(vec3(normal * gl_WorldToObjectEXT));
 
-    if(abs(v0.x - /*-0.966742*/5.929688) < 0.0001)
-        hitValue = vec3(1, 1, 1);
+    hitValue = (worldNormal + 1.0) / 2.0;
 
-    /*if (gl_PrimitiveID < 200 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
+    //debugPrintfEXT("Address = %v4f", objectDataAddress);
+
+    /*if (gl_PrimitiveID == 1 &&          // gl_PrimitiveID 는 Shader 에서 제공하는 전역변수인데,
                                         //  BLAS 생성할 때 삼각형 Index 들을 넣을 때 Index 3 개마다 Primitive (삼각형 ID) 가 자동으로 추가된다.
         gl_InstanceID == 1 &&           // TLAS 생성에서 2 개의 Instance 를 만들었는데, 각 Instance 들은 각각 동일한 BLAS 를 포함하고 있다.
                                         //  그리고 이 Instance 들 각각은 자동으로 순서대로 배정된 Instance ID 를 가지고 있다.
@@ -1473,6 +1348,7 @@ void main()
 //
 //      그리고 우하단의 Geometry 에서 2 번째 Primitive 에 해당하는 삼각형은 색상 Interpolation 이 적용되어 있다.
 
+
 void createRayTracingPipeline()         // RayTracing Pipeline 에는 단 1 개의 raygeneration Shader 만 들어갈 수 있고,
                                         //  miss Shader 와 anyhit Shader, closesthit Shader 는 여러 개가 들어갈 수 있다.
 {
@@ -1492,31 +1368,13 @@ void createRayTracingPipeline()         // RayTracing Pipeline 에는 단 1 개�
         {
             .binding = 2,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-		},
-		{
-			.binding = 3,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		},
-        {
-			.binding = 4,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		},
-        {
-			.binding = 5,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		},
-	};
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        },
+    };
 
-	VkDescriptorSetLayoutCreateInfo ci0{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    VkDescriptorSetLayoutCreateInfo ci0{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .bindingCount = sizeof(bindings) / sizeof(bindings[0]),
         .pBindings = bindings,
     };
@@ -1598,9 +1456,6 @@ void createDescriptorSets()     // Descriptor Set Layout 이 설계도이면, �
         { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },   ///////
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },   ///////
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },   ///////
     };
     VkDescriptorPoolCreateInfo ci0 {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1656,65 +1511,13 @@ void createDescriptorSets()     // Descriptor Set Layout 이 설계도이면, �
     write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write2.pBufferInfo = &desc2;
 
-    // Descriptor(binding = 3), VkBuffer for uniform
-    /// UBO 를 Descriptor Set 에 BInding 시키기 ///
-
-    VkDescriptorBufferInfo desc3{
-        .buffer = vk.vUboBuffer,
-        .offset = 0,
-        .range = sizeof(VkDeviceAddress),
-    };
-    VkWriteDescriptorSet write3 = write_temp;
-    write3.dstBinding = 3;
-    write3.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write3.pBufferInfo = &desc3;
-
-    // Descriptor(binding = 4), VkBuffer for uniform
-
-    VkDescriptorBufferInfo desc4{
-        .buffer = vk.nUboBuffer,
-        .offset = 0,
-        .range = sizeof(VkDeviceAddress),
-    };
-    VkWriteDescriptorSet write4 = write_temp;
-    write4.dstBinding = 4;
-    write4.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write4.pBufferInfo = &desc4;
-
-    // Descriptor(binding = 5), VkBuffer for uniform
-
-    VkDescriptorBufferInfo desc5{
-        .buffer = vk.iUboBuffer,
-        .offset = 0,
-        .range = sizeof(VkDeviceAddress),
-    };
-    VkWriteDescriptorSet write5 = write_temp;
-    write5.dstBinding = 5;
-    write5.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write5.pBufferInfo = &desc5;
-
-    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2, write3, write4, write5 };     // binding 0, 1, 2 에 write 하기 위한 작업
+    VkWriteDescriptorSet writeInfos[] = { write0, write1, write2 };     // binding 0, 1, 2 에 write 하기 위한 작업
     vkUpdateDescriptorSets(vk.device, sizeof(writeInfos) / sizeof(writeInfos[0]), writeInfos, 0, VK_NULL_HANDLE);
     /*
     [VUID-VkWriteDescriptorSet-descriptorType-00336]
     If descriptorType is VK_DESCRIPTOR_TYPE_STORAGE_IMAGE or VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 
     the imageView member of each element of pImageInfo must have been created with the identity swizzle.
-	*/
-
-	void* dst1;
-	vkMapMemory(vk.device, vk.vUboMemory, 0, sizeof(vk.vbAddress), 0, &dst1);
-	memcpy(dst1, &vk.vbAddress, sizeof(vk.vbAddress));
-	vkUnmapMemory(vk.device, vk.vUboMemory);
-
-    void* dst2;
-	vkMapMemory(vk.device, vk.nUboMemory, 0, sizeof(vk.nbAddress), 0, &dst2);
-	memcpy(dst2, &vk.nbAddress, sizeof(vk.nbAddress));
-	vkUnmapMemory(vk.device, vk.nUboMemory);
-
-    void* dst3;
-	vkMapMemory(vk.device, vk.iUboMemory, 0, sizeof(vk.ibAddress), 0, &dst3);
-	memcpy(dst3, &vk.ibAddress, sizeof(vk.ibAddress));
-	vkUnmapMemory(vk.device, vk.iUboMemory);
+    */
 }
 
 struct ShaderGroupHandle {
@@ -1786,7 +1589,13 @@ void createShaderBindingTable()             // https://microsoft.github.io/Direc
                                                         // miss Shader 가 여러 개가 있을 수 있고, 각 miss Shader 마다 Group Handle 이 하나씩 있어야 한다.
                                                         // 만약 miss Shader 가 3 개가 있다면, miss Shader Binding Table 는 해당 offset 을 시작으로 3 개의 stride 만큼을 차지한다.
 
-    const uint32_t hitgCustomDataSize = sizeof(HitgCustomData); // 12 Byte 이 추가로 필요 (추가적인 데이터)
+    //const uint32_t hitgCustomDataSize = objectData.size(); //sizeof(HitgCustomData); // 12 Byte 이 추가로 필요 (추가적인 데이터)
+    //const uint32_t geometryCount = 4;                   // offset 은 shaderGroupBaseAlignment 의 배수이어야 한다.
+    //const uint64_t hitgOffset = alignTo(missOffset + vk.missSbt.size, vk.rtProperties.shaderGroupBaseAlignment);
+    //const uint32_t hitgStride = alignTo(handleSize + hitgCustomDataSize, vk.rtProperties.shaderGroupHandleAlignment);   // 32 Byte 에 추가적인 데이터가 들어가서 총 32 Byte 2 개가 필요하다.
+    //vk.hitgSbt = { 0, hitgStride, hitgStride * geometryCount };     // geometryCount 는 4 개의 사각형을 표현하기 위함. 사각형 1 개마다 record 를 1 개씩 배정.
+
+    const uint32_t hitgCustomDataSize = sizeof(vk.objectDataAddress); //sizeof(HitgCustomData); // 12 Byte 이 추가로 필요 (추가적인 데이터)
     const uint32_t geometryCount = 4;                   // offset 은 shaderGroupBaseAlignment 의 배수이어야 한다.
     const uint64_t hitgOffset = alignTo(missOffset + vk.missSbt.size, vk.rtProperties.shaderGroupBaseAlignment);
     const uint32_t hitgStride = alignTo(handleSize + hitgCustomDataSize, vk.rtProperties.shaderGroupHandleAlignment);   // 32 Byte 에 추가적인 데이터가 들어가서 총 32 Byte 2 개가 필요하다.
@@ -1819,13 +1628,24 @@ void createShaderBindingTable()             // https://microsoft.github.io/Direc
         *(ShaderGroupHandle*)(dst + missOffset) = missHandle;   // miss Handle 을 넣기
 
         *(ShaderGroupHandle*)(dst + hitgOffset + 0 * hitgStride             ) = hitgHandle;                             // hitg Handle 을 넣어주고
-        *(HitgCustomData*   )(dst + hitgOffset + 0 * hitgStride + handleSize) = {0.6f, 0.1f, 0.2f}; // Deep Red Wine    //  추가적인 데이터를 넣어준다.
+        *(VkDeviceAddress*)(dst + hitgOffset + 0 * hitgStride + handleSize) = vk.objectDataAddress;
+        //memcpy(dst + hitgOffset + 0 * hitgStride + handleSize, objectData.data(), objectData.size());
+        //*(HitgCustomData*   )(dst + hitgOffset + 0 * hitgStride + handleSize) = {0.6f, 0.1f, 0.2f}; // Deep Red Wine    //  추가적인 데이터를 넣어준다.
+        
         *(ShaderGroupHandle*)(dst + hitgOffset + 1 * hitgStride             ) = hitgHandle;
-        *(HitgCustomData*   )(dst + hitgOffset + 1 * hitgStride + handleSize) = {0.1f, 0.8f, 0.4f}; // Emerald Green
+        *(VkDeviceAddress*)(dst + hitgOffset + 1 * hitgStride + handleSize) = vk.objectDataAddress;
+        //memcpy(dst + hitgOffset + 1 * hitgStride + handleSize, objectData.data(), objectData.size());
+        //*(HitgCustomData*   )(dst + hitgOffset + 1 * hitgStride + handleSize) = {0.1f, 0.8f, 0.4f}; // Emerald Green
+        
         *(ShaderGroupHandle*)(dst + hitgOffset + 2 * hitgStride             ) = hitgHandle;
-        *(HitgCustomData*   )(dst + hitgOffset + 2 * hitgStride + handleSize) = {0.9f, 0.7f, 0.1f}; // Golden Yellow
+        *(VkDeviceAddress*)(dst + hitgOffset + 2 * hitgStride + handleSize) = vk.objectDataAddress;
+        //memcpy(dst + hitgOffset + 2 * hitgStride + handleSize, objectData.data(), objectData.size());
+        //*(HitgCustomData*   )(dst + hitgOffset + 2 * hitgStride + handleSize) = {0.9f, 0.7f, 0.1f}; // Golden Yellow
+        
         *(ShaderGroupHandle*)(dst + hitgOffset + 3 * hitgStride             ) = hitgHandle;
-        *(HitgCustomData*   )(dst + hitgOffset + 3 * hitgStride + handleSize) = {0.3f, 0.6f, 0.9f}; // Dawn Sky Blue
+        *(VkDeviceAddress*)(dst + hitgOffset + 3 * hitgStride + handleSize) = vk.objectDataAddress;
+        //memcpy(dst + hitgOffset + 3 * hitgStride + handleSize, objectData.data(), objectData.size());
+        //*(HitgCustomData*   )(dst + hitgOffset + 3 * hitgStride + handleSize) = {0.3f, 0.6f, 0.9f}; // Dawn Sky Blue
 
                                                                 // rayGen 과 miss 에서 32 Byte 씩 2 번, 총 64 Byte 의 메모리 낭비가 일어나지만,
                                                                 //  이는 그리 크리티컬하지 않다. 오히려 이렇게 하면 메모리 관리가 용이해지고
@@ -1858,21 +1678,21 @@ void render()
     {
         vkCmdBindPipeline(vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, vk.pipeline);
         vkCmdBindDescriptorSets(
-            vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+            vk.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 
             vk.pipelineLayout, 0, 1, &vk.descriptorSet, 0, 0);
 
-        // 100 개의 Geometry 가 있고 100 개의 Record 가 있는 상황에서 충돌이 일어날 때, 
-        //  해당 Geometry 의 Record 로 어떻게 찾아 이동하는가?
-        //  => https://registry.khronos.org/vulkan/specs/latest/pdf/vkspec.pdf 의 40.3.1. Indexing Rules 참고
-        //      ( instanceShaderBindingTableRecordOffset + geometryIndex × sbtRecordStride + sbtRecordOffset ) 계산으로 얼마나 많은 Record 들을 건너뛸 지 결정된다.
-        //          geometryIndex 는 BLAS 에 저장되는 순서에 따른 Index 이고, sbtRecordStride 는 rayGen Shader 에서 명시된 sbtRecordStride 이다.
-        //          rayGen Shader 에 따르면 geometryIndex 칸만큼 이동하는 것이다.
-        //      Geometry 각각을 구분해야 하지만, Instance 각각도 구분할 수 있어야 한다.
-        //      Instance 끼리의 구분은 TLAS 생성할 때 instanceShaderBindingTableRecordOffset 를 각 Instance 마다 설정해준 것을 통해 이루어진다.
+                                // 100 개의 Geometry 가 있고 100 개의 Record 가 있는 상황에서 충돌이 일어날 때, 
+                                //  해당 Geometry 의 Record 로 어떻게 찾아 이동하는가?
+                                //  => https://registry.khronos.org/vulkan/specs/latest/pdf/vkspec.pdf 의 40.3.1. Indexing Rules 참고
+                                //      ( instanceShaderBindingTableRecordOffset + geometryIndex × sbtRecordStride + sbtRecordOffset ) 계산으로 얼마나 많은 Record 들을 건너뛸 지 결정된다.
+                                //          geometryIndex 는 BLAS 에 저장되는 순서에 따른 Index 이고, sbtRecordStride 는 rayGen Shader 에서 명시된 sbtRecordStride 이다.
+                                //          rayGen Shader 에 따르면 geometryIndex 칸만큼 이동하는 것이다.
+                                //      Geometry 각각을 구분해야 하지만, Instance 각각도 구분할 수 있어야 한다.
+                                //      Instance 끼리의 구분은 TLAS 생성할 때 instanceShaderBindingTableRecordOffset 를 각 Instance 마다 설정해준 것을 통해 이루어진다.
 
-        //      | Record 0 |    | Record 1 |
-        //
-        //      | Record 2 |    | Record 3 |
+                                //      | Record 0 |    | Record 1 |
+                                //
+                                //      | Record 2 |    | Record 3 |
 
         vk.vkCmdTraceRaysKHR(       // Ray 를 처음 쏘는 부분 (Ray Shooting) (Rasterization 에서의 drawCall 에 해당)
             vk.commandBuffer,
@@ -1881,28 +1701,28 @@ void render()
             &vk.hitgSbt,
             &callSbt,
             WIDTH, HEIGHT, 1);          // depth 는 1 이니, WIDTH 와 HEIGHT 를 곱한 개수의 core 들 각각 raygen Shader 가 실행됨
-
+        
         setImageLayout(
-            vk.commandBuffer,
+            vk.commandBuffer, 
             vk.outImage,                    // outImage dml Layout 은 VK_IMAGE_LAYOUT_GENERAL 인데,
-            //  Raytracing Pipeline 에서 write 가 가능하게 하려면 Layout 이 VK_IMAGE_LAYOUT_GENERAL 이어야 한다.
+                                            //  Raytracing Pipeline 에서 write 가 가능하게 하려면 Layout 이 VK_IMAGE_LAYOUT_GENERAL 이어야 한다.
             VK_IMAGE_LAYOUT_GENERAL,        // 이러한 VK_IMAGE_LAYOUT_GENERAL Layout 을 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL 로 바꿔주어야 한다.
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             subresourceRange);
-
+            
         setImageLayout(
             vk.commandBuffer,
             vk.swapChainImages[imageIndex],     // swapChainImages[imageIndex] 의 Layout 이 VK_IMAGE_LAYOUT_UNDEFINED 로 간주하고 있으니
             VK_IMAGE_LAYOUT_UNDEFINED,          //  이를 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL 로 바꿔야 한다.
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange);
-
+        
         vkCmdCopyImage(                 // outImage (Ray tracing 결과) 를 Swap Chain Image 로 복사
             vk.commandBuffer,
             vk.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,  // 복사 전 outImage 가 가지고 있을 Layout
             vk.swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 복사 전 swapChainImages 가 가지고 있을 Layout
             1, &copyRegion);
-        // 복사 후에는 다음 프레임을 위해 Layout 을 각각 원래대로 되돌려놔야 한다.
+                                                // 복사 후에는 다음 프레임을 위해 Layout 을 각각 원래대로 되돌려놔야 한다.
         setImageLayout(
             vk.commandBuffer,
             vk.outImage,                            // outImage 를 VK_IMAGE_LAYOUT_GENERAL 로 되돌려놓는다.
@@ -1916,22 +1736,22 @@ void render()
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 왜냐하면 이 다음에 swapChainImages[imageIndex] 로 Present 를 진행해야 하기 때문에
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,        //  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR Layout 이어야 한다.
             subresourceRange);                  // swapChainImages[imageIndex] 의 시작 Layout 과 끝 Layout 이 서로 다른데
-        //  이는 render() 함수 초기에 실행되는 vkAcquireNextImageKHR 함수에서 VK_IMAGE_LAYOUT_UNDEFINED 로 초기화되어 괜찮기 때문이다.
-        // 또한, 기존 Layout 에서 다른 Layout 로 바꾸는 과정에서 기존의 내용을 읽을 필요가 없으면 (기존의 Layout 으로 기존의 내용을 읽을 필요가 없는 경우)
-        //  기존의 것을 VK_IMAGE_LAYOUT_UNDEFINED 로 간주하고 변환을 이어가도 무방하기 때문이기도 하다.
+                                                //  이는 render() 함수 초기에 실행되는 vkAcquireNextImageKHR 함수에서 VK_IMAGE_LAYOUT_UNDEFINED 로 초기화되어 괜찮기 때문이다.
+                                                // 또한, 기존 Layout 에서 다른 Layout 로 바꾸는 과정에서 기존의 내용을 읽을 필요가 없으면 (기존의 Layout 으로 기존의 내용을 읽을 필요가 없는 경우)
+                                                //  기존의 것을 VK_IMAGE_LAYOUT_UNDEFINED 로 간주하고 변환을 이어가도 무방하기 때문이기도 하다.
     }
     if (vkEndCommandBuffer(vk.commandBuffer) != VK_SUCCESS) {                   // Encoding 종료
         throw std::runtime_error("failed to record command buffer!");
     }
 
-    VkSemaphore waitSemaphores[] = {
-        vk.imageAvailableSemaphore
+    VkSemaphore waitSemaphores[] = { 
+        vk.imageAvailableSemaphore 
     };
-    VkPipelineStageFlags waitStages[] = {
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    VkPipelineStageFlags waitStages[] = { 
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT 
     };
-
-    VkSubmitInfo submitInfo{
+    
+    VkSubmitInfo submitInfo{ 
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = sizeof(waitSemaphores) / sizeof(waitSemaphores[0]),
         .pWaitSemaphores = waitSemaphores,
@@ -1939,18 +1759,18 @@ void render()
         .commandBufferCount = 1,
         .pCommandBuffers = &vk.commandBuffer,
     };
-
+    
     if (vkQueueSubmit(vk.graphicsQueue, 1, &submitInfo, vk.fence0) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
-
+    
     VkPresentInfoKHR presentInfo{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .swapchainCount = 1,
         .pSwapchains = &vk.swapChain,
         .pImageIndices = &imageIndex,
     };
-
+    
     vkQueuePresentKHR(vk.graphicsQueue, &presentInfo);
 
     //vkWaitForFences(vk.device, 1, &vk.fence0, VK_TRUE, UINT64_MAX); //////////////////
@@ -2015,38 +1835,14 @@ void readOBJ(string inputfile) {
     cout << attrib.normals.size() << endl;
     cout << shapes[0].mesh.indices.size() << endl;
 
-    /*vData = new float[attrib.vertices.size() + attrib.normals.size()];
-
-    int dataIndex = 0;
-	int vertexIndex = 0;
-	int normalIndex = 0;
-
-	for (int i = 0; i < attrib.vertices.size() / 3; i++) {
-		for (int j = 0; j < 3; j++)
-			vData[dataIndex++] = attrib.vertices[vertexIndex++];
-
-		for(int k = 0; k < 3; k++)
-			vData[dataIndex++] = attrib.normals[normalIndex++];
-	}*/
-
-    /*auto [data_v, size_v] = Geometry::getVertices();
-    for (int i = 0; i < size_v / 4; i++)
-        data_v[i] = vData[i];
-    
-
-    auto [data_i, size_i] = Geometry::getIndices();
-    for (int i = 0; i < size_i / 2; i++)
-        data_i[i] = (uint16_t)shapes[0].mesh.indices[i].vertex_index;*/
-
     int j = 0;
 
-    //vData = new float[attrib.vertices.size()];
-    vData.resize(attrib.vertices.size() / 3 * 4);
+    object.vData.resize(attrib.vertices.size() / 3 * 4);
     for (int i = 0; i < attrib.vertices.size() / 3 * 4; i++) {
         if (i % 4 == 3)
-            vData[i] = 1;
+            object.vData[i] = 1.0;
         else {
-            vData[i] = (float)attrib.vertices[j];
+            object.vData[i] = (float)attrib.vertices[j];
             j++;
         }
     }
@@ -2054,27 +1850,27 @@ void readOBJ(string inputfile) {
     j = 0;
 
     //nData = new float[attrib.normals.size()];
-    nData.resize(attrib.normals.size() / 3 * 4);
-    for (int i = 0; i < attrib.normals.size() / 3 * 4; i++) {
-        if (i % 4 == 3)
-            nData[i] = 1;
-        else {
-            nData[i] = (float)attrib.normals[j];
+    object.nData.resize(attrib.normals.size()/* / 3 * 4*/);
+    for (int i = 0; i < attrib.normals.size()/* / 3 * 4*/; i++) {
+        /*if (i % 4 == 3)
+            object.nData[i] = 1;
+        else {*/
+            object.nData[i] = (float)attrib.normals[j];
             j++;
-        }
+        //}
     }
 
     j = 0;
 
     //iData = new uint16_t[shapes[0].mesh.indices.size()];
-    iData.resize(shapes[0].mesh.indices.size() / 3 * 4);
-    for (int i = 0; i < shapes[0].mesh.indices.size() / 3 * 4; i++) {
-        if (i % 4 == 3)
-            iData[i] = 1;
-        else {
-            iData[i] = (uint32_t)shapes[0].mesh.indices[j].vertex_index;
+    object.iData.resize(shapes[0].mesh.indices.size()/* / 3 * 4*/);
+    for (int i = 0; i < shapes[0].mesh.indices.size()/* / 3 * 4*/; i++) {
+        /*if (i % 4 == 3)
+            object.iData[i] = 1;
+        else {*/
+            object.iData[i] = (uint32_t)shapes[0].mesh.indices[j].vertex_index;
             j++;
-        }
+        //}
     }
 
     return;
@@ -2084,6 +1880,38 @@ int main()
 {
     //readOBJ("box.obj");
     readOBJ("teapot.obj");
+
+    {
+        int dataStartOffset = 1 + 6;
+        int vertexOffset = dataStartOffset + 0;
+        int vertexCount = object.vData.size();
+        int normalOffset = dataStartOffset + object.vData.size();
+        int normalCount = object.nData.size();
+        int indexOffset = dataStartOffset + object.vData.size() + object.nData.size();
+        int indexCount = object.iData.size();
+
+        objectData.resize(dataStartOffset + object.vData.size() + object.nData.size() + object.iData.size());
+
+        objectData[0] = dataStartOffset;
+        objectData[1] = vertexOffset;
+        objectData[2] = vertexCount;
+        objectData[3] = normalOffset;
+        objectData[4] = normalCount;
+        objectData[5] = indexOffset;
+        objectData[6] = indexCount;
+
+        for (int i = 0; i < vertexCount; i++) {
+            objectData[vertexOffset + i] = object.vData[i];
+        }
+
+        for (int i = 0; i < normalCount; i++) {
+            objectData[normalOffset + i] = object.nData[i];
+        }
+
+        for (int i = 0; i < indexCount; i++) {
+            objectData[indexOffset + i] = object.iData[i];
+        }
+    }
 
     glfwInit();
 
@@ -2099,7 +1927,7 @@ int main()
     createTLAS();
     createOutImage();               // Raytracing 용 출력 Image 만들기
     createUniformBuffer();
-    createIndirectBuffer();     ////////////////////
+    createIndirectBuffer();         //////////////////////////////
     createRayTracingPipeline();
     createDescriptorSets();
     createShaderBindingTable();

@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "TeapotBasic.dir\\Debug\\TeapotBasic.obj",
+            "outputs": [
+                "C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\Juhwan\\Seohyuk\\build\\TeapotBasic\\TeapotBasic.dir\\Debug\\vc143.pdb",
+                "TeapotBasic.dir\\Debug\\"
+            ],
+            "requires": []
+        }
+    ]
+}

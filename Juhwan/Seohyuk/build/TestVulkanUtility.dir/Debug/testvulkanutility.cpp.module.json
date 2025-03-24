@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "TestVulkanUtility.dir\\Debug\\TestVulkanUtility.obj",
+            "outputs": [
+                "C:\\Users\\Juhwan_Bae\\Desktop\\build-up-phase\\Juhwan\\Seohyuk\\build\\TestVulkanUtility.dir\\Debug\\vc143.pdb",
+                "TestVulkanUtility.dir\\Debug\\"
+            ],
+            "requires": []
+        }
+    ]
+}
