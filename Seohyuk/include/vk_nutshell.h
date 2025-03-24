@@ -40,7 +40,8 @@ namespace nutshell {
 
 
     std::vector<std::string> instanceLayerRequestList = {
-        "VK_LAYER_KHRONOS_validation"
+        //"VK_LAYER_KHRONOS_validation",
+        //"VK_LAYER_LUNARG_screenshot"
     };
 
 
@@ -105,6 +106,8 @@ namespace nutshell {
                     &appInfo,
                     static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
                     filteredInstanceLayerList, // enabled extensions             const char * const *
+                    //0,
+                   // {},
                     0, //enabled extention count
                     {}// enabled extensions
                 }
@@ -134,6 +137,7 @@ namespace nutshell {
             }
         }
 
+        /*
         {
             const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo{
                 {},
@@ -159,6 +163,7 @@ namespace nutshell {
             queueFamilyIndex, //Queue family index
             0 // Queue index
         );
+        */
 
         std::cout << "ready to render. please inject glfw window if you wish to render on screen." << std::endl;
     }

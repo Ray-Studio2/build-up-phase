@@ -18,10 +18,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
     set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/Bin")
 
     set(VULKAN_LIBRARIES vulkan-1
-            glslangd
-            glslang-default-resource-limitsd
-            SPIRV-Toolsd
-            SPIRV-Tools-optd
+
     )
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
@@ -86,7 +83,7 @@ target_sources(TeapotBasic PUBLIC include/vk_nutshell.h include/vulkan_utility.h
 add_executable(TestVulkanUtility test/TestVulkanUtility.cpp include/vulkan_utility.h)
 target_include_directories( TestVulkanUtility PUBLIC ${INCLUDES} )
 target_link_directories( TestVulkanUtility PUBLIC ${LIB_DIR} )
-target_link_libraries(TestVulkanUtility PUBLIC ${LIBS} )
+target_link_libraries(TestVulkanUtility LINK_PUBLIC ${LIBS} )
 
 #[==[
 add_executable(TestVectorTools test/TestVectorTools.cpp include/vector_tools.h)
