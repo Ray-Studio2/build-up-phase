@@ -22,7 +22,7 @@ bool testInstanceLayer() {
     };
 
 
-     vkut::filterSupportedInstanceLayers(instanceExtensionNames);
+    vkut::filterSupportedInstanceLayers(instanceExtensionNames);
 
 
     for (auto str: instanceExtensionNames) {
