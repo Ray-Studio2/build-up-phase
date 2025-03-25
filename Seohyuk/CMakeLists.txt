@@ -7,16 +7,13 @@ set(CMAKE_CXX_STANDARD 20)
 # 실행 파일을 추가할 때는 add_executable 을 사용합니다.
 #
 
-
-
-message(${CMAKE_SYSTEM_NAME})
+message("Detected System type: ${CMAKE_SYSTEM_NAME}")
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
-    message("For Win32")
+    message("Preparing for windows")
 
     set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
-    set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/Bin")
-
+    set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
     set(VULKAN_LIBRARIES vulkan-1
 
     )
@@ -71,9 +68,6 @@ target_include_directories( TeapotBasic PUBLIC ${INCLUDES} )
 target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
 target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
 target_sources(TeapotBasic PUBLIC include/vk_nutshell.h include/vulkan_utility.h)
-
-
-
 
 
 #[==[
