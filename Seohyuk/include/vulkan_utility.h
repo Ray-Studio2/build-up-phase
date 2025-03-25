@@ -30,7 +30,7 @@ namespace vkut {
     }
 
     // the instance layers that can be used and selected at the same time.
-    inline void filterSupportedInstanceLayers(std::vector<std::string> &layersRequested) {
+    inline void filterSupportedInstanceLayers(std::vector<const char *> &layersRequested) {
         if (layersRequested.empty()) {
             return;
         }

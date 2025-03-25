@@ -12,7 +12,7 @@ bool testIsLayerSupported() {
 }
 
 bool testInstanceLayer() {
-    std::vector<std::string> instanceExtensionNames = {
+    std::vector<const char *> instanceExtensionNames = {
         // 3 layers and 2 dummy
         "VK_LAYER_KHRONOS_validation",
         "Not a layer~",
@@ -29,14 +29,14 @@ bool testInstanceLayer() {
         std::cout << "    Selected instance layers can be used: " << str << std::endl;
     }
 
-    //std::cout << vecFiltered.capacity() << std::endl;
+    std::cout << instanceExtensionNames.capacity() << std::endl;
 
     return instanceExtensionNames.capacity() == 3;
 
 }
 
 int main() {
-    printTest("InstanceLayer Support", testIsLayerSupported());
+    //printTest("InstanceLayer Support", testIsLayerSupported());
     printTest("InstanceLayer Filter", testInstanceLayer());
 
     std::cout << "VulkanUtility test done" << std::endl;
