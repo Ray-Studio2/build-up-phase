@@ -39,9 +39,9 @@ namespace nutshell {
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
 
-    std::vector<std::string> instanceLayerRequestList = {
-        //"VK_LAYER_KHRONOS_validation",
-        //"VK_LAYER_LUNARG_screenshot"
+    std::vector<const char *> instanceLayerRequestList = {
+        "VK_LAYER_KHRONOS_validation",
+        "VK_LAYER_LUNARG_screenshot"
     };
 
 
@@ -89,15 +89,17 @@ namespace nutshell {
             }
             */
 
+            /*
             vkut::filterSupportedInstanceLayers(instanceLayerRequestList);
 
             const char* filteredInstanceLayerList[INSTANCE_LAYER_COUNT] = {};
 
             uint32_t index = 0;
             for (auto layerName: instanceLayerRequestList) {
-                filteredInstanceLayerList[index] = layerName.c_str();
+                filteredInstanceLayerList[index] = layerName;
                 index += 1;
             }
+            */
 
             instance = createInstance(
                 vk::InstanceCreateInfo{
@@ -105,7 +107,7 @@ namespace nutshell {
                     {},
                     &appInfo,
                     static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
-                    filteredInstanceLayerList, // enabled extensions             const char * const *
+                    instanceLayerRequestList.data(), // enabled extensions             const char * const *
                     //0,
                    // {},
                     0, //enabled extention count
