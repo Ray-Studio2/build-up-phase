@@ -9,8 +9,8 @@ constexpr char * const* enabledExtensionNames = {
 };
 constexpr uint32_t enabledExtensionCount = sizeof(enabledExtensionNames) / sizeof(char*);
 
-constexpr char * const enabledLayerNames[] = {
-    //"VK_LAYER_KHRONOS_validation"
+std::vector<const char *> enabledLayerNames = {
+    "VK_LAYER_KHRONOS_validation"
 };
 constexpr uint32_t enabledLayerCount = sizeof(enabledLayerNames) / sizeof(char*);
 
@@ -58,8 +58,8 @@ int main () {
         .flags = 0,
         .pApplicationInfo = &applicationInfo,
         .enabledLayerCount = enabledLayerCount,
-        .ppEnabledLayerNames = enabledLayerNames,
-        .enabledExtensionCount = enabledExtensionCount,
+        .ppEnabledLayerNames = enabledLayerNames.data(),
+        .enabledExtensionCount = 0,
         .ppEnabledExtensionNames = enabledExtensionNames
     };
 
