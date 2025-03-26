@@ -794,12 +794,12 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -3.0f,
+            1.0f, 0.0f, 0.0f, -2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 3.0f,
+            1.0f, 0.0f, 0.0f, 2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
@@ -978,12 +978,12 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 3.0f,
+            0.0f, 1.0f, 0.0f, 2.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -3.0f,
+            0.0f, 1.0f, 0.0f, -2.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
