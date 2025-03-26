@@ -24,7 +24,11 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
     set(VULKAN_LIB "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
 
-    set(VULKAN_LIBRARIES vulkan.1)
+    set(VULKAN_LIBRARIES  vulkan.1)
+
+    set(MAC_FRAMEWORKS)
+
+    #IOKit CoreVideo Cocoa
 else ()
     message("Not supported OS")
 endif ()
@@ -69,6 +73,13 @@ target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
 target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
 target_sources(TeapotBasic PUBLIC include/vk_nutshell.h include/vulkan_utility.h)
 
+set_target_properties(
+        TeapotBasic PROPERTIES
+        FRAMEWORK TRUE
+        FRAMEWORK_VERSION C
+        MACOSX_FRAMEWORK_IDENTIFIER IOKit.framework
+)
+
 
 #[==[
 이하 테스트 유닛.
@@ -78,6 +89,9 @@ add_executable(TestVulkanUtility test/TestVulkanUtility.cpp include/vulkan_utili
 target_include_directories( TestVulkanUtility PUBLIC ${INCLUDES} )
 target_link_directories( TestVulkanUtility PUBLIC ${LIB_DIR} )
 target_link_libraries(TestVulkanUtility LINK_PUBLIC ${LIBS} )
+
+
+
 
 #[==[
 add_executable(TestVectorTools test/TestVectorTools.cpp include/vector_tools.h)

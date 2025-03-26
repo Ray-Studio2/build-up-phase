@@ -12,3 +12,4 @@ Seohyuk/.idea/
 Seohyuk/build/
 Seohyuk/cmake-build-debug-llvm/.cmake/api/v1/query/cache-v2
 Seohyuk/cmake-build-debug-llvm/
+Seohyuk/cmake-build-xcode
