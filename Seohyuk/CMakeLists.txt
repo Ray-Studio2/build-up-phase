@@ -3,9 +3,6 @@ project(Seohyuk)
 
 set(CMAKE_CXX_STANDARD 20)
 
-
-
-
 #[==[
 
 본 파일은 모던CMake 와 최대한 피해야할 방법들을 피해가며 만들어낸 CMakeList.txt입니다.
@@ -93,26 +90,30 @@ set(    DEF_LIBS
 )
 
 foreach (EXE IN LISTS EXES)
-
-
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
 
-        set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
+        set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include" "\;" "/opt/local/include")
 
-        #message(WARNING ${CMAKE_GENERATOR})
-
-        set(LIB_DIRS "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
+        set(LIB_DIRS
+                #"/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
+        )
+        list(APPEND LIB_DIRS "\;" "/opt/local/Library/Frameworks/MoltenVK.xcframework/macos-arm64_x86_64" "\;" "/opt/local/Library/Frameworks/")
 
         if(${CMAKE_GENERATOR} STREQUAL "Xcode")
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}/Debug")
         else ()
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
         endif ()
-        set(LIBS ${DEF_LIBS} vulkan.1 glfw3 # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
+
+#       message(WARNING ${LIB_DIRS})
+
+        set(LIBS ${DEF_LIBS} MoltenVK # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"
                 "-framework IOKit"
+                "-framework IOSurface"
                 "-framework CoreFoundation"
                 "-framework QuartzCore"
+                "-framework Metal"
                 #[==[
                 glfw 의 설정을 크게 건들지 않아 임베딩이 되지 않습니다. 이 경우 프레임워크를 최종 컴파일 시점에서 구현체를 정해줘야합니다.
 
@@ -138,11 +139,9 @@ foreach (EXE IN LISTS EXES)
     endif ()
 
     # global linking process
-    #message(WARNING ${LIB_DIRS})
 
     target_include_directories(${EXE} PUBLIC ${INCLUDES})
     target_link_directories( ${EXE} PUBLIC ${LIB_DIRS} )
     target_link_libraries( ${EXE} PUBLIC ${LIBS} )
-    #message(WARNING "${LIB_DIRS}")
 
 endforeach ()

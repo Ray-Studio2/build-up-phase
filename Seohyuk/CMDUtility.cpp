@@ -43,14 +43,14 @@ int main () {
 
     VkInstance instance;
 
-    auto applicationInfo = VkApplicationInfo {
+    const auto applicationInfo = VkApplicationInfo {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = nullptr,
         .pApplicationName = "Utility",
         .applicationVersion = 0,
         .pEngineName = "None",
         .engineVersion = 0,
-        .apiVersion = VK_API_VERSION_1_3,
+        .apiVersion = VK_API_VERSION_1_4,
     };
 
     auto instanceCreateInfo = VkInstanceCreateInfo {

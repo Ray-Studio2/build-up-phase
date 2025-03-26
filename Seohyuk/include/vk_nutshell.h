@@ -40,7 +40,7 @@ namespace nutshell {
 
 
     std::vector<const char *> instanceLayerRequestList = {
-        //"VK_LAYER_KHRONOS_validation",
+        "VK_LAYER_KHRONOS_validation",
         //"VK_LAYER_LUNARG_screenshot",
 
     };
@@ -48,8 +48,7 @@ namespace nutshell {
 
     std::vector<const char *> instanceExtensionRequestList = {
         "VK_KHR_portability_enumeration",
-        "VK_KHR_get_physical_device_properties2"
-
+        "VK_LUNARG_direct_driver_loading"
     };
 
 
@@ -57,7 +56,7 @@ namespace nutshell {
      * Very simple Vulkan instance context with some device info and the command pool.
      **/
     typedef struct VkContext_ {
-        vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", VK_API_VERSION_1_4);
+        vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", 0);
         char * const * instanceLayers[INSTANCE_LAYER_COUNT][255] = {};
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
@@ -85,93 +84,86 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
-        {
-            std::cout << "Filtering the layers which can be usable" << std::endl;
+        //std::cout << "Filtering the layers which can be usable" << std::endl;
 
-            /*  for the printing
-            uint32_t enumerate = 0;
-            for (const auto element: instanceLayerRequestList) {
-                std::cout << element << (enumerate >= instanceLayerRequestList.capacity() ? ", " : "") << std::endl;
-                enumerate += 1;
-            }
-            */
-
-            /*
-            vkut::filterSupportedInstanceLayers(instanceLayerRequestList);
-
-            const char* filteredInstanceLayerList[INSTANCE_LAYER_COUNT] = {};
-
-            uint32_t index = 0;
-            for (auto layerName: instanceLayerRequestList) {
-                filteredInstanceLayerList[index] = layerName;
-                index += 1;
-            }
-            */
-
-            instance = createInstance(
-                vk::InstanceCreateInfo{
-                    //vk::InstanceCreateInfo
-                    {},
-                    &appInfo,
-                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
-                    instanceLayerRequestList.data(), // enabled extensions             const char * const *
-                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
-                    instanceExtensionRequestList.data(),
-                }
-            );
+        if ( !glfwVulkanSupported() ) {
+            std::cout << "Vulkan is not supported!" << std::endl;
+            exit(VK_ERROR_INITIALIZATION_FAILED);
         }
+
+        uint32_t minimumExtensions = 0;
+
+        const char ** instanceExtensions = nullptr;
+
+        instanceExtensions = glfwGetRequiredInstanceExtensions(&minimumExtensions);
+
+        for (uint32_t i = 0; i < minimumExtensions; i += 1) {
+            std::string extension = std::string(instanceExtensions[i]);
+            instanceExtensionRequestList.push_back(instanceExtensions[i]);
+        }
+
+        instance = createInstance(
+            vk::InstanceCreateInfo{
+                vk::InstanceCreateFlags (
+                    VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
+                ),
+                &appInfo,
+                static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
+                instanceLayerRequestList.data(), // enabled extensions             const char * const *
+                minimumExtensions,
+                instanceExtensions
+
+                //static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                //instanceExtensionRequestList.data(),
+            }
+        );
+
+        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
 
         physicalDevices = instance.enumeratePhysicalDevices();
 
-
-
-
         constexpr uint32_t queueFamilyIndex = 0;
 
-        {
-            int a = 0;
-            for (const auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties();
-                 vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
-                /*
-                 * Queue family needs to support transfer, graphics.
-                 */
-                if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.
-                    queueFlags & vk::QueueFlagBits::eTransfer) {
-                    break;
-                }
 
-                a += 1;
+        int a = 0;
+        for (const auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties();
+             vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
+            /*
+             * Queue family needs to support transfer, graphics.
+             */
+            if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.
+                queueFlags & vk::QueueFlagBits::eTransfer) {
+                break;
             }
+
+            a += 1;
         }
 
-        /*
-        {
-            const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo{
-                {},
-                queueFamilyIndex,
-                1, //one Queue
-                &queuePriorities
-            };
+        const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo {
+            {},
+            queueFamilyIndex,
+            1, //one Queue
+            &queuePriorities
+        };
 
-            device = physicalDevices.at(DEVICE_SELECTION).createDevice(
-                vk::DeviceCreateInfo{
-                    {}, //flags
-                    1, //queue create info count
-                    &devQueueCreateInfo,
-                    0, //enabled layer name count,
-                    {}, // enabled layer names
-                    0, // enabled extension count
-                    {} // enabled extensions
-                }
-            );
-        }
+        device = physicalDevices.at(DEVICE_SELECTION).createDevice(
+            vk::DeviceCreateInfo{
+                {}, //flags
+                1, //queue create info count
+                &devQueueCreateInfo,
+                0, //enabled layer name count,
+                {}, // enabled layer names
+                0, // enabled extension count
+                {} // enabled extensions
+            }
+        );
+
 
         queue = device.getQueue(
             queueFamilyIndex, //Queue family index
             0 // Queue index
         );
-        */
+
 
         std::cout << "ready to render. please inject glfw window if you wish to render on screen." << std::endl;
     }
@@ -225,3 +217,28 @@ namespace nutshell {
     } RenderPassBoundary;
 }
 
+
+
+
+
+
+/*
+            uint32_t enumerate = 0;
+            for (const auto element: instanceLayerRequestList) {
+                std::cout << element << (enumerate >= instanceLayerRequestList.capacity() ? ", " : "") << std::endl;
+                enumerate += 1;
+            }
+            */
+
+
+/*
+vkut::filterSupportedInstanceLayers(instanceLayerRequestList);
+
+const char* filteredInstanceLayerList[INSTANCE_LAYER_COUNT] = {};
+
+uint32_t index = 0;
+for (auto layerName: instanceLayerRequestList) {
+    filteredInstanceLayerList[index] = layerName;
+    index += 1;
+}
+*/
