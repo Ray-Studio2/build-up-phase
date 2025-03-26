@@ -1,3 +1,6 @@
 [submodule "Seohyuk/sub_repo/glfw"]
 	path = Seohyuk/sub_repo/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "Seohyuk/sub_repo/MoltenVK"]
+	path = Seohyuk/sub_repo/MoltenVK
+	url = https://github.com/KhronosGroup/MoltenVK.git
