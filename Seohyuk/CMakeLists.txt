@@ -45,7 +45,7 @@ message("Detected System type: ${CMAKE_SYSTEM_NAME}")
 if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
     message("Preparing for windows")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
-    message("For MacOS")
+    message("For macOS")
 else ()
     message("Not supported OS")
 endif ()
@@ -81,32 +81,34 @@ set(    EXES
 
 message(STATUS "Prepareing project for the Executables ${EXES}")
 
-foreach (EXE IN LISTS EXES)
-    set(    INCLUDES
-            "${CMAKE_CURRENT_SOURCE_DIR}/sub_repo/glfw/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    )
-    set(    LIB_DIR
-            "${CMAKE_SOURCE_DIR}/sub_repo/glfw/CMake/modules"
-    )
+set(    DEF_INCLUDES
+        "${CMAKE_CURRENT_SOURCE_DIR}/sub_repo/glfw/include"
+        "./include"
+)
+set(    DEF_LIB_DIR
+        "${CMAKE_BINARY_DIR}/sub_repo/glfw/src"
+)
 
-    set(    LIBS
-            glfw3
-    )
-    
-    target_sources(${EXE} PUBLIC "./include/vk_nutshell.h" "./include/vulkan_utility.h")
+message(WARNING ${CMAKE_BINARY_DIR})
+
+set(    DEF_LIBS
+        glfw3
+)
+
+foreach (EXE IN LISTS EXES)
+
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
 
-        set(LIBRARIES ${LIBRARIES} vulkan.1 glfw3 CoreFoundation)
-        set(LIB_DIR ${LIB_DIR} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
-        set(INCLUDES ${INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
+        set(LIBS ${DEF_LIBS} vulkan.1 glfw3 CoreFoundation)
+        set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
+        set(LIB_DIR ${DEF_LIB_DIR} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
-        set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
-        set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
-        set(VULKAN_LIBRARIES vulkan-1)
+        set(LIBS ${DEF_LIBS} vulkan-1)
+        set(INCLUDES "$ENV{VULKAN_SDK}/Include" ${DEF_INCLUDES})
+        set(LIB_DIRS "$ENV{VULKAN_SDK}/Lib" ${DEF_LIB_DIR})
 
     else () #Unknown
         message("Not supported OS")
@@ -115,7 +117,8 @@ foreach (EXE IN LISTS EXES)
     # global linking process
 
     target_include_directories(${EXE} PUBLIC ${INCLUDES})
-    target_link_libraries( ${EXE} PUBLIC ${LIBRARIES} )
-    target_link_directories( ${EXE} PUBLIC ${LIB_DIR} "${CMAKE_BINARY_DIR}/sub_repo/glfw/src/Debug" )
+    message(WARNING "${LIB_DIRS}")
+    target_link_libraries( ${EXE} PUBLIC ${LIBS} )
+    target_link_directories( ${EXE} PUBLIC ${LIB_DIRS} )
 
 endforeach ()
