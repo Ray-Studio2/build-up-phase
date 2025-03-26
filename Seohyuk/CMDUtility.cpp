@@ -5,14 +5,15 @@
 #include <vulkan/vulkan.h>
 
 
-constexpr char * const* enabledExtensionNames = {
+std::vector<const char *> enabledExtensionNames = {
+    "VK_KHR_get_physical_device_properties2"
 };
-constexpr uint32_t enabledExtensionCount = sizeof(enabledExtensionNames) / sizeof(char*);
+const uint32_t enabledExtensionCount = enabledExtensionNames.capacity();
 
 std::vector<const char *> enabledLayerNames = {
     "VK_LAYER_KHRONOS_validation"
 };
-constexpr uint32_t enabledLayerCount = sizeof(enabledLayerNames) / sizeof(char*);
+const uint32_t enabledLayerCount = enabledLayerNames.capacity();
 
 
 
@@ -47,7 +48,7 @@ int main () {
         .pNext = nullptr,
         .pApplicationName = "Utility",
         .applicationVersion = 0,
-        .pEngineName = "",
+        .pEngineName = "None",
         .engineVersion = 0,
         .apiVersion = VK_API_VERSION_1_3,
     };
@@ -60,7 +61,7 @@ int main () {
         .enabledLayerCount = enabledLayerCount,
         .ppEnabledLayerNames = enabledLayerNames.data(),
         .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = enabledExtensionNames
+        .ppEnabledExtensionNames = enabledExtensionNames.data()
     };
 
     vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &instance);
@@ -68,14 +69,14 @@ int main () {
 
 
 
-    /*
+
     uint32_t physicalDeviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
     auto vecPhysicalDevices = std::vector<VkPhysicalDevice>(physicalDeviceCount);
     vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, vecPhysicalDevices.data());
 
     std::cout << "physical device count: " << physicalDeviceCount << std::endl;
-    */
+
 
     vkDestroyInstance(instance, nullptr);
 

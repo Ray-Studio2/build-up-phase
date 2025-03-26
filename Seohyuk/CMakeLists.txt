@@ -88,9 +88,6 @@ set(    DEF_INCLUDES
 set(    DEF_LIB_DIR
         "${CMAKE_BINARY_DIR}/sub_repo/glfw/src"
 )
-
-#message(WARNING "${CMAKE_BINARY_DIR}/sub_repo/*")
-
 set(    DEF_LIBS
         glfw3 # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
@@ -101,8 +98,17 @@ foreach (EXE IN LISTS EXES)
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
 
         set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
-        set(LIB_DIRS "${DEF_LIB_DIR}/Debug" "\;" "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
-        set(LIBS ${DEF_LIBS} vulkan.1 glfw3 # 이런 경우에 list를 set대신 쓸 수 있습니다.
+
+        #message(WARNING ${CMAKE_GENERATOR})
+
+        set(LIB_DIRS "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
+
+        if(${CMAKE_GENERATOR} STREQUAL "Xcode")
+            list(APPEND LIB_DIRS "${DEF_LIB_DIR}/Debug")
+        else ()
+            list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
+        endif ()
+        set(LIBS ${DEF_LIBS} vulkan.1 glfw3 # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"
                 "-framework IOKit"
                 "-framework CoreFoundation"
@@ -124,7 +130,7 @@ foreach (EXE IN LISTS EXES)
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
         set(INCLUDES "$ENV{VULKAN_SDK}/Include" ${DEF_INCLUDES})
-        set(LIB_DIRS "$ENV{VULKAN_SDK}/Lib" ${DEF_LIB_DIR})
+        list(APPEND LIB_DIRS "$ENV{VULKAN_SDK}/Lib" ${DEF_LIB_DIR})
         set(LIBS ${DEF_LIBS} vulkan-1)
 
     else () #Unknown
