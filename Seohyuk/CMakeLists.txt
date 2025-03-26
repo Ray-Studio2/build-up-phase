@@ -4,98 +4,92 @@ project(Seohyuk)
 set(CMAKE_CXX_STANDARD 20)
 
 #
-# 실행 파일을 추가할 때는 add_executable 을 사용합니다.
+# 실행 파일을 추가할 때는 add_executable 을 사용
+#
+# 외부 프로젝트가 추가되는 장소. 리파지토리 링크로만 사용
+#
+# set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/external") 이제부터 sub_repo를 사용
 #
 
 message("Detected System type: ${CMAKE_SYSTEM_NAME}")
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
     message("Preparing for windows")
-
-    set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
-    set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
-    set(VULKAN_LIBRARIES vulkan-1
-
-    )
-
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     message("For MacOS")
-
-    set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
-    set(VULKAN_LIB "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
-
-    set(VULKAN_LIBRARIES  vulkan.1)
-
-    set(MAC_FRAMEWORKS)
-
-    #IOKit CoreVideo Cocoa
 else ()
     message("Not supported OS")
 endif ()
 
-#만약 무언가를 출력하고싶다면 이렇게! message(STATUS "${VULKAN_LIB}")
+# 외부 라이브러리 링크하기!
+add_subdirectory(sub_repo)
 
-set( GLFW_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/external/include" ) # 외부 인클루드
-set( GLFW_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lib" ) # 외부 라이브러리
-set( INCLUDES ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE} "${CMAKE_SOURCE_DIR}/include")
-set( LIB_DIR ${VULKAN_LIB} ${GLFW_LIB_DIR} )
-set( LIBS ${VULKAN_LIBRARIES} glfw3 )
 
-# 이 아래에서 작업 시작
-
-add_executable(CMDUtility CMDUtility.cpp
-        include/vulkan_utility.h) # 커멘드라인 도구
-target_include_directories( CMDUtility PUBLIC ${INCLUDES})
-target_link_directories( CMDUtility PUBLIC ${LIB_DIR} )
-target_link_libraries(CMDUtility PUBLIC ${LIBS} )
-
+# 여기서부터는 executable 추가
+add_executable(CMDUtility CMDUtility.cpp)
 add_executable(Triangle triangle.cpp
         include/seohyuk.h
-        include/vulkan_utility.h) # 삼각형만 출력
-target_include_directories( Triangle PUBLIC ${INCLUDES} seohyuk.h )
-target_link_directories( Triangle PUBLIC ${LIB_DIR} )
-target_link_libraries(Triangle PUBLIC ${LIBS} )
-
-
-#[==[ 여러 줄 주석은 이렇게 합니다!
-
-add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
-target_include_directories( teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_INCLUDE} ${GLFW_INCLUDE} ${EXTRA_INCLUDE})
-target_link_directories( teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIB} ${GLFW_LIB_DIR} )
-target_link_libraries(teapot_OBJ_with_normal_rendering PUBLIC ${VULKAN_LIBRARIES} glfw3)
-
-]==]
-
+        include/vulkan_utility.h)
 add_subdirectory(TeapotBasic)
 
-target_include_directories( TeapotBasic PUBLIC ${INCLUDES} )
-target_link_directories( TeapotBasic PUBLIC ${LIB_DIR} )
-target_link_libraries(TeapotBasic PUBLIC ${LIBS} )
-target_sources(TeapotBasic PUBLIC include/vk_nutshell.h include/vulkan_utility.h)
-
-set_target_properties(
-        TeapotBasic PROPERTIES
-        FRAMEWORK TRUE
-        FRAMEWORK_VERSION C
-        MACOSX_FRAMEWORK_IDENTIFIER IOKit.framework
-)
-
+#[==[ 여러 줄 주석은 이렇게 합니다!
+add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
+]==]
 
 #[==[
 이하 테스트 유닛.
 ]==]
 
-add_executable(TestVulkanUtility test/TestVulkanUtility.cpp include/vulkan_utility.h)
-target_include_directories( TestVulkanUtility PUBLIC ${INCLUDES} )
-target_link_directories( TestVulkanUtility PUBLIC ${LIB_DIR} )
-target_link_libraries(TestVulkanUtility LINK_PUBLIC ${LIBS} )
+
+
+# 여기에 execuable을 등록만 하면 자동으로 링크된다!
+set(    EXES
+        #[==[============ 이하 executable의 목록 ============]==]
+        CMDUtility
+        Triangle
+        TeapotBasic
+)
+
+message(STATUS "Prepareing project for the Executables ${EXES}")
+
+foreach (EXE IN LISTS EXES)
+    set(    INCLUDES
+            "${CMAKE_CURRENT_SOURCE_DIR}/sub_repo/glfw/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
+    set(    LIB_DIR
+            "${CMAKE_SOURCE_DIR}/sub_repo/glfw/CMake/modules"
+    )
+
+    set(    LIBS
+            glfw3
+    )
+
+
+    target_sources(${EXE} PUBLIC "./include/vk_nutshell.h" "./include/vulkan_utility.h")
+
+    if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
+        set(LIBRARIES ${LIBRARIES} vulkan.1 glfw3 CoreFoundation)
+        set(LIB_DIR ${LIB_DIR} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
+        set(INCLUDES ${INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
+    elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows)
+        set(VULKAN_INCLUDE "$ENV{VULKAN_SDK}/Include")
+        set(VULKAN_LIB "$ENV{VULKAN_SDK}/Lib")
+        set(VULKAN_LIBRARIES vulkan-1)
+    else ()
+        message("Not supported OS")
+    endif ()
+
+
+    target_include_directories(${EXE} PUBLIC ${INCLUDES})
+    target_link_libraries( ${EXE} PUBLIC ${LIBRARIES} )
+    target_link_directories( ${EXE} PUBLIC ${LIB_DIR} "${CMAKE_BINARY_DIR}/sub_repo/glfw/src/Debug" )
+
+endforeach ()
 
 
 
 
-#[==[
-add_executable(TestVectorTools test/TestVectorTools.cpp include/vector_tools.h)
-target_include_directories( TestVectorTools PUBLIC ${INCLUDES} )
-target_link_directories( TestVectorTools PUBLIC ${LIB_DIR} )
-target_link_libraries(TestVectorTools PUBLIC ${LIBS} )
-]==]
+# 이하 타 OS 호환
+
+# macOS
