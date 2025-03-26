@@ -107,6 +107,18 @@ foreach (EXE IN LISTS EXES)
                 "-framework IOKit"
                 "-framework CoreFoundation"
                 "-framework QuartzCore"
+                #[==[
+                glfw 의 설정을 크게 건들지 않아 임베딩이 되지 않습니다. 이 경우 프레임워크를 최종 컴파일 시점에서 구현체를 정해줘야합니다.
+
+                glfw는 다음 라이브러리들이 필수적으로 요구됩니다.
+
+                코코아: 시간 측정과 모니터 조이스틱 등을 컨트롤 합니다
+                IOKit: 네이티브하게 윈도우를 만들 때 사용됩니다
+                CoreFoundation: 애플 플렛폼의 프로그래밍 전반에 사용됩니다
+                QuartzCore: 다양한 유틸리티와 최종 윈도우 컨트롤에 필요합니다
+
+                라이브러리 목록을 보고싶을 경우 Xcode에서 프로젝트를 수정하는 창에서 라이브러리 추가 화면을 통해 볼 수 있습니다.
+                ]==]
         )
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
