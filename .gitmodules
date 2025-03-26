@@ -1,0 +1,3 @@
+[submodule "Seohyuk/sub_repo/glfw"]
+	path = Seohyuk/sub_repo/glfw
+	url = https://github.com/glfw/glfw.git
