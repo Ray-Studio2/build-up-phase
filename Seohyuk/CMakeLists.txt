@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 4.0.0)
 project(Seohyuk)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -92,12 +92,19 @@ set(    DEF_LIBS
 foreach (EXE IN LISTS EXES)
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
 
+
+        set(folders "/Users/$ENV{USER}/VulkanSDK/*/")
+
+        message(WARNING "${folders}")
+
+
         set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include" "\;" "/opt/local/include")
 
         set(LIB_DIRS
                 #"/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
         )
-        list(APPEND LIB_DIRS "\;" "/opt/local/Library/Frameworks/MoltenVK.xcframework/macos-arm64_x86_64" "\;" "/opt/local/Library/Frameworks/")
+
+        list(APPEND LIB_DIRS "\;" "/opt/local/Library/Frameworks/")
 
         if(${CMAKE_GENERATOR} STREQUAL "Xcode")
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}/Debug")
@@ -105,7 +112,7 @@ foreach (EXE IN LISTS EXES)
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
         endif ()
 
-#       message(WARNING ${LIB_DIRS})
+        list(APPEND DEF_LIBS MoltenVK) # MoltenVK
 
         set(LIBS ${DEF_LIBS} MoltenVK # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"
@@ -127,6 +134,8 @@ foreach (EXE IN LISTS EXES)
                 라이브러리 목록을 보고싶을 경우 Xcode에서 프로젝트를 수정하는 창에서 라이브러리 추가 화면을 통해 볼 수 있습니다.
                 ]==]
         )
+
+
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
