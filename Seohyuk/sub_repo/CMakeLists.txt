@@ -1,5 +1,10 @@
 add_subdirectory( glfw )
 
+
+
+
+
+#[==[
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
 
     #adding MoltenVK in to the project.
@@ -217,3 +222,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
             #TODO: Make sure moltenVK is working fine.
     )
 endif ()
+
+]==]
+

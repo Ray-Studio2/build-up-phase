@@ -91,17 +91,12 @@ set(    DEF_LIBS
 
 foreach (EXE IN LISTS EXES)
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
-
-
-        set(folders "/Users/$ENV{USER}/VulkanSDK/*/")
-
-        message(WARNING "${folders}")
-
+        
 
         set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include" "\;" "/opt/local/include")
 
         set(LIB_DIRS
-                #"/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
+                "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
         )
 
         list(APPEND LIB_DIRS "\;" "/opt/local/Library/Frameworks/")
