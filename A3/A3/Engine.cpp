@@ -39,36 +39,52 @@ void Engine::Run()
         printf( "GLFW: Vulkan Not Supported\n" );
     }
 
-    std::vector<const char*> instance_extensions;
+    std::vector<const char*> extensions;
     uint32_t extensions_count = 0;
     const char** glfw_extensions = glfwGetRequiredInstanceExtensions( &extensions_count );
     for( uint32_t i = 0; i < extensions_count; i++ )
-        instance_extensions.push_back( glfw_extensions[ i ] );
+        extensions.push_back( glfw_extensions[ i ] );
+    if( ON_DEBUG ) extensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
 
     GLFWwindow* window = createWindow();
 
+    int32 screenWidth, screenHeight;
+    glfwGetFramebufferSize( window, &screenWidth, &screenHeight );
+
     {
-        //VulkanRendererBackend gfxBackend( window );
+        VulkanRendererBackend gfxBackend( window );
+        gfxBackend.createVkInstance( extensions );
+        gfxBackend.createVkPhysicalDevice();
+        gfxBackend.createVkSurface( window );
+        gfxBackend.createVkQueueFamily();
+        gfxBackend.createVkDescriptorPools();
+        gfxBackend.createSwapChain();
+        gfxBackend.createImguiRenderPass( screenWidth, screenHeight );
+        gfxBackend.createCommandCenter();
+
+        gfxBackend.createBLAS();
+        gfxBackend.createTLAS();
+        gfxBackend.createOutImage();
+        gfxBackend.createUniformBuffer();
+        gfxBackend.createRayTracingPipeline();
+        gfxBackend.createRayTracingDescriptorSet();
+        gfxBackend.createShaderBindingTable();
+
         //PathTracingRenderer renderer( &gfxBackend );
         //Addon_imgui imgui( window, &gfxBackend );
-        Addon_imgui imgui( window, nullptr, instance_extensions );
 
-        //gfxBackend.initImgui( window );
-        /*createBLAS();
-        createTLAS();
-        createOutImage();
-        createUniformBuffer();
-        createRayTracingPipeline();
-        createDescriptorSets();
-        createShaderBindingTable();*/
+        Addon_imgui imgui( window, &gfxBackend, screenWidth, screenHeight );
 
         while( !glfwWindowShouldClose( window ) )
         {
             glfwPollEvents();
+            gfxBackend.beginFrame( screenWidth, screenHeight );
+            gfxBackend.beginRaytracingPipeline();
             //renderer.beginFrame();
             //renderer.render();
-            imgui.renderFrame( window );
+            imgui.renderFrame( window, &gfxBackend );
             //renderer.endFrame();
+            gfxBackend.endFrame();
         }
     }
 

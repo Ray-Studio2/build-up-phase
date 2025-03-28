@@ -12,13 +12,12 @@ PathTracingRenderer::PathTracingRenderer( VulkanRendererBackend* inBackend )
     backend->createOutImage();
     backend->createUniformBuffer();
     backend->createRayTracingPipeline();
-    backend->createDescriptorSets();
     backend->createShaderBindingTable();
 }
 
 void PathTracingRenderer::beginFrame()
 {
-    backend->beginFrame();
+    //backend->beginFrame();
 }
 
 void PathTracingRenderer::render()

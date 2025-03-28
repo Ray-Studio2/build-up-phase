@@ -25,12 +25,20 @@ public:
     VulkanRendererBackend( GLFWwindow* window );
     ~VulkanRendererBackend();
 
-    void beginFrame();
+    void beginFrame( int32 screenWidth, int32 screenHeight );
     void endFrame();
 
     void beginRaytracingPipeline();
 
-    void initImgui( GLFWwindow* window );
+    // @TODO: Make private
+    void createVkInstance( std::vector<const char*>& extensions );
+    void createVkSurface( GLFWwindow* window );
+    void createVkPhysicalDevice();
+    void createVkQueueFamily();
+    void createVkDescriptorPools();
+    void createSwapChain();
+    void createImguiRenderPass( int32 screenWidth, int32 screenHeight );
+    void createCommandCenter();
 
     //@TODO: Move to renderer
     void createBLAS();
@@ -38,7 +46,7 @@ public:
     void createOutImage();
     void createUniformBuffer();
     void createRayTracingPipeline();
-    void createDescriptorSets();
+    void createRayTracingDescriptorSet();
     void createShaderBindingTable();
     //////////////////////////
 
@@ -54,18 +62,6 @@ private:
     bool checkValidationLayerSupport( std::vector<const char*>& reqestNames );
 
     bool checkDeviceExtensionSupport( VkPhysicalDevice device, std::vector<const char*>& reqestNames );
-
-    void createVkInstance();
-
-    void createVkSurface( GLFWwindow* window );
-
-    void createVkDevice();
-
-    void createSwapChain();
-
-    void createCommandCenter();
-
-    void createSyncObjects();
 
     uint32 findMemoryType( uint32_t memoryTypeBits, VkMemoryPropertyFlags reqMemProps );
 
@@ -106,6 +102,8 @@ private:
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR  rtProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
 
+    VkAllocationCallbacks* allocator;
+
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -118,17 +116,19 @@ private:
 
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
-    // std::vector<VkImageView> swapChainImageViews;
+    std::vector<VkImageView> swapChainImageViews;
+    std::vector<VkFramebuffer> framebuffers;
     const VkFormat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;    // intentionally chosen to match a specific format
     const VkExtent2D swapChainImageExtent = { .width = RenderSettings::screenWidth, .height = RenderSettings::screenHeight };
 
-    VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
+    std::vector<VkCommandPool> commandPools;
+    std::vector<VkCommandBuffer> commandBuffers;
 
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> fences;
+    uint32 semaphoreIndex;
     uint32 imageIndex;
-    VkFence fence0;
 
     VkBuffer blasBuffer;
     VkDeviceMemory blasBufferMem;
@@ -169,7 +169,6 @@ private:
     };
 
     VkRenderPass imguiRenderPass;
-    VkDescriptorPool imguiDescriptorPool;
 
     friend class Addon_imgui;
 };
