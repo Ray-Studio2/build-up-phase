@@ -9,6 +9,9 @@
 #define DEVICE_SELECTION 0
 #define INSTANCE_LAYER_COUNT 20
 
+#define WIDTH 800
+#define HEIGHT 600
+
 namespace nutshell {
     /**
      * all the draw callbacks must be implemented allways.
@@ -40,15 +43,15 @@ namespace nutshell {
 
 
     std::vector<const char *> instanceLayerRequestList = {
-        "VK_LAYER_KHRONOS_validation",
-        //"VK_LAYER_LUNARG_screenshot",
+        //"VK_LAYER_KHRONOS_validation",
+
 
     };
 
 
     std::vector<const char *> instanceExtensionRequestList = {
-        "VK_KHR_portability_enumeration",
-        "VK_LUNARG_direct_driver_loading"
+        //"VK_KHR_portability_enumeration",
+
     };
 
 
@@ -84,23 +87,39 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-        //std::cout << "Filtering the layers which can be usable" << std::endl;
-
-        if ( !glfwVulkanSupported() ) {
-            std::cout << "Vulkan is not supported!" << std::endl;
-            exit(VK_ERROR_INITIALIZATION_FAILED);
+        if (!glfwInit()) {
+            std::cout << "GLFW Cannot be initialize!" << std::endl;
         }
 
-        uint32_t minimumExtensions = 0;
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+        if ( glfwVulkanSupported() == GLFW_FALSE ) {
+            std::cout << "Vulkan is not supported!" << std::endl;
+            //exit(VK_ERROR_INITIALIZATION_FAILED);
+        }
+
+        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
+        glfwMakeContextCurrent(window);
+
+
+        if (!window) {
+            std::cerr << "Failed to create GLFW window" << std::endl;
+            glfwTerminate();
+            exit(EXIT_FAILURE);
+        }
+
+
+        uint32_t minimumExtensions = 0;
         const char ** instanceExtensions = nullptr;
 
         instanceExtensions = glfwGetRequiredInstanceExtensions(&minimumExtensions);
 
         for (uint32_t i = 0; i < minimumExtensions; i += 1) {
-            std::string extension = std::string(instanceExtensions[i]);
+            auto extension = std::string(instanceExtensions[i]);
             instanceExtensionRequestList.push_back(instanceExtensions[i]);
         }
+
+        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
 
         instance = createInstance(
             vk::InstanceCreateInfo{
@@ -108,17 +127,15 @@ namespace nutshell {
                     VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
                 ),
                 &appInfo,
-                static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
-                instanceLayerRequestList.data(), // enabled extensions             const char * const *
+                // static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
+                // instanceLayerRequestList.data(), // enabled extensions             const char * const *
                 minimumExtensions,
-                instanceExtensions
+                instanceExtensions,
 
-                //static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
-                //instanceExtensionRequestList.data(),
+                static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                instanceExtensionRequestList.data(),
             }
         );
-
-        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
 
         physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -163,14 +180,8 @@ namespace nutshell {
             queueFamilyIndex, //Queue family index
             0 // Queue index
         );
-
-
-        std::cout << "ready to render. please inject glfw window if you wish to render on screen." << std::endl;
     }
 
-    inline void VkContext_::injectGLFWWindow(GLFWwindow * pptrWindow) {
-        this->window = pptrWindow;
-    }
 
 
     inline void VkContext_::programLoop() {
@@ -204,6 +215,8 @@ namespace nutshell {
 
         device.destroy();
         instance.destroy();
+
+        glfwDestroyWindow(window);
 
         std::cout << "Nutshell says goodbye~" << std::endl; // if this doesn't happen, you are doing destroy in wrong way.
     }

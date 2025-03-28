@@ -93,13 +93,13 @@ foreach (EXE IN LISTS EXES)
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
         
 
-        set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include" "\;" "/opt/local/include")
+        set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
 
         set(LIB_DIRS
                 "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
         )
 
-        list(APPEND LIB_DIRS "\;" "/opt/local/Library/Frameworks/")
+        list(APPEND LIB_DIRS )
 
         if(${CMAKE_GENERATOR} STREQUAL "Xcode")
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}/Debug")
@@ -134,8 +134,8 @@ foreach (EXE IN LISTS EXES)
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
-        set(INCLUDES "$ENV{VULKAN_SDK}/Include" ${DEF_INCLUDES})
-        list(APPEND LIB_DIRS "$ENV{VULKAN_SDK}/Lib" ${DEF_LIB_DIR})
+        set(INCLUDES  ${DEF_INCLUDES})
+        list(APPEND LIB_DIRS ${DEF_LIB_DIR})
         set(LIBS ${DEF_LIBS} vulkan-1)
 
     else () #Unknown

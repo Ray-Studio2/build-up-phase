@@ -27,14 +27,7 @@ int main() {
 
   auto context = nutshell::VkContext();
 
-
-  const auto window = spawnWindow(800, 640);
-
-  context.injectGLFWWindow(window);
-
   context.programLoop();
-
-  glfwDestroyWindow(window);
 
   return 0;
 }
