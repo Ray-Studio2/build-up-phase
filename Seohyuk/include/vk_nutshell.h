@@ -12,6 +12,8 @@
 #define WIDTH 800
 #define HEIGHT 600
 
+#define NDBUG
+
 namespace nutshell {
     /**
      * all the draw callbacks must be implemented allways.
@@ -50,8 +52,7 @@ namespace nutshell {
 
 
     std::vector<const char *> instanceExtensionRequestList = {
-        //"VK_KHR_portability_enumeration",
-
+        // "VK_KHR_portability_enumeration",
     };
 
 
@@ -98,7 +99,7 @@ namespace nutshell {
 
         if ( glfwVulkanSupported() == GLFW_FALSE ) {
             std::cout << "Vulkan is not supported!" << std::endl;
-            //exit(VK_ERROR_INITIALIZATION_FAILED);
+            exit(VK_ERROR_INITIALIZATION_FAILED);
         }
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
@@ -113,16 +114,17 @@ namespace nutshell {
         }
 
 
-        /* For now we will just use layers directly in the vector initialization.
+        //For now we will just use layers directly in the vector initialization.
         uint32_t instanceLayerCount = instanceLayerRequestList.capacity();
-        const char** instanceLayerNames = nullptr; instanceLayerRequestList.data();
-        {   // layers
-            for (uint32_t i = 0; i < instanceLayerCount; i += 1) {
-                auto layerName = std::string(instanceLayerNames[i]);
-                instanceLayerRequestList.push_back(layerName.data());
-            }
+        const char** instanceLayerNames = nullptr;
+        instanceLayerRequestList.data();
+
+        for (uint32_t i = 0; i < instanceLayerCount; i += 1) {
+            auto layerName = std::string(instanceLayerNames[i]);
+            instanceLayerRequestList.push_back(layerName.data());
         }
-        */
+
+
 
 
         uint32_t minimum_extension_count = instanceLayerRequestList.capacity();
@@ -142,7 +144,7 @@ namespace nutshell {
         instance = createInstance(
             vk::InstanceCreateInfo{
                 vk::InstanceCreateFlags (
-                    VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
+
                 ),
                 &appInfo,
 
