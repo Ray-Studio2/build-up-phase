@@ -43,7 +43,7 @@ namespace nutshell {
 
 
     std::vector<const char *> instanceLayerRequestList = {
-        //"VK_LAYER_KHRONOS_validation",
+        "VK_LAYER_KHRONOS_validation",
 
 
     };
@@ -79,7 +79,7 @@ namespace nutshell {
         /**
          * After call this function the program will be started and loops.
          */
-        void programLoop();
+        void programLoop() const;
 
 
         ~VkContext_();
@@ -87,11 +87,14 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-        if (!glfwInit()) {
-            std::cout << "GLFW Cannot be initialize!" << std::endl;
+
+        {
+            glfwInit();
+            printf("GLFW Vulkan supported: %s\n", (glfwVulkanSupported() ? "YES" : "NO"));
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 
         if ( glfwVulkanSupported() == GLFW_FALSE ) {
             std::cout << "Vulkan is not supported!" << std::endl;
@@ -99,27 +102,42 @@ namespace nutshell {
         }
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
-        glfwMakeContextCurrent(window);
+        {
+            if (!window) {
+                std::cerr << "Failed to create GLFW window" << std::endl;
+                glfwTerminate();
+                exit(EXIT_FAILURE);
+            }
 
-
-        if (!window) {
-            std::cerr << "Failed to create GLFW window" << std::endl;
-            glfwTerminate();
-            exit(EXIT_FAILURE);
+            glfwMakeContextCurrent(window);
         }
 
 
-        uint32_t minimumExtensions = 0;
-        const char ** instanceExtensions = nullptr;
-
-        instanceExtensions = glfwGetRequiredInstanceExtensions(&minimumExtensions);
-
-        for (uint32_t i = 0; i < minimumExtensions; i += 1) {
-            auto extension = std::string(instanceExtensions[i]);
-            instanceExtensionRequestList.push_back(instanceExtensions[i]);
+        /* For now we will just use layers directly in the vector initialization.
+        uint32_t instanceLayerCount = instanceLayerRequestList.capacity();
+        const char** instanceLayerNames = nullptr; instanceLayerRequestList.data();
+        {   // layers
+            for (uint32_t i = 0; i < instanceLayerCount; i += 1) {
+                auto layerName = std::string(instanceLayerNames[i]);
+                instanceLayerRequestList.push_back(layerName.data());
+            }
         }
+        */
 
-        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
+
+        uint32_t minimum_extension_count = instanceLayerRequestList.capacity();
+        const char ** instanceExtensions = glfwGetRequiredInstanceExtensions(&minimum_extension_count);
+        {   // extensions
+            for (uint32_t i = 0; i < minimum_extension_count; i += 1) {
+                auto extension = std::string(instanceExtensions[i]);
+                instanceExtensionRequestList.push_back(instanceExtensions[i]);
+            }
+            instanceExtensionRequestList.push_back("VK_EXT_debug_report");
+
+            if (instanceExtensions == nullptr) {
+                instanceExtensionRequestList.push_back("");
+            }
+        }
 
         instance = createInstance(
             vk::InstanceCreateInfo{
@@ -127,17 +145,31 @@ namespace nutshell {
                     VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
                 ),
                 &appInfo,
-                // static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
-                // instanceLayerRequestList.data(), // enabled extensions             const char * const *
-                minimumExtensions,
-                instanceExtensions,
+
 
                 static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                instanceExtensionRequestList.data(),
+
+
+                static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
                 instanceExtensionRequestList.data(),
             }
         );
 
+
+        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
+
+
+
         physicalDevices = instance.enumeratePhysicalDevices();
+
+        VkSurfaceKHR surface;
+        auto error = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+
+        if (error) {
+            std::cerr << "Failed to create window surface. error code: " << error << std::endl;
+        }
+
 
         constexpr uint32_t queueFamilyIndex = 0;
 
@@ -184,7 +216,7 @@ namespace nutshell {
 
 
 
-    inline void VkContext_::programLoop() {
+    inline void VkContext_::programLoop() const {
         while ( !glfwWindowShouldClose(window) ) {
             beforeRender();
             {
