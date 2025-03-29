@@ -1,31 +1,49 @@
 #pragma once
 
-#include <string>
-using std::string;
+#define GLFW_INCLUDE_VULKAN
+#include "glfw3.h"
+#include "vulkan/vulkan.h"
 
-struct GLFWwindow;
+/* TODO
+ *   - Input 시스템 구성 (Event 기반)
+*/
 
 class Window {
-    public:
-        Window();
-        Window(const unsigned int&, const unsigned int&, const string&);
-        ~Window() noexcept;
+    Window(const Window&) = delete;
+    Window(Window&&) noexcept = delete;
 
-        void init(const unsigned int&, const unsigned int&, const string&);
-
-        unsigned int width() const;
-        unsigned int height() const;
-
-        GLFWwindow* handle();
+    Window& operator=(const Window&) = delete;
+    Window& operator=(Window&&) noexcept = delete;
 
     private:
-        static bool isGLFWInitialized;
-        bool isInitialized{ };
+        using uint32 = unsigned int;
 
-        unsigned int mWidth{ };
-        unsigned int mHeight{ };
+    public:
+        Window();
+        Window(uint32 width, uint32 height, const char* title);
+        ~Window() noexcept;
 
-        string mTitle;
+        explicit operator bool() const noexcept;
+        operator GLFWwindow*() const noexcept;
+        operator VkSurfaceKHR() const noexcept;
+
+        bool createWindow(uint32 width, uint32 height, const char* title);
+        bool createSurface(VkInstance instance);
+
+        uint32 width()  const noexcept;
+        uint32 height() const noexcept;
+        const char* title() const;
+
+    private:
+        bool mIsWindowCreated{ };
+        bool mIsSurfaceCreated{ };
+
+        uint32 mWidth{ };
+        uint32 mHeight{ };
 
         GLFWwindow* mHandle{ };
+        VkSurfaceKHR mSurface{ };
+        VkInstance instancePtr{ };
+
+        static bool mIsGLFWInitialized;
 };

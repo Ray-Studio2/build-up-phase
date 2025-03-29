@@ -1,7 +1,8 @@
 #include "math/vec3.hpp"
 
 #include <cmath>
-#include <assert.h>     // assert()
+
+// TODO: assert "operator/"
 
 /* Vec3 */
 Vec3::Vec3() { }

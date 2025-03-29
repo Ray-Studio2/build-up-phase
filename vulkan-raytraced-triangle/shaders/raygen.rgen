@@ -1,0 +1,41 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT TLAS;
+layout(set = 0, binding = 1, rgba8) uniform image2D image;
+layout(set = 0, binding = 2) uniform CameraProperties {
+    vec3 cameraPos;
+    float yFov_degree;
+} g;
+
+layout(location = 0) rayPayloadEXT vec3 hitValue;
+
+void main() {
+    // OpenGL 좌표계 사용 (y axis flip)
+    const vec3 cameraX = vec3(1.0f, 0.0f, 0.0f);
+    const vec3 cameraY = vec3(0.0f, -1.0f, 0.0f);
+    const vec3 cameraZ = vec3(0.0f, 0.0f, -1.0f);
+    const float aspect_y = tan(radians(g.yFov_degree) * 0.5f);
+    const float aspect_x = aspect_y * float(gl_LaunchSizeEXT.x) / float(gl_LaunchSizeEXT.y);
+
+    const vec2 screenCoord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5f);
+    const vec2 ndc = screenCoord / vec2(gl_LaunchSizeEXT.xy) * 2.0f - 1.0f;
+    vec3 rayDir = normalize(ndc.x * aspect_x * cameraX + ndc.y * aspect_y * cameraY + cameraZ);
+
+    uint flags = gl_RayFlagsOpaqueEXT;
+
+    // hit group 1개 (closest hit, idx 0)
+    // geometry 4개 (각 geometry에 closest hit만 적용할 것이므로 stride 1)
+
+    // miss group 2개 (bgMiss, idx 0 | aoMiss, idx 1)
+    // first ray는 bgMiss 사용 (idx 0)
+    traceRayEXT(
+        TLAS,                                   // topLevel
+        flags, 0xFF,                            // rayFlags, cullMask
+        0, 1, 0,                                // sbtRecordOffset, sbtRecordStride, missIndex
+        g.cameraPos, 0.1f, rayDir, 100.0f,      // origin, tmin, direction, tmax
+        0                                       // payload location
+    );
+
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue.bgr, 0.0f));
+}

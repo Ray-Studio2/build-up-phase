@@ -1,5 +1,6 @@
 # glfw: 3.4.0
 # vulkan: 1.4.304.0
+# imgui-docking: 1.91.8
 
 cmake_minimum_required(VERSION 3.11)
 
@@ -19,6 +20,10 @@ project(vulkan_rt)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/headers
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/glfw
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/backends
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/stb-image
     ${VULKAN_PATH}/Include
 )
 
@@ -27,6 +32,14 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source
 add_executable(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
     ${SRC_FILES}
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/imgui.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/imgui_demo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/imgui_draw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/imgui_tables.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/imgui_widgets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/backends/imgui_impl_glfw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/includes/imgui/backends/imgui_impl_vulkan.cpp
 )
 target_compile_definitions(
     ${PROJECT_NAME}
