@@ -88,7 +88,7 @@ set(    DEF_LIB_DIR
         "${CMAKE_BINARY_DIR}/sub_repo/glfw/include"
 )
 set(    DEF_LIBS
-        glfw3 # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
+         # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
 
 foreach (EXE IN LISTS EXES)
@@ -138,7 +138,7 @@ foreach (EXE IN LISTS EXES)
 
         set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
         list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
-        set(LIBS ${DEF_LIBS} vulkan-1 glfw3)
+        set(LIBS ${DEF_LIBS} vulkan-1 glfw3dll)
 
     else () #Unknown
         message("Not supported OS")
@@ -149,5 +149,14 @@ foreach (EXE IN LISTS EXES)
     target_include_directories(${EXE} PUBLIC ${INCLUDES})
     target_link_directories( ${EXE} PUBLIC ${LIB_DIRS} )
     target_link_libraries( ${EXE} PUBLIC ${LIBS} )
+
+
+
+    add_custom_command(TARGET ${EXE}
+            COMMAND cp
+            "${CMAKE_CURRENT_BINARY_DIR}/sub_repo/glfw/src/Debug/glfw3.dll"
+            "${CMAKE_CURRENT_BINARY_DIR}/Debug/"
+            POST_BUILD
+    )
 
 endforeach ()
