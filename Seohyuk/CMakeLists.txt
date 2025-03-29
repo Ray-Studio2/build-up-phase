@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.3.0)
+cmake_minimum_required(VERSION 3.5.0)
+
 project(Seohyuk)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -50,13 +51,13 @@ endif ()
 # 외부 라이브러리 링크하기!
 add_subdirectory(sub_repo)
 
-
 # 여기서부터는 executable 추가
 add_executable(CMDUtility CMDUtility.cpp)
 add_executable(Triangle triangle.cpp
         include/seohyuk.h
         include/vulkan_utility.h)
-add_subdirectory(TeapotBasic)
+
+add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp)
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
 add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
@@ -84,6 +85,7 @@ set(    DEF_INCLUDES
 )
 set(    DEF_LIB_DIR
         "${CMAKE_BINARY_DIR}/sub_repo/glfw/src"
+        "${CMAKE_BINARY_DIR}/sub_repo/glfw/include"
 )
 set(    DEF_LIBS
         glfw3 # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
@@ -134,9 +136,9 @@ foreach (EXE IN LISTS EXES)
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
-        set(INCLUDES  ${DEF_INCLUDES})
-        list(APPEND LIB_DIRS ${DEF_LIB_DIR})
-        set(LIBS ${DEF_LIBS} vulkan-1)
+        set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
+        list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
+        set(LIBS ${DEF_LIBS} vulkan-1 glfw3)
 
     else () #Unknown
         message("Not supported OS")
