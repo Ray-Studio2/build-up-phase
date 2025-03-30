@@ -139,6 +139,10 @@ struct VKglobal {
     VkDescriptorSet guiDescSet;
     VkRenderPass guiRenderPass;
 
+    Image guiImage;
+    VkImageView guiImageView;
+    VkSampler guiSampler;
+
     vector<VkImageView> swapChainImageViews;
     vector<VkFramebuffer> framebuffers;
 
@@ -160,8 +164,10 @@ struct VKglobal {
         vkDestroyAccelerationStructureKHR(App::device(), blas, nullptr);
 
         vkDestroySampler(App::device(), textureSampler, nullptr);
+        vkDestroySampler(App::device(), guiSampler, nullptr);
         vkDestroyImageView(App::device(), textureImageView, nullptr);
         vkDestroyImageView(App::device(), outImageView, nullptr);
+        vkDestroyImageView(App::device(), guiImageView, nullptr);
 
         vkDestroyDescriptorPool(App::device(), descPool, nullptr);
         for (auto& descSet: descSetLayouts)
@@ -279,33 +285,8 @@ void setImageLayout(
 
     if      (newImgLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     else if (newImgLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-    vkCmdPipelineBarrier(
-        vkGlobal.commandBuffer,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        0, 0, nullptr, 0, nullptr,
-        1, &imgMemBarrier
-    );
-}
-void setGUIImageLayout(
-    VkImage image, VkImageLayout curImgLayout, VkImageLayout newImgLayout,
-    VkImageSubresourceRange resourceRange
-) {
-    VkImageMemoryBarrier imgMemBarrier {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .oldLayout = curImgLayout,
-        .newLayout = newImgLayout,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,     // Resource의 Queue Family 소유권 이전에 관련된 항목
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,     // Resource의 Queue Family 소유권 이전에 관련된 항목
-        .image = image,
-        .subresourceRange = resourceRange
-    };
-
-    if      (curImgLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) imgMemBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    else if (curImgLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)     imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-    if      (newImgLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    else if (newImgLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)     imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    else if (newImgLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    else if (newImgLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) imgMemBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     vkCmdPipelineBarrier(
         vkGlobal.commandBuffer,
@@ -725,6 +706,11 @@ void createBLAS() {
         }
     };
 
+    /*
+     * stack 방식으로 소멸되게 만들고 싶다 -> 시스템 안정성 O
+     * device, instance 
+     */
+
     Buffer geometryTransformBuffer(
         sizeof(transforms),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
@@ -1029,10 +1015,9 @@ void createOutImage() {
     */
     VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
 
-    // VK_IMAGE_USAGE_SAMPLED_BIT for gui
     vkGlobal.outImage.create(
         VK_IMAGE_TYPE_2D, format, { WINDOW_WIDTH, WINDOW_HEIGHT, 1 },
-        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
     );
     vkGlobal.outImage.bindMemory(
         new Memory(
@@ -1491,6 +1476,61 @@ void createSyncObjects() {
         cout << "[ERROR]: createSyncObjects()" << endl;
 }
 
+void createGUIimage() {
+    // not same as outImage format (outImage format = VK_FORMAT_R8G8B8A8_UNORM)
+    VkFormat imgFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+    vkGlobal.guiImage.create(
+        VK_IMAGE_TYPE_2D, imgFormat,
+        { WINDOW_WIDTH, WINDOW_HEIGHT, 1 },
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+    );
+    vkGlobal.guiImage.bindMemory(
+        new Memory(
+            vkGlobal.guiImage,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        )
+    );
+
+    vkGlobal.guiImageView = createImageView(
+        vkGlobal.guiImage, imgFormat, { },
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,        // mipmap level
+            .layerCount = 1         // entire data (no array data)
+        }
+    );
+
+    const VkCommandBufferBeginInfo commandBufferBeginInfo { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+
+    vkResetCommandBuffer(vkGlobal.commandBuffer, 0);
+    if (vkBeginCommandBuffer(vkGlobal.commandBuffer, &commandBufferBeginInfo) != VK_SUCCESS)
+        cout << "[ERROR]: vkBeginCommandBuffer() from createGUIimage()" << endl;
+    {
+        setImageLayout(
+            vkGlobal.guiImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .levelCount = 1,        // mipmap level
+                .layerCount = 1         // entire data (no array data)
+            }
+        );
+    }
+    if (vkEndCommandBuffer(vkGlobal.commandBuffer) != VK_SUCCESS)
+        cout << "[ERROR]: vkEndCommandBuffer() from createGUIimage()" << endl;
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkGlobal.commandBuffer
+    };
+
+    if (vkQueueSubmit(App::device().queue(), 1, &submitInfo, nullptr) != VK_SUCCESS)
+        cout << "[ERROR]: vkQueueSubmit() from createOutImage()" << endl;
+
+    vkQueueWaitIdle(App::device().queue());
+}
+
 void guiInit() {
     ImGui::CreateContext();
     {
@@ -1504,10 +1544,23 @@ void guiInit() {
 
     {   // descriptor pool for GUI
         vector<VkDescriptorPoolSize> guiDescPoolSizes = {
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 }
+            { VK_DESCRIPTOR_TYPE_SAMPLER               , 1000 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE         , 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE         , 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER  , 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER  , 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER        , 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER        , 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT      , 1000 }
+        };
+        /* vector<VkDescriptorPoolSize> guiDescPoolSizes = {
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 }    // IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE
         };
         // default image sampler 1
-        // viewport image sampler 1
+        // viewport image sampler 1 */
 
         VkDescriptorPoolCreateInfo guiDescPoolInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1593,10 +1646,10 @@ void guiInit() {
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT
     };
     ImGui_ImplVulkan_Init(&guiInitInfo);
-    ImGui_ImplVulkan_CreateFontsTexture();
+    // ImGui_ImplVulkan_CreateFontsTexture();
 
     // set out image to viewport window
-    vkGlobal.guiDescSet = ImGui_ImplVulkan_AddTexture(vkGlobal.textureSampler, vkGlobal.outImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vkGlobal.guiDescSet = ImGui_ImplVulkan_AddTexture(vkGlobal.textureSampler, vkGlobal.guiImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 void guiTerminate() {
     ImGui_ImplVulkan_RemoveTexture(vkGlobal.guiDescSet);
@@ -1674,19 +1727,18 @@ void render() {
         );
 
         // Ray Shooting 이후, 복사를 위한 Layout으로 변경
-        // copy image from
         setImageLayout(
             vkGlobal.outImage, VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             subResourceRange
         );
-        // copy image to
         setImageLayout(
             vkGlobal.swapChainImages[imgIndex], VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subResourceRange
         );
 
+        // outImage -> swapchain image copy
         vkCmdCopyImage(
             vkGlobal.commandBuffer,
             vkGlobal.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1694,19 +1746,59 @@ void render() {
             1, &copyRegion
         );
 
-        // gui 렌더링을 위해 image layout 변경
+        // outImage -> guiImage copy
+        vkCmdCopyImage(
+            vkGlobal.commandBuffer,
+            vkGlobal.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            vkGlobal.guiImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &copyRegion
+        );
+
+        // test
+        {
+            setImageLayout(
+                vkGlobal.texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                subResourceRange
+            );
+
+            vkCmdCopyImage(
+                vkGlobal.commandBuffer,
+                vkGlobal.texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                vkGlobal.guiImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &copyRegion
+            );
+
+            setImageLayout(
+                vkGlobal.texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                subResourceRange
+            );
+        }
+
+        // guiImage를 ImGUI에서 사용할 수 있도록 layout 변경
+        setImageLayout(
+            vkGlobal.guiImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            subResourceRange
+        );
+
+        // 해당 swapchain image 위에 gui를 렌더링 하기 위해서 layout 변경
         setImageLayout(
             vkGlobal.swapChainImages[imgIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             subResourceRange
         );
 
-        // outImage layout change for gui render
-        setGUIImageLayout(
-            vkGlobal.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            subResourceRange
-        );
+        /* 정리
+         *   - textureSampler, textureImageView 를 사용해서 Image 로드해봤더니 잘 됨
+         *
+         * 해본 것들
+         *   - outImage -> guiImage 복사 (gui window 내부에 빈 화면 출력)
+         *   - swapchain image -> guiImage 복사 (gui window 내부에 빈 화면 출력)
+         *   - outImage를 그대로 사용 (gui window 내부에 빈 화면 출력)
+         *   Buffer를 거쳐서 guiImage로 복사하는 것도 시도해봐야 함
+         */
 
         VkRenderPassBeginInfo renderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -1728,7 +1820,7 @@ void render() {
 
             {
                 ImGui::Begin("Viewport");
-                ImGui::Image((ImTextureID)vkGlobal.guiDescSet, ImGui::GetMainViewport()->Size);
+                ImGui::Image((ImTextureID)vkGlobal.guiDescSet, { WINDOW_WIDTH, WINDOW_HEIGHT });
                 ImGui::End();
             }
             {
@@ -1740,17 +1832,15 @@ void render() {
         }
         vkCmdEndRenderPass(vkGlobal.commandBuffer);
 
-        // outImage layout restore
-        setGUIImageLayout(
-            vkGlobal.outImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            subResourceRange
-        );
-
         // copy작업 후, present와 다음 frame 작업을 위한 원상복구
         setImageLayout(
             vkGlobal.outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_GENERAL,
+            subResourceRange
+        );
+        setImageLayout(
+            vkGlobal.guiImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subResourceRange
         );
 
@@ -1813,6 +1903,7 @@ int main() {
     createShaderBindingTable();
     createSyncObjects();
 
+    createGUIimage();
     guiInit();
 
     while (!glfwWindowShouldClose(App::window())) {
