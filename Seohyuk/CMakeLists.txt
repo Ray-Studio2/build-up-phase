@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.10)
 
 project(Seohyuk)
 
@@ -57,7 +57,7 @@ add_executable(Triangle triangle.cpp
         include/seohyuk.h
         include/vulkan_utility.h)
 
-add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp)
+add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp include/vk_nutshell.h)
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
 add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
@@ -72,8 +72,8 @@ add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_renderin
 # 여기에 execuable을 등록만 하면 자동으로 링크된다!
 set(    EXES
         #[==[============ 이하 executable의 목록 ============]==]
-        CMDUtility
-        Triangle
+        #CMDUtility
+        #Triangle
         TeapotBasic
 )
 
@@ -81,7 +81,7 @@ message(STATUS "Prepareing project for the Executables ${EXES}")
 
 set(    DEF_INCLUDES
         "${CMAKE_CURRENT_SOURCE_DIR}/sub_repo/glfw/include"
-        "./include"
+        "include"
 )
 set(    DEF_LIB_DIR
         "${CMAKE_BINARY_DIR}/sub_repo/glfw/src"
@@ -109,9 +109,9 @@ foreach (EXE IN LISTS EXES)
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
         endif ()
 
-        list(APPEND DEF_LIBS MoltenVK) # MoltenVK
+        list(APPEND DEF_LIBS MoltenVK glfw) # MoltenVK
 
-        set(LIBS ${DEF_LIBS} MoltenVK # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
+        set(LIBS ${DEF_LIBS} # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"
                 "-framework IOKit"
                 "-framework IOSurface"
@@ -140,6 +140,13 @@ foreach (EXE IN LISTS EXES)
         list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
         set(LIBS ${DEF_LIBS} vulkan-1 glfw3dll)
 
+        add_custom_command(TARGET ${EXE}
+                COMMAND cp
+                "${CMAKE_CURRENT_BINARY_DIR}/sub_repo/glfw/src/Debug/glfw3.dll"
+                "${CMAKE_CURRENT_BINARY_DIR}/Debug/"
+                POST_BUILD
+        )
+
     else () #Unknown
         message("Not supported OS")
     endif ()
@@ -152,11 +159,7 @@ foreach (EXE IN LISTS EXES)
 
 
 
-    add_custom_command(TARGET ${EXE}
-            COMMAND cp
-            "${CMAKE_CURRENT_BINARY_DIR}/sub_repo/glfw/src/Debug/glfw3.dll"
-            "${CMAKE_CURRENT_BINARY_DIR}/Debug/"
-            POST_BUILD
-    )
+
+
 
 endforeach ()

@@ -7,7 +7,6 @@
 #include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
-#define INSTANCE_LAYER_COUNT 20
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -44,16 +43,7 @@ namespace nutshell {
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
 
-    std::vector<const char *> instanceLayerRequestList = {
-        "VK_LAYER_KHRONOS_validation",
 
-
-    };
-
-
-    std::vector<const char *> instanceExtensionRequestList = {
-        // "VK_KHR_portability_enumeration",
-    };
 
 
     /**
@@ -61,7 +51,6 @@ namespace nutshell {
      **/
     typedef struct VkContext_ {
         vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", 0);
-        char * const * instanceLayers[INSTANCE_LAYER_COUNT][255] = {};
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
         vk::Device device;
@@ -96,7 +85,6 @@ namespace nutshell {
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-
         if ( glfwVulkanSupported() == GLFW_FALSE ) {
             std::cout << "Vulkan is not supported!" << std::endl;
             exit(VK_ERROR_INITIALIZATION_FAILED);
@@ -113,39 +101,18 @@ namespace nutshell {
             glfwMakeContextCurrent(window);
         }
 
-
-        //For now we will just use layers directly in the vector initialization.
-        uint32_t instanceLayerCount = instanceLayerRequestList.capacity();
-        const char** instanceLayerNames = nullptr;
-        instanceLayerRequestList.data();
-
-        for (uint32_t i = 0; i < instanceLayerCount; i += 1) {
-            auto layerName = std::string(instanceLayerNames[i]);
-            instanceLayerRequestList.push_back(layerName.data());
-        }
+        std::vector<const char *> instanceLayerRequestList = {
+            "VK_LAYER_KHRONOS_validation",
+        };
 
 
+        std::vector<const char *> instanceExtensionRequestList = {
+            "VK_KHR_portability_enumeration",
+        };
 
-
-        uint32_t minimum_extension_count = instanceLayerRequestList.capacity();
-        const char ** instanceExtensions = glfwGetRequiredInstanceExtensions(&minimum_extension_count);
-        {   // extensions
-            for (uint32_t i = 0; i < minimum_extension_count; i += 1) {
-                auto extension = std::string(instanceExtensions[i]);
-                instanceExtensionRequestList.push_back(instanceExtensions[i]);
-            }
-            instanceExtensionRequestList.push_back("VK_EXT_debug_report");
-
-            if (instanceExtensions == nullptr) {
-                instanceExtensionRequestList.push_back("");
-            }
-        }
-
-        instance = createInstance(
+        instance = vk::createInstance(
             vk::InstanceCreateInfo{
-                vk::InstanceCreateFlags (
-
-                ),
+                    {},
                 &appInfo,
 
 
