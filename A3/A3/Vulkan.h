@@ -11,18 +11,20 @@
 #include "EngineTypes.h"
 #include "RenderSettings.h"
 
-namespace A3
-{
 #ifdef NDEBUG
 const bool ON_DEBUG = false;
 #else
 const bool ON_DEBUG = true;
 #endif
 
+namespace A3
+{
+struct Vertex;
+
 class VulkanRendererBackend
 {
 public:
-    VulkanRendererBackend( GLFWwindow* window );
+    VulkanRendererBackend( GLFWwindow* window, std::vector<const char*>& extensions, int32 screenWidth, int32 screenHeight );
     ~VulkanRendererBackend();
 
     void beginFrame( int32 screenWidth, int32 screenHeight );
@@ -40,8 +42,10 @@ public:
     void createImguiRenderPass( int32 screenWidth, int32 screenHeight );
     void createCommandCenter();
 
+    void rebuildAccelerationStructure();
+
     //@TODO: Move to renderer
-    void createBLAS();
+    VkAccelerationStructureKHR createBLAS( const std::vector<Vertex>& vertexData, const std::vector<uint32>& indexData );
     void createTLAS();
     void createOutImage();
     void createUniformBuffer();
@@ -133,7 +137,6 @@ private:
     VkBuffer blasBuffer;
     VkDeviceMemory blasBufferMem;
     VkAccelerationStructureKHR blas;
-    VkDeviceAddress blasAddress;
 
     VkBuffer tlasBuffer;
     VkDeviceMemory tlasBufferMem;

@@ -11,6 +11,7 @@
 #include "Vulkan.h"
 #include "PathTracingRenderer.h"
 #include "Addon_imgui.h"
+#include "Scene.h"
 
 namespace A3
 {
@@ -52,39 +53,28 @@ void Engine::Run()
     glfwGetFramebufferSize( window, &screenWidth, &screenHeight );
 
     {
-        VulkanRendererBackend gfxBackend( window );
-        gfxBackend.createVkInstance( extensions );
-        gfxBackend.createVkPhysicalDevice();
-        gfxBackend.createVkSurface( window );
-        gfxBackend.createVkQueueFamily();
-        gfxBackend.createVkDescriptorPools();
-        gfxBackend.createSwapChain();
-        gfxBackend.createImguiRenderPass( screenWidth, screenHeight );
-        gfxBackend.createCommandCenter();
+        VulkanRendererBackend gfxBackend( window, extensions, screenWidth, screenHeight );
 
-        gfxBackend.createBLAS();
-        gfxBackend.createTLAS();
-        gfxBackend.createOutImage();
-        gfxBackend.createUniformBuffer();
-        gfxBackend.createRayTracingPipeline();
-        gfxBackend.createRayTracingDescriptorSet();
-        gfxBackend.createShaderBindingTable();
+        Scene scene;
 
-        //PathTracingRenderer renderer( &gfxBackend );
-        //Addon_imgui imgui( window, &gfxBackend );
+        PathTracingRenderer renderer( &gfxBackend );
 
         Addon_imgui imgui( window, &gfxBackend, screenWidth, screenHeight );
 
         while( !glfwWindowShouldClose( window ) )
         {
             glfwPollEvents();
-            gfxBackend.beginFrame( screenWidth, screenHeight );
-            gfxBackend.beginRaytracingPipeline();
-            //renderer.beginFrame();
-            //renderer.render();
+
+            scene.beginFrame();
+
+            renderer.beginFrame( screenWidth, screenHeight );
+
+            renderer.render( scene );
             imgui.renderFrame( window, &gfxBackend );
-            //renderer.endFrame();
-            gfxBackend.endFrame();
+
+            renderer.endFrame();
+
+            scene.endFrame();
         }
     }
 

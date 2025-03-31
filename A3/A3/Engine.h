@@ -2,9 +2,9 @@
 
 namespace A3
 {
-	class Engine
-	{
-	public:
-		void Run();
-	};
+class Engine
+{
+public:
+	void Run();
+};
 }

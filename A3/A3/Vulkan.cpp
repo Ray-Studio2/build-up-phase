@@ -4,18 +4,20 @@
 #include "ThirdParty/imgui/imgui.h"
 #include "ThirdParty/imgui/imgui_impl_glfw.h"
 #include "ThirdParty/imgui/imgui_impl_vulkan.h"
+#include "MeshResource.h"
 
 using namespace A3;
 
-VulkanRendererBackend::VulkanRendererBackend( GLFWwindow* window )
+VulkanRendererBackend::VulkanRendererBackend( GLFWwindow* window, std::vector<const char*>& extensions, int32 screenWidth, int32 screenHeight )
 {
-    //createVkInstance();
-    //createVkSurface( window );
-    //createVkDevice();
-    //loadDeviceExtensionFunctions( device );
-    //createSwapChain();
-    //createCommandCenter();
-    //createSyncObjects();
+    createVkInstance( extensions );
+    createVkPhysicalDevice();
+    createVkSurface( window );
+    createVkQueueFamily();
+    createVkDescriptorPools();
+    createSwapChain();
+    createImguiRenderPass( screenWidth, screenHeight );
+    createCommandCenter();
 }
 
 VulkanRendererBackend::~VulkanRendererBackend()
@@ -208,6 +210,16 @@ void VulkanRendererBackend::beginRaytracingPipeline()
         err = vkResetFences( device, 1, &fences[ imageIndex ] );
         check_vk_result( err );
     }
+}
+
+void VulkanRendererBackend::rebuildAccelerationStructure()
+{
+    createTLAS();
+    createOutImage();
+    createUniformBuffer();
+    createRayTracingPipeline();
+    createRayTracingDescriptorSet();
+    createShaderBindingTable();
 }
 
 void VulkanRendererBackend::loadDeviceExtensionFunctions( VkDevice device )
@@ -1010,15 +1022,15 @@ inline VkDeviceAddress VulkanRendererBackend::getDeviceAddressOf( VkAcceleration
     return vkGetAccelerationStructureDeviceAddressKHR( device, &info );
 }
 
-void VulkanRendererBackend::createBLAS()
+VkAccelerationStructureKHR VulkanRendererBackend::createBLAS( const std::vector<Vertex>& vertexData, const std::vector<uint32>& indexData )
 {
-    float vertices[][ 3 ] = {
+    /*float vertices[][ 3 ] = {
         { -1.0f, -1.0f, 0.0f },
         {  1.0f, -1.0f, 0.0f },
         {  1.0f,  1.0f, 0.0f },
         { -1.0f,  1.0f, 0.0f },
     };
-    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };
+    uint32_t indices[] = { 0, 1, 3, 1, 2, 3 };*/
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
@@ -1034,12 +1046,12 @@ void VulkanRendererBackend::createBLAS()
     };
 
     auto [vertexBuffer, vertexBufferMem] = createBuffer(
-        sizeof( vertices ),
+        vertexData.size() * sizeof( Vertex ),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
     auto [indexBuffer, indexBufferMem] = createBuffer(
-        sizeof( indices ),
+        indexData.size() * sizeof( uint32 ),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
@@ -1050,12 +1062,12 @@ void VulkanRendererBackend::createBLAS()
 
     void* dst;
 
-    vkMapMemory( device, vertexBufferMem, 0, sizeof( vertices ), 0, &dst );
-    memcpy( dst, vertices, sizeof( vertices ) );
+    vkMapMemory( device, vertexBufferMem, 0, vertexData.size() * sizeof( Vertex ), 0, &dst );
+    memcpy( dst, vertexData.data(), vertexData.size() * sizeof(Vertex));
     vkUnmapMemory( device, vertexBufferMem );
 
-    vkMapMemory( device, indexBufferMem, 0, sizeof( indices ), 0, &dst );
-    memcpy( dst, indices, sizeof( indices ) );
+    vkMapMemory( device, indexBufferMem, 0, indexData.size() * sizeof( uint32 ), 0, &dst );
+    memcpy( dst, indexData.data(), indexData.size() * sizeof(uint32));
     vkUnmapMemory( device, indexBufferMem );
 
     vkMapMemory( device, geoTransformBufferMem, 0, sizeof( geoTransforms ), 0, &dst );
@@ -1070,8 +1082,8 @@ void VulkanRendererBackend::createBLAS()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                 .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
                 .vertexData = {.deviceAddress = getDeviceAddressOf( vertexBuffer ) },
-                .vertexStride = sizeof( vertices[ 0 ] ),
-                .maxVertex = sizeof( vertices ) / sizeof( vertices[ 0 ] ) - 1,
+                .vertexStride = sizeof( Vertex ),
+				.maxVertex = ( uint32 )vertexData.size() - 1,
                 .indexType = VK_INDEX_TYPE_UINT32,
                 .indexData = {.deviceAddress = getDeviceAddressOf( indexBuffer ) },
                 .transformData = {.deviceAddress = getDeviceAddressOf( geoTransformBuffer ) },
@@ -1081,7 +1093,7 @@ void VulkanRendererBackend::createBLAS()
     };
     VkAccelerationStructureGeometryKHR geometries[] = { geometry0, geometry0 };
 
-    uint32_t triangleCount0 = sizeof( indices ) / ( sizeof( indices[ 0 ] ) * 3 );
+    uint32_t triangleCount0 = indexData.size() / 3;
     uint32_t triangleCounts[] = { triangleCount0, triangleCount0 };
 
     VkAccelerationStructureBuildGeometryInfoKHR buildBlasInfo{
@@ -1119,8 +1131,6 @@ void VulkanRendererBackend::createBLAS()
             .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
         };
         vkCreateAccelerationStructureKHR( device, &asCreateInfo, nullptr, &blas );
-
-        blasAddress = getDeviceAddressOf( blas );
     }
 
     // Build BLAS using GPU operations
@@ -1166,6 +1176,8 @@ void VulkanRendererBackend::createBLAS()
     vkDestroyBuffer( device, vertexBuffer, nullptr );
     vkDestroyBuffer( device, indexBuffer, nullptr );
     vkDestroyBuffer( device, geoTransformBuffer, nullptr );
+
+    return blas;
 }
 
 void VulkanRendererBackend::createTLAS()
@@ -1188,7 +1200,7 @@ void VulkanRendererBackend::createTLAS()
         .mask = 0xFF,
         .instanceShaderBindingTableRecordOffset = 0,
         .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-        .accelerationStructureReference = blasAddress,
+        .accelerationStructureReference = getDeviceAddressOf( blas ),
     };
     VkAccelerationStructureInstanceKHR instanceData[] = { instance0, instance0 };
     instanceData[ 0 ].transform = insTransforms[ 0 ];
