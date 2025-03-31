@@ -138,14 +138,15 @@ foreach (EXE IN LISTS EXES)
 
         set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
         list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
-        set(LIBS ${DEF_LIBS} vulkan-1 glfw3dll)
-
+        set(LIBS ${DEF_LIBS} vulkan-1 glfw3)
+        #[==[
         add_custom_command(TARGET ${EXE}
                 COMMAND cp
                 "${CMAKE_CURRENT_BINARY_DIR}/sub_repo/glfw/src/Debug/glfw3.dll"
                 "${CMAKE_CURRENT_BINARY_DIR}/Debug/"
                 POST_BUILD
         )
+        ]==]
 
     else () #Unknown
         message("Not supported OS")

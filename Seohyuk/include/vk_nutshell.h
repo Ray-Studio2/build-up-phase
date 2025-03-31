@@ -102,13 +102,17 @@ namespace nutshell {
         }
 
         std::vector<const char *> instanceLayerRequestList = {
-            "VK_LAYER_KHRONOS_validation",
+            //"VK_LAYER_KHRONOS_validation",
+            "VK_LAYER_NV_optimus"
         };
 
 
         std::vector<const char *> instanceExtensionRequestList = {
             "VK_KHR_portability_enumeration",
         };
+
+        auto b = vk::enumerateInstanceLayerProperties();
+
 
         instance = vk::createInstance(
             vk::InstanceCreateInfo{
@@ -117,7 +121,7 @@ namespace nutshell {
 
 
                 static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
-                instanceExtensionRequestList.data(),
+                instanceLayerRequestList.data(),
 
 
                 static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
