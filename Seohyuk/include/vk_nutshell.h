@@ -8,9 +8,6 @@
 
 #define DEVICE_SELECTION 0
 
-#define WIDTH 800
-#define HEIGHT 600
-
 #define NDBUG
 
 namespace nutshell {
@@ -102,70 +99,69 @@ namespace nutshell {
         }
 
         std::vector<const char *> instanceLayerRequestList = {
-            //"VK_LAYER_KHRONOS_validation",
-            "VK_LAYER_NV_optimus"
+            "VK_LAYER_KHRONOS_validation"
+
+            //"VK_LAYER_NV_optimus"
         };
-
-
         std::vector<const char *> instanceExtensionRequestList = {
             "VK_KHR_portability_enumeration",
+            "VK_KHR_surface"
+        };
+        {
+            instance = vk::createInstance(
+                vk::InstanceCreateInfo{
+                        {
+                            // vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR This will be enabled by default since 1.3.309.0
+                        },
+                    &appInfo,
+
+
+                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                    instanceLayerRequestList.data(),
+
+
+                    static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
+                    instanceExtensionRequestList.data(),
+                }
+            );
         };
 
-        auto b = vk::enumerateInstanceLayerProperties();
-
-
-        instance = vk::createInstance(
-            vk::InstanceCreateInfo{
-                    {},
-                &appInfo,
-
-
-                static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
-                instanceLayerRequestList.data(),
-
-
-                static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
-                instanceExtensionRequestList.data(),
-            }
-        );
-
-
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
-
-
 
         physicalDevices = instance.enumeratePhysicalDevices();
 
         VkSurfaceKHR surface;
         auto error = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-
-        if (error) {
+        if (!error) {
             std::cerr << "Failed to create window surface. error code: " << error << std::endl;
         }
 
 
-        constexpr uint32_t queueFamilyIndex = 0;
+        uint32_t queueFamilyFoundedIndex = 0;
+        {
+            uint32_t q = 0;
+            for (const auto vec_qf = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties(); vk::QueueFamilyProperties queueFamily: vec_qf) {
+                /*
+                 * Queue family needs to support transfer, graphics.
+                 */ if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.queueFlags & vk::QueueFlagBits::eTransfer) {
+                        break;
+                    }
 
-
-        int a = 0;
-        for (const auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties();
-             vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
-            /*
-             * Queue family needs to support transfer, graphics.
-             */
-            if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.
-                queueFlags & vk::QueueFlagBits::eTransfer) {
-                break;
+                    q += 1;
             }
-
-            a += 1;
+            queueFamilyFoundedIndex = q;
         }
 
         const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo {
             {},
-            queueFamilyIndex,
+            queueFamilyFoundedIndex,
             1, //one Queue
             &queuePriorities
+        };
+
+        const std::vector<const char *> deviceEnabledLayers = {
+        };
+        const std::vector<const char *> deviceEnabledExtensions = {
         };
 
         device = physicalDevices.at(DEVICE_SELECTION).createDevice(
@@ -173,16 +169,16 @@ namespace nutshell {
                 {}, //flags
                 1, //queue create info count
                 &devQueueCreateInfo,
-                0, //enabled layer name count,
-                {}, // enabled layer names
-                0, // enabled extension count
-                {} // enabled extensions
+                static_cast<unsigned int>(deviceEnabledExtensions.capacity()), //enabled layer name count,
+                deviceEnabledExtensions.data(), // enabled layer names
+                static_cast<unsigned int>(deviceEnabledLayers.capacity()), // enabled extension count
+                deviceEnabledLayers.data() // enabled extensions
             }
         );
 
 
         queue = device.getQueue(
-            queueFamilyIndex, //Queue family index
+            queueFamilyFoundedIndex, //Queue family index
             0 // Queue index
         );
     }
@@ -217,7 +213,6 @@ namespace nutshell {
     }
 
     inline VkContext_::~VkContext_() {
-
         device.destroy();
         instance.destroy();
 
