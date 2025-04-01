@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 cmake_minimum_required(VERSION 3.30.0)
-=======
-cmake_minimum_required(VERSION 3.10)
 
->>>>>>> 181fa97c47d4811c8d711648c18d3879dc58d842
 project(Seohyuk)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -113,7 +109,7 @@ foreach (EXE IN LISTS EXES)
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
         endif ()
 
-        list(APPEND DEF_LIBS MoltenVK glfw) # MoltenVK
+        list(APPEND DEF_LIBS vulkan glfw) # MoltenVK
 
         set(LIBS ${DEF_LIBS} # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"

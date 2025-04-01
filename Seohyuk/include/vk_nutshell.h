@@ -104,6 +104,7 @@ namespace nutshell {
             //"VK_LAYER_NV_optimus"
         };
         std::vector<const char *> instanceExtensionRequestList = {
+            "VK_KHR_get_physical_device_properties2",
             "VK_KHR_portability_enumeration",
             "VK_KHR_surface"
         };
@@ -111,7 +112,7 @@ namespace nutshell {
             instance = vk::createInstance(
                 vk::InstanceCreateInfo{
                         {
-                            // vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR This will be enabled by default since 1.3.309.0
+                            vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR
                         },
                     &appInfo,
 
@@ -161,18 +162,30 @@ namespace nutshell {
 
         const std::vector<const char *> deviceEnabledLayers = {
         };
-        const std::vector<const char *> deviceEnabledExtensions = {
+        std::vector<const char *> deviceEnabledExtensions = {
+
         };
+
+        for (const auto p : physicalDevices.at(DEVICE_SELECTION).enumerateDeviceExtensionProperties()) {
+            if (strcmp(p.extensionName, "VK_KHR_portability_subset")) {
+                deviceEnabledExtensions.push_back("VK_KHR_portability_subset");
+                break;
+            }
+        }
+
+
 
         device = physicalDevices.at(DEVICE_SELECTION).createDevice(
             vk::DeviceCreateInfo{
                 {}, //flags
                 1, //queue create info count
                 &devQueueCreateInfo,
-                static_cast<unsigned int>(deviceEnabledExtensions.capacity()), //enabled layer name count,
-                deviceEnabledExtensions.data(), // enabled layer names
+
                 static_cast<unsigned int>(deviceEnabledLayers.capacity()), // enabled extension count
-                deviceEnabledLayers.data() // enabled extensions
+                deviceEnabledLayers.data(), // enabled extensions
+
+                static_cast<unsigned int>(deviceEnabledExtensions.capacity()), //enabled layer name count,
+                deviceEnabledExtensions.data() // enabled layer names
             }
         );
 

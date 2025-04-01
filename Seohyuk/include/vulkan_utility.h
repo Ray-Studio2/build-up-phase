@@ -24,23 +24,23 @@ namespace vkut {
 
         vk::SwapchainKHR createSwapchainInfo(vk::Device device, vk::SurfaceKHR vkSurface, uint32_t queueFamily, vk::Image &imageOut) {
             auto a = vk::SwapchainCreateInfoKHR {
-                {},
-                vkSurface,
-                SWAPCHAIN_IMAGE_COUNT,
-                SWAPCHAIN_IMAGE_FORMAT,
-                SWAPCHAIN_IMAGE_COLORSPACE,
-                vk::Extent2D {WIDTH, HEIGHT},
-                1,
-                vk::ImageUsageFlagBits::eTransferDst,
-                vk::SharingMode::eExclusive,
-                queueFamily,
-                vk::SurfaceTransformFlagBitsKHR::eIdentity, // preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-                vk::CompositeAlphaFlagBitsKHR::eOpaque, // compositeAlpha =  VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                vk::PresentModeKHR::eMailbox, // presentMode = VK_PRESENT_MODE_MAILBOX_KHR,
-                VK_TRUE // CLIPED
-            };
+                    {},
+                    vkSurface,
+                    SWAPCHAIN_IMAGE_COUNT,
+                    SWAPCHAIN_IMAGE_FORMAT,
+                    SWAPCHAIN_IMAGE_COLORSPACE,
+                    vk::Extent2D {WIDTH, HEIGHT},
+                    1,
+                    vk::ImageUsageFlagBits::eTransferDst,
+                    vk::SharingMode::eExclusive,
+                    queueFamily,
+                    vk::SurfaceTransformFlagBitsKHR::eIdentity, // preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+                    vk::CompositeAlphaFlagBitsKHR::eOpaque, // compositeAlpha =  VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                    vk::PresentModeKHR::eMailbox, // presentMode = VK_PRESENT_MODE_MAILBOX_KHR,
+                    VK_TRUE // CLIPED
+                };
+        }
     }
-
     // not the best way but it will work and comfortable to read. vk::enumerateInstanceLayerProperties function will not take that much reasource.
     // check if given instance name is supported by the system. if it is supported, the function will stop and return true.
     /* useless for now
