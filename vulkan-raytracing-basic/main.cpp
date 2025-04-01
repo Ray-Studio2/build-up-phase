@@ -794,12 +794,12 @@ void createBLAS()
 
     VkTransformMatrixKHR geoTransforms[] = {
         {
-            1.0f, 0.0f, 0.0f, -3.0f,
+            1.0f, 0.0f, 0.0f, -2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
-            1.0f, 0.0f, 0.0f, 3.0f,
+            1.0f, 0.0f, 0.0f, 2.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
@@ -978,12 +978,12 @@ void createTLAS()
     VkTransformMatrixKHR insTransforms[] = {
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 3.0f,
+            0.0f, 1.0f, 0.0f, 2.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         }, 
         {
             1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, -3.0f,
+            0.0f, 1.0f, 0.0f, -2.0f,
             0.0f, 0.0f, 1.0f, 0.0f
         },
     };
@@ -1207,11 +1207,12 @@ void main()
 const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#define PI 3.141592653589793
 
 struct Vert {
     vec4 pos;
     vec4 norm;
-    vec4 color;
+    vec4 colorV;
     vec4 uv;
 };
 
@@ -1228,24 +1229,128 @@ layout(shaderRecordEXT) buffer CustomData
     vec3 color;
 };
 
+layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
+layout(location = 1) rayPayloadEXT uint shadowMissCnt;
 hitAttributeEXT vec2 attribs;
+
+float RandomValue_HG(inout uint state)
+{
+    state = (1664525u * state + 1013904223u);
+    return float(state & 0x00FFFFFFu) / float(0x01000000u);
+}
+
+vec3 RandomDirection_HG(vec3 normal, inout uint state)
+{
+    vec3 dir;
+    while (true) {
+        dir = vec3(
+            RandomValue_HG(state) * 2.0 - 1.0,
+            RandomValue_HG(state) * 2.0 - 1.0,
+            RandomValue_HG(state) * 2.0 - 1.0
+        );
+        if (dot(dir,dir) < 1.0 && dot(normal,dir) > 0.0)
+            break;
+    }
+
+    float norm = sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+    dir.x /= norm;
+    dir.y /= norm;
+    dir.z /= norm;
+
+    if (dir.z < 0.0)
+        dir.z *= -1.0;
+
+    return dir;
+}
+
+float RandomValue(inout uint state) {
+    state *= (state + 195439) * (state + 124395) * (state + 845921);
+    return state / 4294967295.0; // 2^31 - 1 (uint 최댓값으로 나눔) -> 0~1 사이의 실수
+}
+
+float RandomValueNormalDistribution(inout uint state) {
+    float theta = 2 * 3.1415926 * RandomValue(state);
+    float rho = sqrt(-2 * log(RandomValue(state)));
+    return rho * cos(theta);
+}
+
+vec3 RandomDirection_N(inout uint state) {
+    float x = RandomValueNormalDistribution(state);
+    float y = RandomValueNormalDistribution(state);
+    float z = RandomValueNormalDistribution(state);
+    return normalize(vec3(x, y, z));
+}
+
+vec3 RandomDirection_PDF(inout uint state) {
+    float phi = 2 * PI * RandomValue(state);
+    float theta = acos(RandomValue(state));
+
+    float x = sin(theta) * cos(phi);
+    float y = sin(theta) * sin(phi);
+    float z = cos(theta);
+
+    return normalize(vec3(x, y, z));
+}
+
+vec3 RandomHemisphereDirection(vec3 normal, inout uint state) {
+    vec3 dir = RandomDirection_HG(normal, state);
+    //vec3 dir = RandomDirection_N(state);
+    //vec3 dir = RandomDirection_PDF(state);
+    return dir * sign(dot(normal, dir));
+}
 
 void main()
 {
+    shadowMissCnt = 0;
+
     Vert v0 = data[ind[gl_PrimitiveID * 3 + 0]]; // TODO: if indices data are modified, need to pass the index data also, repeated vertex rn
     Vert v1 = data[ind[gl_PrimitiveID * 3 + 1]];
     Vert v2 = data[ind[gl_PrimitiveID * 3 + 2]];
     
     const vec3 barycentrics = {1.0f - attribs.x - attribs.y, attribs.x, attribs.y};
 
-    vec3 norm1 = (v0.norm.xyz * barycentrics.x);
-    vec3 norm2 = (v1.norm.xyz * barycentrics.y);
-    vec3 norm3 = (v2.norm.xyz * barycentrics.z);
+    vec3 localPos = (v0.pos.xyz * barycentrics.x +
+                     v1.pos.xyz * barycentrics.y +
+                     v2.pos.xyz * barycentrics.z);
+    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 
-    vec3 normColor = (normalize(norm1 + norm2 + norm3) + 1.0f) * 0.5f;
-    hitValue = normColor;
-    //hitValue = normalize((gl_ObjectToWorldEXT * vec4(normColor, 0.0f)).xyz);
+    vec3 localNorm = normalize(v0.norm.xyz * barycentrics.x +
+                               v1.norm.xyz * barycentrics.y +
+                               v2.norm.xyz * barycentrics.z);
+    //mat3 normalMatrix = transpose(inverse(mat3(gl_ObjectToWorldEXT)));
+    //vec3 worldNorm = normalize(normalMatrix * localNorm);
+    vec3 worldNorm = localNorm; // no rotation and scale right now
+
+    uvec2 pixelCoord = gl_LaunchIDEXT.xy;
+    uvec2 screenSize = gl_LaunchSizeEXT.xy;
+    uint rngState = pixelCoord.y * screenSize.x + pixelCoord.x; // 1-D array에서의 pixel 위치
+
+    const uint numShadowRays = 3000;
+    for (uint i=0; i < numShadowRays; ++i) {
+        vec3 rayDir = RandomHemisphereDirection(worldNorm, rngState);
+        traceRayEXT(
+            topLevelAS,                         // topLevel
+            gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff,         // rayFlags, cullMask
+            0, 1, 1,                            // sbtRecordOffset, sbtRecordStride, missIndex
+            worldPos, 0.001, rayDir, 100.0,  // origin, tmin, direction, tmax
+            1);                                 // payload
+    }
+    
+    hitValue = color * (float(shadowMissCnt) / numShadowRays);
+}
+)";
+
+const char* shadow_miss_src = R"(
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(location = 1) rayPayloadInEXT uint shadowMissCnt;
+
+void main()
+{
+    shadowMissCnt++;
 }
 )";
 
@@ -1256,7 +1361,7 @@ void createRayTracingPipeline()
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
         },
         {
             .binding = 1,
@@ -1301,7 +1406,8 @@ void createRayTracingPipeline()
     ShaderModule<VK_SHADER_STAGE_RAYGEN_BIT_KHR> raygenModule(vk.device, raygen_src);
     ShaderModule<VK_SHADER_STAGE_MISS_BIT_KHR> missModule(vk.device, miss_src);
     ShaderModule<VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR> chitModule(vk.device, chit_src);
-    VkPipelineShaderStageCreateInfo stages[] = { raygenModule, missModule, chitModule };
+    ShaderModule<VK_SHADER_STAGE_MISS_BIT_KHR> shadowMissModule(vk.device, shadow_miss_src);
+    VkPipelineShaderStageCreateInfo stages[] = { raygenModule, missModule, chitModule, shadowMissModule };
 
     VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {
         {
@@ -1325,6 +1431,14 @@ void createRayTracingPipeline()
             .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
             .generalShader = VK_SHADER_UNUSED_KHR,
             .closestHitShader = 2,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 3,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         },
@@ -1462,19 +1576,20 @@ void createShaderBindingTable()
         return (value + (decltype(value))alignment - 1) & ~((decltype(value))alignment - 1);
     };
     const uint32_t handleSize = SHADER_GROUP_HANDLE_SIZE;
-    const uint32_t groupCount = 3; // 1 raygen, 1 miss, 1 hit group
-    std::vector<ShaderGroupHandle> handels(groupCount);
-    vk.vkGetRayTracingShaderGroupHandlesKHR(vk.device, vk.pipeline, 0, groupCount, handleSize * groupCount, handels.data());
-    ShaderGroupHandle rgenHandle = handels[0];
-    ShaderGroupHandle missHandle = handels[1];
-    ShaderGroupHandle hitgHandle = handels[2];
+    const uint32_t groupCount = 4; // 1 raygen, 2 miss, 1 hit group
+    std::vector<ShaderGroupHandle> handles(groupCount);
+    vk.vkGetRayTracingShaderGroupHandlesKHR(vk.device, vk.pipeline, 0, groupCount, handleSize * groupCount, handles.data());
+    ShaderGroupHandle rgenHandle = handles[0];
+    ShaderGroupHandle missHandle = handles[1];
+    ShaderGroupHandle hitgHandle = handles[2];
+    ShaderGroupHandle shadowMissHandle = handles[3];
 
     const uint32_t rgenStride = alignTo(handleSize, vk.rtProperties.shaderGroupHandleAlignment);
     vk.rgenSbt = { 0, rgenStride, rgenStride };
     
     const uint64_t missOffset = alignTo(vk.rgenSbt.size, vk.rtProperties.shaderGroupBaseAlignment);
     const uint32_t missStride = alignTo(handleSize, vk.rtProperties.shaderGroupHandleAlignment);
-    vk.missSbt = { 0, missStride, missStride };
+    vk.missSbt = { 0, missStride, missStride * 2 };
 
     const uint32_t hitgCustomDataSize = sizeof(HitgCustomData);
     const uint32_t geometryCount = 4;
@@ -1500,7 +1615,8 @@ void createShaderBindingTable()
     vkMapMemory(vk.device, vk.sbtBufferMem, 0, sbtSize, 0, (void**)&dst);
     {
         *(ShaderGroupHandle*)dst = rgenHandle; 
-        *(ShaderGroupHandle*)(dst + missOffset) = missHandle;
+        *(ShaderGroupHandle*)(dst + missOffset + 0 * missStride) = missHandle;
+        *(ShaderGroupHandle*)(dst + missOffset + 1 * missStride) = shadowMissHandle;
 
         *(ShaderGroupHandle*)(dst + hitgOffset + 0 * hitgStride             ) = hitgHandle;
         *(HitgCustomData*   )(dst + hitgOffset + 0 * hitgStride + handleSize) = {0.6f, 0.1f, 0.2f}; // Deep Red Wine
