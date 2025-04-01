@@ -11,6 +11,8 @@
 #define NDBUG
 
 namespace nutshell {
+
+
     /**
      * all the draw callbacks must be implemented allways.
      * it can be done like this
@@ -39,14 +41,16 @@ namespace nutshell {
     void (drawCallPostRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue); /* after the rendering inside a renderpass */
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
-
-
-
-
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
      **/
     typedef struct VkContext_ {
+        struct {
+            GLFWwindow * window = nullptr;
+            vk::SurfaceKHR surface;
+            vk::SwapchainKHR swapchaine;
+        } PresentationUnit;
+
         vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", 0);
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
@@ -55,7 +59,7 @@ namespace nutshell {
         vk::Queue queue;
         vk::CommandPool commandPool;
 
-        GLFWwindow*window = nullptr;
+
 
 
         VkContext_();
@@ -74,29 +78,27 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
+        glfwInit();
 
-        {
-            glfwInit();
-            printf("GLFW Vulkan supported: %s\n", (glfwVulkanSupported() ? "YES" : "NO"));
-        }
+        printf("GLFW Vulkan supported: %s\n", (glfwVulkanSupported() ? "YES" : "NO"));
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+        PresentationUnit.window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
+        if (!PresentationUnit.window) {
+            std::cerr << "Failed to create GLFW window" << std::endl;
+            glfwTerminate();
+            exit(EXIT_FAILURE);
+        }
 
         if ( glfwVulkanSupported() == GLFW_FALSE ) {
             std::cout << "Vulkan is not supported!" << std::endl;
             exit(VK_ERROR_INITIALIZATION_FAILED);
         }
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
-        {
-            if (!window) {
-                std::cerr << "Failed to create GLFW window" << std::endl;
-                glfwTerminate();
-                exit(EXIT_FAILURE);
-            }
+        uint32_t glfwRequiredInstanceExtensionsCount;
+        const char** glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionsCount);
 
-            glfwMakeContextCurrent(window);
-        }
 
         std::vector<const char *> instanceLayerRequestList = {
             "VK_LAYER_KHRONOS_validation"
@@ -105,9 +107,14 @@ namespace nutshell {
         };
         std::vector<const char *> instanceExtensionRequestList = {
             "VK_KHR_get_physical_device_properties2",
+            "VK_KHR_get_surface_capabilities2",
             "VK_KHR_portability_enumeration",
-            "VK_KHR_surface"
         };
+
+        for (uint32_t i = 0; i < glfwRequiredInstanceExtensionsCount; i += 1) {
+            instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
+        }
+
         {
             instance = vk::createInstance(
                 vk::InstanceCreateInfo{
@@ -117,7 +124,7 @@ namespace nutshell {
                     &appInfo,
 
 
-                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                    static_cast<unsigned int>(instanceLayerRequestList.capacity()),
                     instanceLayerRequestList.data(),
 
 
@@ -125,17 +132,18 @@ namespace nutshell {
                     instanceExtensionRequestList.data(),
                 }
             );
-        };
+        }
 
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
 
         physicalDevices = instance.enumeratePhysicalDevices();
 
         VkSurfaceKHR surface;
-        auto error = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-        if (!error) {
+        VkResult error = glfwCreateWindowSurface(instance, PresentationUnit.window, nullptr, &surface);
+        if (error) {
             std::cerr << "Failed to create window surface. error code: " << error << std::endl;
         }
+        PresentationUnit.surface = vk::SurfaceKHR { surface };
 
 
         uint32_t queueFamilyFoundedIndex = 0;
@@ -153,6 +161,9 @@ namespace nutshell {
             queueFamilyFoundedIndex = q;
         }
 
+
+
+
         const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo {
             {},
             queueFamilyFoundedIndex,
@@ -163,7 +174,7 @@ namespace nutshell {
         const std::vector<const char *> deviceEnabledLayers = {
         };
         std::vector<const char *> deviceEnabledExtensions = {
-
+            //"VK_KHR_swapchain"
         };
 
         for (const auto p : physicalDevices.at(DEVICE_SELECTION).enumerateDeviceExtensionProperties()) {
@@ -194,31 +205,34 @@ namespace nutshell {
             queueFamilyFoundedIndex, //Queue family index
             0 // Queue index
         );
+
+        PresentationUnit.swapchaine = device.createSwapchainKHR(vkut::display::createSwapchainInfo(physicalDevices[DEVICE_SELECTION], PresentationUnit.surface, queueFamilyFoundedIndex));
+
     }
 
 
 
     inline void VkContext_::programLoop() const {
-        while ( !glfwWindowShouldClose(window) ) {
+        while ( !glfwWindowShouldClose(PresentationUnit.window) ) {
             beforeRender();
             {
-                drawCallPreRender(window, instance, device, queue);
+                drawCallPreRender(PresentationUnit.window, instance, device, queue);
                 {
                     whileRendering();
-                    drawCallBackMain(window, instance, device, queue);
+                    drawCallBackMain(PresentationUnit.window, instance, device, queue);
                 }
-                drawCallPostRender(window, instance, device, queue);
+                drawCallPostRender(PresentationUnit.window, instance, device, queue);
             }
             afterRedner();
 
 
 
-            if ( window != nullptr ) {
+            if ( PresentationUnit.window != nullptr ) {
             } else {
                 //offscreen
             }
 
-            glfwSwapBuffers(window);
+            glfwSwapBuffers(PresentationUnit.window);
             glfwPollEvents();
 
 
@@ -226,10 +240,12 @@ namespace nutshell {
     }
 
     inline VkContext_::~VkContext_() {
+
+        device.destroySwapchainKHR(PresentationUnit.swapchaine);
         device.destroy();
         instance.destroy();
 
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(PresentationUnit.window);
 
         std::cout << "Nutshell says goodbye~" << std::endl; // if this doesn't happen, you are doing destroy in wrong way.
     }

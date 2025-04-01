@@ -17,18 +17,22 @@ namespace vkut {
         #define HEIGHT 600
 
         #define SWAPCHAIN_IMAGE_COUNT 2
-        #define SWAPCHAIN_IMAGE_FORMAT vk::Format::eB8G8R8Srgb
-        #define SWAPCHAIN_IMAGE_COLORSPACE vk::ColorSpaceKHR::eSrgbNonlinear
         #define DISPLAY_DIM vk::Extent2D {WIDTH, HEIGHT}
 
 
-        vk::SwapchainKHR createSwapchainInfo(vk::Device device, vk::SurfaceKHR vkSurface, uint32_t queueFamily, vk::Image &imageOut) {
-            auto a = vk::SwapchainCreateInfoKHR {
+        inline vk::SwapchainCreateInfoKHR createSwapchainInfo(vk::PhysicalDevice physical_device, const vk::SurfaceKHR vkSurface, uint32_t queueFamily) {
+
+            vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo2KHR;
+            auto a = physical_device.getSurfaceFormats2KHR(physicalDeviceSurfaceInfo2KHR);
+
+
+
+            return vk::SwapchainCreateInfoKHR {
                     {},
                     vkSurface,
                     SWAPCHAIN_IMAGE_COUNT,
-                    SWAPCHAIN_IMAGE_FORMAT,
-                    SWAPCHAIN_IMAGE_COLORSPACE,
+                    vk::Format::eB8G8R8Srgb,
+                    vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear,
                     vk::Extent2D {WIDTH, HEIGHT},
                     1,
                     vk::ImageUsageFlagBits::eTransferDst,
