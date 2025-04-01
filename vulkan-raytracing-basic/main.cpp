@@ -1207,6 +1207,7 @@ void main()
 const char* chit_src = R"(
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#define PI 3.141592653589793
 
 struct Vert {
     vec4 pos;
@@ -1234,6 +1235,35 @@ layout(location = 0) rayPayloadInEXT vec3 hitValue;
 layout(location = 1) rayPayloadEXT uint shadowMissCnt;
 hitAttributeEXT vec2 attribs;
 
+float RandomValue_HG(inout uint state) {
+    state *= (state + 195439) * (state + 124395) * (state + 845921);
+    return state / 4294967295.0; // 2^31 - 1 (uint 최댓값으로 나눔) -> 0~1 사이의 실수
+}
+
+vec3 RandomDirection_HG(vec3 normal, inout uint state)
+{
+    vec3 dir;
+    while (true) {
+        dir = vec3(
+            RandomValue_HG(state) * 2.0 - 1.0,
+            RandomValue_HG(state) * 2.0 - 1.0,
+            RandomValue_HG(state) * 2.0 - 1.0
+        );
+        if (dot(dir,dir) < 1.0 && dot(normal,dir) > 0.0)
+            break;
+    }
+
+    float norm = sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+    dir.x /= norm;
+    dir.y /= norm;
+    dir.z /= norm;
+
+    if (dir.z < 0.0)
+        dir.z *= -1.0;
+
+    return dir;
+}
+
 float RandomValue(inout uint state) {
     state *= (state + 195439) * (state + 124395) * (state + 845921);
     return state / 4294967295.0; // 2^31 - 1 (uint 최댓값으로 나눔) -> 0~1 사이의 실수
@@ -1245,15 +1275,28 @@ float RandomValueNormalDistribution(inout uint state) {
     return rho * cos(theta);
 }
 
-vec3 RandomDirection(inout uint state) {
+vec3 RandomDirection_N(inout uint state) {
     float x = RandomValueNormalDistribution(state);
     float y = RandomValueNormalDistribution(state);
     float z = RandomValueNormalDistribution(state);
     return normalize(vec3(x, y, z));
 }
 
+vec3 RandomDirection_PDF(inout uint state) {
+    float phi = 2 * PI * RandomValue(state);
+    float theta = acos(RandomValue(state));
+
+    float x = sin(theta) * cos(phi);
+    float y = sin(theta) * sin(phi);
+    float z = cos(theta);
+
+    return normalize(vec3(x, y, z));
+}
+
 vec3 RandomHemisphereDirection(vec3 normal, inout uint state) {
-    vec3 dir = RandomDirection(state);
+    vec3 dir = RandomDirection_HG(normal, state);
+    //vec3 dir = RandomDirection_N(state);
+    //vec3 dir = RandomDirection_PDF(state);
     return dir * sign(dot(normal, dir));
 }
 
@@ -1270,31 +1313,30 @@ void main()
     vec3 localPos = (v0.pos.xyz * barycentrics.x +
                      v1.pos.xyz * barycentrics.y +
                      v2.pos.xyz * barycentrics.z);
-    vec3 worldPos = (gl_ObjectToWorldEXT * vec4(localPos, 1.0)).xyz;
+    vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 
     vec3 localNorm = normalize(v0.norm.xyz * barycentrics.x +
                                v1.norm.xyz * barycentrics.y +
                                v2.norm.xyz * barycentrics.z);
-    mat3 normalMatrix = transpose(inverse(mat3(gl_ObjectToWorldEXT)));
-    vec3 worldNorm = normalize(normalMatrix * localNorm);
+    //mat3 normalMatrix = transpose(inverse(mat3(gl_ObjectToWorldEXT)));
+    //vec3 worldNorm = normalize(normalMatrix * localNorm);
+    vec3 worldNorm = localNorm; // no rotation and scale right now
 
     uvec2 pixelCoord = gl_LaunchIDEXT.xy;
     uvec2 screenSize = gl_LaunchSizeEXT.xy;
     uint rngState = pixelCoord.y * screenSize.x + pixelCoord.x; // 1-D array에서의 pixel 위치
 
-    const uint numShadowRays = 100;
+    const uint numShadowRays = 3000;
     for (uint i=0; i < numShadowRays; ++i) {
         vec3 rayDir = RandomHemisphereDirection(worldNorm, rngState);
-        vec3 newPos = worldPos + 0.01 * rayDir;
-
         traceRayEXT(
             topLevelAS,                         // topLevel
             gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff,         // rayFlags, cullMask
             0, 1, 1,                            // sbtRecordOffset, sbtRecordStride, missIndex
-            newPos, 0.01, rayDir, 100.0,  // origin, tmin, direction, tmax
+            worldPos, 0.001, rayDir, 100.0,  // origin, tmin, direction, tmax
             1);                                 // payload
     }
-
+    
     hitValue = color * (float(shadowMissCnt) / numShadowRays);
 }
 )";
