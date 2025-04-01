@@ -1,36 +1,32 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
+#include "core/interfaces/resource.hpp"
 
-class Memory;
-
-class Image {
+class Image: public Resource<VkImage_T, Usage::Image> {
     Image(const Image&) = delete;
     Image(Image&&) noexcept = delete;
 
     Image& operator=(const Image&) = delete;
     Image& operator=(Image&&) noexcept = delete;
 
-    private:
-        using uint32 = unsigned int;
-
     public:
         Image();
-        Image(VkImageType imgType, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage);
-        ~Image() noexcept;
+        ~Image() noexcept override;
 
-        explicit operator bool() const noexcept;
-        operator VkImage() const noexcept;
+        void destroy() override;
 
-        bool create(VkImageType imgType, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage);
+        operator VkImage_T*() const noexcept override;
 
-        void bindMemory(Memory* memory, uint32 offset = { });
+        bool create(
+            int32 type, Type::ImageFormat format, Type::Extent3D extent,
+            Usage::Image imgUsage, Property::Memory memProperty
+        );
 
-    private:
-        bool mIsCreated{ };
+        void setLayout(VkCommandBuffer_T* commandBuf, Layout::Image newLayout);
 
-        VkImageCreateInfo mInfo{ };
-        VkImage mHandle{ };
+        Type::ImageFormat format() const noexcept;
 
-        Memory* mMemory{ };
+    protected:
+        Type::ImageFormat mFormat = { };
+        Layout::Image     mLayout = { };
 };

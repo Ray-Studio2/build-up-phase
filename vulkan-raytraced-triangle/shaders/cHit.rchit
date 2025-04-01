@@ -74,7 +74,7 @@ void main() {
     vec3 worldNormal = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * interpolatedN);
 
     uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-    uint rayCount = 1000;
+    uint rayCount = 512;
 
     // 채윤님 dist
     uvec2 pixelCoord = gl_LaunchIDEXT.xy;

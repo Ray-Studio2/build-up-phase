@@ -1,44 +1,48 @@
+#include "core/settings.hpp"
 #include "core/device.hpp"
 #include "core/app.hpp"
 
 #include <iostream>
-#include <string>
+#include <cstring>
+#include <vector>
 using std::cout, std::endl;
-using std::string;
+using std::vector;
 
-constexpr unsigned int QUEUE_FAMILY_NOT_FOUND = ~0U;
+constexpr uint32 QUEUE_FAMILY_NOT_FOUND = ~0U;
 
 /* Return
  *   모든 extension을 지원하면 true
  *   모든 extension을 지원하지 않으면 false
 */
-bool isDeviceExtensionsSupport(VkPhysicalDevice pDevice, const vector<const char*>& extensions) {
+bool isDeviceExtensionsSupport(VkPhysicalDevice pDevice) {
     unsigned int extensionPropsCount{ };
     vkEnumerateDeviceExtensionProperties(pDevice, nullptr, &extensionPropsCount, nullptr);
 
     vector<VkExtensionProperties> extensionProps(extensionPropsCount);
     vkEnumerateDeviceExtensionProperties(pDevice, nullptr, &extensionPropsCount, extensionProps.data());
 
-    unsigned int count{ };
-    for (const string& extension: extensions) {
+    for (uint32 i = 0; i < (sizeof(Settings::Extension::DEVICE) / sizeof(Settings::Extension::DEVICE[0])); ++i) {
+        const char* extension = Settings::Extension::DEVICE[i];
+
+        bool isExist = { };
         for (const auto& support: extensionProps) {
-            if (extension == support.extensionName) {
-                ++count;
+            if (strcmp(extension, support.extensionName) == 0) {
+                isExist = true;
                 break;
             }
         }
 
-        if (count == extensions.size())
-            return true;
+        if (!isExist)
+            return false;
     }
 
-    return false;
+    return true;
 }
 /* Return
  *   모든 extension을 지원하는 physical device를 찾으면 그 physical device의 handle
  *   모든 extension을 지원하는 physical device를 찾지 못했으면 nullptr
 */
-VkPhysicalDevice findPhysicalDevice(const vector<const char*>& extensions) {
+VkPhysicalDevice findPhysicalDevice() {
     unsigned int pDeviceCount{ };
     vkEnumeratePhysicalDevices(App::instance(), &pDeviceCount, nullptr);
 
@@ -46,8 +50,15 @@ VkPhysicalDevice findPhysicalDevice(const vector<const char*>& extensions) {
     vkEnumeratePhysicalDevices(App::instance(), &pDeviceCount, pDevices.data());
 
     for (const auto& pDevice: pDevices) {
-        if (isDeviceExtensionsSupport(pDevice, extensions))
+        if (isDeviceExtensionsSupport(pDevice)) {
+            // debug
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(pDevice, &props);
+            cout << "Selected Device: " << props.deviceName << endl;
+            cout << "Device Vulkan API: " << props.apiVersion << endl;
+
             return pDevice;
+        }
     }
 
     return nullptr;
@@ -78,7 +89,6 @@ unsigned int findQueueFamily(VkPhysicalDevice pDevice) {
 
 /* -------- Constructors & Destructor -------- */
 Device::Device() { }
-Device::Device(const vector<const char*>& reqExtensions) { create(reqExtensions); }
 Device::~Device() noexcept { vkDestroyDevice(mLogicalHandle, nullptr); }
 /* ------------------------------------------- */
 
@@ -92,9 +102,9 @@ Device::operator VkDevice() const noexcept { return mLogicalHandle; }
  *   device 생성 성공시 true
  *   device 생성 실패시 false
 */
-bool Device::create(const vector<const char*>& reqExtensions) {
+bool Device::create() {
     if (!mIsCreated) {
-        mPhysicalHandle = findPhysicalDevice(reqExtensions);
+        mPhysicalHandle = findPhysicalDevice();
         if (mPhysicalHandle == nullptr)
             cout << "[ERROR]: Physical Device Not Found" << endl;
 
@@ -117,8 +127,8 @@ bool Device::create(const vector<const char*>& reqExtensions) {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                     .queueCreateInfoCount = 1,
                     .pQueueCreateInfos = &qInfo,
-                    .enabledExtensionCount = static_cast<uint32>(reqExtensions.size()),
-                    .ppEnabledExtensionNames = reqExtensions.data(),
+                    .enabledExtensionCount = static_cast<uint32>(sizeof(Settings::Extension::DEVICE) / sizeof(Settings::Extension::DEVICE[0])),
+                    .ppEnabledExtensionNames = Settings::Extension::DEVICE,
                 };
 
                 VkPhysicalDeviceFeatures deviceFeatures {
@@ -158,5 +168,5 @@ bool Device::create(const vector<const char*>& reqExtensions) {
 
 /* ----------------- Getters ----------------- */
 VkQueue Device::queue() const noexcept { return mQueue; }
-Device::uint32 Device::queueFamilyIndex() const noexcept { return mQueueFamilyIdx; }
+uint32  Device::queueFamilyIndex() const noexcept { return mQueueFamilyIdx; }
 /* ------------------------------------------- */

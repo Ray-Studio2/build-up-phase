@@ -1,9 +1,8 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
+#include "core/types.hpp"
 
-#include <vector>
-using std::vector;
+#include "vulkan/vulkan.h"
 
 /* TODO
  *   - extension, feature 관리 -> device create info 관리
@@ -19,19 +18,15 @@ class Device {
     Device& operator=(const Device&) = delete;
     Device& operator=(Device&&) noexcept = delete;
 
-    private:
-        using uint32 = unsigned int;
-
     public:
         Device();
-        Device(const vector<const char*>& reqExtensions);
         ~Device() noexcept;
 
         explicit operator bool() const noexcept;
         operator VkPhysicalDevice() const noexcept;
         operator VkDevice() const noexcept;
 
-        bool create(const vector<const char*>& reqExtensions);
+        bool create();
 
         VkQueue queue() const noexcept;
         uint32 queueFamilyIndex() const noexcept;

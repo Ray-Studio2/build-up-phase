@@ -1,45 +1,23 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
+#include "core/interfaces/resource.hpp"
 
-/* TODO
- *   - write 함수 size 지정할 수 있도록 수정
- *   - write 함수 Memory Class로 이관 여부 결정
-*/
-
-class Memory;
-
-class Buffer {
+class Buffer final: public Resource<VkBuffer_T, Usage::Buffer> {
     Buffer(const Buffer&) = delete;
     Buffer(Buffer&&) noexcept = delete;
 
     Buffer& operator=(const Buffer&) = delete;
     Buffer& operator=(Buffer&&) noexcept = delete;
 
-    private:
-        using uint32 = unsigned int;
-
     public:
         Buffer();
-        Buffer(VkDeviceSize size, VkBufferUsageFlags usage);
-        ~Buffer() noexcept;
+        ~Buffer() noexcept override;
 
-        explicit operator bool() const noexcept;
-        operator VkBuffer() const noexcept;
+        void destroy() override;
 
-        bool create(VkDeviceSize size, VkBufferUsageFlags usage);
-        void write(const void* data);
+        operator VkBuffer_T*() const noexcept override;
 
-        void bindMemory(Memory* memory, uint32 offset = { });
+        bool create(uint64 size, Usage::Buffer bufUsage, Property::Memory memUsage);
 
-        VkDeviceSize size() const noexcept;
-        VkBufferUsageFlags usage() const noexcept;
-
-    private:
-        bool mIsCreated{ };
-
-        VkBufferCreateInfo mInfo{ };
-        VkBuffer mHandle{ };
-
-        Memory* mMemory{ };
+        void write(const void* data, uint64 size, uint64 offset = 0);
 };

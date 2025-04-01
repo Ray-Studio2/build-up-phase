@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/types.hpp"
 #include "core/window.hpp"
 #include "core/instance.hpp"
 #include "core/device.hpp"
@@ -20,9 +21,6 @@ class App {
 
     App& operator=(const App&) = delete;
     App& operator=(App&&) noexcept = delete;
-
-    private:
-        using uint32 = unsigned int;
 
     public:
         static void init(uint32 width, uint32 height, const char* title);
