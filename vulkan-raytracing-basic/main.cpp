@@ -1235,9 +1235,10 @@ layout(location = 0) rayPayloadInEXT vec3 hitValue;
 layout(location = 1) rayPayloadEXT uint shadowMissCnt;
 hitAttributeEXT vec2 attribs;
 
-float RandomValue_HG(inout uint state) {
-    state *= (state + 195439) * (state + 124395) * (state + 845921);
-    return state / 4294967295.0; // 2^31 - 1 (uint 최댓값으로 나눔) -> 0~1 사이의 실수
+float RandomValue_HG(inout uint state)
+{
+    state = (1664525u * state + 1013904223u);
+    return float(state & 0x00FFFFFFu) / float(0x01000000u);
 }
 
 vec3 RandomDirection_HG(vec3 normal, inout uint state)
