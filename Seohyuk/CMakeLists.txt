@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 cmake_minimum_required(VERSION 3.30.0)
+=======
+cmake_minimum_required(VERSION 3.10)
+
+>>>>>>> 181fa97c47d4811c8d711648c18d3879dc58d842
 project(Seohyuk)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -50,13 +55,13 @@ endif ()
 # 외부 라이브러리 링크하기!
 add_subdirectory(sub_repo)
 
-
 # 여기서부터는 executable 추가
 add_executable(CMDUtility CMDUtility.cpp)
 add_executable(Triangle triangle.cpp
         include/seohyuk.h
         include/vulkan_utility.h)
-add_subdirectory(TeapotBasic)
+
+add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp include/vk_nutshell.h)
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
 add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
@@ -71,8 +76,8 @@ add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_renderin
 # 여기에 execuable을 등록만 하면 자동으로 링크된다!
 set(    EXES
         #[==[============ 이하 executable의 목록 ============]==]
-        CMDUtility
-        Triangle
+        #CMDUtility
+        #Triangle
         TeapotBasic
 )
 
@@ -80,13 +85,14 @@ message(STATUS "Prepareing project for the Executables ${EXES}")
 
 set(    DEF_INCLUDES
         "${CMAKE_CURRENT_SOURCE_DIR}/sub_repo/glfw/include"
-        "./include"
+        "include"
 )
 set(    DEF_LIB_DIR
         "${CMAKE_BINARY_DIR}/sub_repo/glfw/src"
+        "${CMAKE_BINARY_DIR}/sub_repo/glfw/include"
 )
 set(    DEF_LIBS
-        glfw3 # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
+         # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
 
 foreach (EXE IN LISTS EXES)
@@ -107,9 +113,9 @@ foreach (EXE IN LISTS EXES)
             list(APPEND LIB_DIRS "${DEF_LIB_DIR}")
         endif ()
 
-        list(APPEND DEF_LIBS MoltenVK) # MoltenVK
+        list(APPEND DEF_LIBS MoltenVK glfw) # MoltenVK
 
-        set(LIBS ${DEF_LIBS} MoltenVK # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
+        set(LIBS ${DEF_LIBS} # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
                 "-framework Cocoa"
                 "-framework IOKit"
                 "-framework IOSurface"
@@ -134,9 +140,17 @@ foreach (EXE IN LISTS EXES)
 
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
-        set(INCLUDES  ${DEF_INCLUDES})
-        list(APPEND LIB_DIRS ${DEF_LIB_DIR})
-        set(LIBS ${DEF_LIBS} vulkan-1)
+        set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
+        list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
+        set(LIBS ${DEF_LIBS} vulkan-1 glfw3)
+        #[==[
+        add_custom_command(TARGET ${EXE}
+                COMMAND cp
+                "${CMAKE_CURRENT_BINARY_DIR}/sub_repo/glfw/src/Debug/glfw3.dll"
+                "${CMAKE_CURRENT_BINARY_DIR}/Debug/"
+                POST_BUILD
+        )
+        ]==]
 
     else () #Unknown
         message("Not supported OS")
@@ -147,5 +161,10 @@ foreach (EXE IN LISTS EXES)
     target_include_directories(${EXE} PUBLIC ${INCLUDES})
     target_link_directories( ${EXE} PUBLIC ${LIB_DIRS} )
     target_link_libraries( ${EXE} PUBLIC ${LIBS} )
+
+
+
+
+
 
 endforeach ()

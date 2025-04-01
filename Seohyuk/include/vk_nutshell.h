@@ -7,10 +7,8 @@
 #include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
-#define INSTANCE_LAYER_COUNT 20
 
-#define WIDTH 800
-#define HEIGHT 600
+#define NDBUG
 
 namespace nutshell {
     /**
@@ -42,17 +40,7 @@ namespace nutshell {
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
 
-    std::vector<const char *> instanceLayerRequestList = {
-        //"VK_LAYER_KHRONOS_validation",
 
-
-    };
-
-
-    std::vector<const char *> instanceExtensionRequestList = {
-        //"VK_KHR_portability_enumeration",
-
-    };
 
 
     /**
@@ -60,7 +48,6 @@ namespace nutshell {
      **/
     typedef struct VkContext_ {
         vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", 0);
-        char * const * instanceLayers[INSTANCE_LAYER_COUNT][255] = {};
         vk::Instance instance;
         std::vector<vk::PhysicalDevice> physicalDevices;
         vk::Device device;
@@ -79,7 +66,7 @@ namespace nutshell {
         /**
          * After call this function the program will be started and loops.
          */
-        void programLoop();
+        void programLoop() const;
 
 
         ~VkContext_();
@@ -87,80 +74,94 @@ namespace nutshell {
     } VkContext;
 
     inline VkContext_::VkContext_() {
-        if (!glfwInit()) {
-            std::cout << "GLFW Cannot be initialize!" << std::endl;
+
+        {
+            glfwInit();
+            printf("GLFW Vulkan supported: %s\n", (glfwVulkanSupported() ? "YES" : "NO"));
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
         if ( glfwVulkanSupported() == GLFW_FALSE ) {
             std::cout << "Vulkan is not supported!" << std::endl;
-            //exit(VK_ERROR_INITIALIZATION_FAILED);
+            exit(VK_ERROR_INITIALIZATION_FAILED);
         }
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
-        glfwMakeContextCurrent(window);
+        {
+            if (!window) {
+                std::cerr << "Failed to create GLFW window" << std::endl;
+                glfwTerminate();
+                exit(EXIT_FAILURE);
+            }
 
-
-        if (!window) {
-            std::cerr << "Failed to create GLFW window" << std::endl;
-            glfwTerminate();
-            exit(EXIT_FAILURE);
+            glfwMakeContextCurrent(window);
         }
 
+        std::vector<const char *> instanceLayerRequestList = {
+            "VK_LAYER_KHRONOS_validation"
 
-        uint32_t minimumExtensions = 0;
-        const char ** instanceExtensions = nullptr;
+            //"VK_LAYER_NV_optimus"
+        };
+        std::vector<const char *> instanceExtensionRequestList = {
+            "VK_KHR_portability_enumeration",
+            "VK_KHR_surface"
+        };
+        {
+            instance = vk::createInstance(
+                vk::InstanceCreateInfo{
+                        {
+                            // vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR This will be enabled by default since 1.3.309.0
+                        },
+                    &appInfo,
 
-        instanceExtensions = glfwGetRequiredInstanceExtensions(&minimumExtensions);
 
-        for (uint32_t i = 0; i < minimumExtensions; i += 1) {
-            auto extension = std::string(instanceExtensions[i]);
-            instanceExtensionRequestList.push_back(instanceExtensions[i]);
-        }
+                    static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
+                    instanceLayerRequestList.data(),
+
+
+                    static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
+                    instanceExtensionRequestList.data(),
+                }
+            );
+        };
 
         std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
 
-        instance = createInstance(
-            vk::InstanceCreateInfo{
-                vk::InstanceCreateFlags (
-                    VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
-                ),
-                &appInfo,
-                // static_cast<unsigned int>(instanceLayerRequestList.capacity()), // enabled instnace layer count
-                // instanceLayerRequestList.data(), // enabled extensions             const char * const *
-                minimumExtensions,
-                instanceExtensions,
-
-                static_cast<unsigned int>(instanceLayerRequestList.capacity()), //enabled extention count
-                instanceExtensionRequestList.data(),
-            }
-        );
-
         physicalDevices = instance.enumeratePhysicalDevices();
 
-        constexpr uint32_t queueFamilyIndex = 0;
+        VkSurfaceKHR surface;
+        auto error = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+        if (!error) {
+            std::cerr << "Failed to create window surface. error code: " << error << std::endl;
+        }
 
 
-        int a = 0;
-        for (const auto vecQueueFamilyIndex = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties();
-             vk::QueueFamilyProperties queueFamily: vecQueueFamilyIndex) {
-            /*
-             * Queue family needs to support transfer, graphics.
-             */
-            if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.
-                queueFlags & vk::QueueFlagBits::eTransfer) {
-                break;
+        uint32_t queueFamilyFoundedIndex = 0;
+        {
+            uint32_t q = 0;
+            for (const auto vec_qf = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties(); vk::QueueFamilyProperties queueFamily: vec_qf) {
+                /*
+                 * Queue family needs to support transfer, graphics.
+                 */ if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.queueFlags & vk::QueueFlagBits::eTransfer) {
+                        break;
+                    }
+
+                    q += 1;
             }
-
-            a += 1;
+            queueFamilyFoundedIndex = q;
         }
 
         const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo {
             {},
-            queueFamilyIndex,
+            queueFamilyFoundedIndex,
             1, //one Queue
             &queuePriorities
+        };
+
+        const std::vector<const char *> deviceEnabledLayers = {
+        };
+        const std::vector<const char *> deviceEnabledExtensions = {
         };
 
         device = physicalDevices.at(DEVICE_SELECTION).createDevice(
@@ -168,23 +169,23 @@ namespace nutshell {
                 {}, //flags
                 1, //queue create info count
                 &devQueueCreateInfo,
-                0, //enabled layer name count,
-                {}, // enabled layer names
-                0, // enabled extension count
-                {} // enabled extensions
+                static_cast<unsigned int>(deviceEnabledExtensions.capacity()), //enabled layer name count,
+                deviceEnabledExtensions.data(), // enabled layer names
+                static_cast<unsigned int>(deviceEnabledLayers.capacity()), // enabled extension count
+                deviceEnabledLayers.data() // enabled extensions
             }
         );
 
 
         queue = device.getQueue(
-            queueFamilyIndex, //Queue family index
+            queueFamilyFoundedIndex, //Queue family index
             0 // Queue index
         );
     }
 
 
 
-    inline void VkContext_::programLoop() {
+    inline void VkContext_::programLoop() const {
         while ( !glfwWindowShouldClose(window) ) {
             beforeRender();
             {
@@ -212,7 +213,6 @@ namespace nutshell {
     }
 
     inline VkContext_::~VkContext_() {
-
         device.destroy();
         instance.destroy();
 
