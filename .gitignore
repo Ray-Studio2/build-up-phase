@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .vs
 x64
 model_view/.idea/
@@ -19,3 +20,37 @@ Seohyuk/cmake-build-cmake-mingw/
 Seohyuk/cmake-build-cmake-vsc/
 >>>>>>> team-caustics
 Seohyuk/cmake-build-debug-xcode
+=======
+
+#Ignore thumbnails created by Windows
+Thumbs.db
+#Ignore files built by Visual Studio
+*.obj
+*.exe
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+[Bb]in
+[Dd]ebug*/
+*.sbr
+obj/
+[Rr]elease*/
+_ReSharper*/
+[Tt]est[Rr]esult*
+.vs/
+.idea/
+#Nuget packages folder
+packages/
+>>>>>>> 63c998512c242e438f5b76903ba394272f7ff818

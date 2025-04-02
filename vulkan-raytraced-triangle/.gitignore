@@ -1,0 +1,7 @@
+*
+!.gitignore
+!README.md
+
+!CMakeLists.txt
+!shader_module.h
+!main.cpp

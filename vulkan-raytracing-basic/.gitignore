@@ -1,0 +1,8 @@
+*
+!.gitignore
+!README.md
+
+!CMakeLists.txt
+!shader_module.h
+!main.cpp
+!tiny_obj_loader.h

@@ -1,9 +1,13 @@
 *
 !.gitignore
 !README.md
-!glsl2spv.h
+
+!CMakeLists.txt
+
+!shader_module.h
 !main.cpp
+
 !simple_fs.glsl
 !simple_vs.glsl
-!vulkan-basic-triangle.sln
-!vulkan-basic-triangle.vcxproj
+!simple_fs.spv
+!simple_vs.spv
