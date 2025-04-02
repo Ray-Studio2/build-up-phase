@@ -50,17 +50,19 @@ endif ()
 
 # 외부 라이브러리 링크하기!
 add_subdirectory(sub_repo)
+add_subdirectory(simple_platform)
 
 # 여기서부터는 executable 추가
 add_executable(CMDUtility SimpleCommandUtility.cpp
-        include/seohyuk.h
+        simple_platform/platform.h
         include/vulkan_utility.h
 )
 
+#[==[
 add_executable(Triangle triangle.cpp
-        include/seohyuk.h
+        simple_platform/platform.h
         include/vulkan_utility.h)
-
+]==]
 add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp include/vk_nutshell.h)
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
@@ -97,7 +99,7 @@ set(    DEF_LIBS
 
 foreach (EXE IN LISTS EXES)
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin) # macOS
-        
+        target_compile_definitions(${EXE} PUBLIC "Dawrwin")
 
         set(INCLUDES ${DEF_INCLUDES} "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
 
