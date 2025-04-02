@@ -50,7 +50,7 @@ endif ()
 
 # 외부 라이브러리 링크하기!
 add_subdirectory(sub_repo)
-add_subdirectory(simple_platform)
+#add_subdirectory(simple_platform)
 
 # 여기서부터는 executable 추가
 add_executable(CMDUtility SimpleCommandUtility.cpp
@@ -63,7 +63,11 @@ add_executable(Triangle triangle.cpp
         simple_platform/platform.h
         include/vulkan_utility.h)
 ]==]
-add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp include/vk_nutshell.h)
+add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp
+        simple_platform/platform.h
+        include/vulkan_utility.h
+        include/vk_nutshell.h
+)
 
 #[==[ 여러 줄 주석은 이렇게 합니다!
 add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_rendering.cpp )
@@ -78,7 +82,7 @@ add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_renderin
 # 여기에 execuable을 등록만 하면 자동으로 링크된다!
 set(    EXES
         #[==[============ 이하 executable의 목록 ============]==]
-        CMDUtility
+        #CMDUtility
         #Triangle
         TeapotBasic
 )

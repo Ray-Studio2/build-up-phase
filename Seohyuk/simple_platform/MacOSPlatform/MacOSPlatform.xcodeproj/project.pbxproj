@@ -7,22 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D5510AE52D9D3778009A24BD /* libMacOSPlatform.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D5510ACD2D9D35AC009A24BD /* libMacOSPlatform.a */; };
-		D566B0A62D9D4E01004EB14B /* platform.h in Headers */ = {isa = PBXBuildFile; fileRef = D566B0A52D9D4E01004EB14B /* platform.h */; };
+		D5BBAE4D2D9D76D80071BE0F /* CocoaPlatform.m in Sources */ = {isa = PBXBuildFile; fileRef = D5BBAE4C2D9D76D80071BE0F /* CocoaPlatform.m */; };
+		D5BBAE4F2D9D79150071BE0F /* platform.h in Headers */ = {isa = PBXBuildFile; fileRef = D5BBAE4E2D9D79150071BE0F /* platform.h */; };
+		D5BBAE642D9D7B9B0071BE0F /* CocoaPlatform.h in Headers */ = {isa = PBXBuildFile; fileRef = D5BBAE3E2D9D76600071BE0F /* CocoaPlatform.h */; };
+		D5BBAE652D9D7BAC0071BE0F /* CocoaPlatform.h in Sources */ = {isa = PBXBuildFile; fileRef = D5BBAE3E2D9D76600071BE0F /* CocoaPlatform.h */; };
+		D5BBAE662D9D7BB20071BE0F /* CocoaPlatform.m in Sources */ = {isa = PBXBuildFile; fileRef = D5BBAE4C2D9D76D80071BE0F /* CocoaPlatform.m */; };
+		D5BBAE672D9D7BE60071BE0F /* platform.h in Sources */ = {isa = PBXBuildFile; fileRef = D5BBAE4E2D9D79150071BE0F /* platform.h */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		D5510AE62D9D3778009A24BD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = D5510AC52D9D35AB009A24BD /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D5510ACC2D9D35AC009A24BD;
-			remoteInfo = MacOSPlatform;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXCopyFilesBuildPhase section */
-		D5510ADB2D9D376B009A24BD /* CopyFiles */ = {
+		D5BBAE522D9D79670071BE0F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man1/;
@@ -34,193 +28,175 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D5510ACD2D9D35AC009A24BD /* libMacOSPlatform.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libMacOSPlatform.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		D5510ADD2D9D376B009A24BD /* test_window */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_window; sourceTree = BUILT_PRODUCTS_DIR; };
-		D566B0A52D9D4E01004EB14B /* platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = platform.h; path = ../platform.h; sourceTree = SOURCE_ROOT; };
+		D5BBAE3E2D9D76600071BE0F /* CocoaPlatform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CocoaPlatform.h; sourceTree = "<group>"; };
+		D5BBAE432D9D76900071BE0F /* libCocoaPlatform.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCocoaPlatform.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5BBAE4C2D9D76D80071BE0F /* CocoaPlatform.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CocoaPlatform.m; sourceTree = "<group>"; };
+		D5BBAE4E2D9D79150071BE0F /* platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = platform.h; path = ../platform.h; sourceTree = SOURCE_ROOT; };
+		D5BBAE542D9D79670071BE0F /* TestCocoaPlatform */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestCocoaPlatform; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		D5510ACF2D9D35AC009A24BD /* MacOSPlatform */ = {
+		D5BBAE552D9D79670071BE0F /* TestCocoaPlatform */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacOSPlatform;
-			sourceTree = "<group>";
-		};
-		D5510ADE2D9D376C009A24BD /* test_window */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = test_window;
+			path = TestCocoaPlatform;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		D5510ACB2D9D35AC009A24BD /* Frameworks */ = {
+		D5BBAE412D9D76900071BE0F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D5510ADA2D9D376B009A24BD /* Frameworks */ = {
+		D5BBAE512D9D79670071BE0F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D5510AE52D9D3778009A24BD /* libMacOSPlatform.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		D5510AC42D9D35AB009A24BD = {
+		D5BBAE292D9D760C0071BE0F = {
 			isa = PBXGroup;
 			children = (
-				D566B0A52D9D4E01004EB14B /* platform.h */,
-				D5510ACF2D9D35AC009A24BD /* MacOSPlatform */,
-				D5510ADE2D9D376C009A24BD /* test_window */,
-				D5510AE42D9D3778009A24BD /* Frameworks */,
-				D5510ACE2D9D35AC009A24BD /* Products */,
+				D5BBAE4E2D9D79150071BE0F /* platform.h */,
+				D5BBAE4C2D9D76D80071BE0F /* CocoaPlatform.m */,
+				D5BBAE3E2D9D76600071BE0F /* CocoaPlatform.h */,
+				D5BBAE552D9D79670071BE0F /* TestCocoaPlatform */,
+				D5BBAE332D9D760C0071BE0F /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		D5510ACE2D9D35AC009A24BD /* Products */ = {
+		D5BBAE332D9D760C0071BE0F /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D5510ACD2D9D35AC009A24BD /* libMacOSPlatform.a */,
-				D5510ADD2D9D376B009A24BD /* test_window */,
+				D5BBAE432D9D76900071BE0F /* libCocoaPlatform.a */,
+				D5BBAE542D9D79670071BE0F /* TestCocoaPlatform */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		D5510AE42D9D3778009A24BD /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		D5510AC92D9D35AC009A24BD /* Headers */ = {
+		D5BBAE3F2D9D76900071BE0F /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D566B0A62D9D4E01004EB14B /* platform.h in Headers */,
+				D5BBAE642D9D7B9B0071BE0F /* CocoaPlatform.h in Headers */,
+				D5BBAE4F2D9D79150071BE0F /* platform.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		D5510ACC2D9D35AC009A24BD /* MacOSPlatform */ = {
+		D5BBAE422D9D76900071BE0F /* CocoaPlatform */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D5510AD62D9D35AC009A24BD /* Build configuration list for PBXNativeTarget "MacOSPlatform" */;
+			buildConfigurationList = D5BBAE492D9D76900071BE0F /* Build configuration list for PBXNativeTarget "CocoaPlatform" */;
 			buildPhases = (
-				D5510AC92D9D35AC009A24BD /* Headers */,
-				D5510ACA2D9D35AC009A24BD /* Sources */,
-				D5510ACB2D9D35AC009A24BD /* Frameworks */,
+				D5BBAE3F2D9D76900071BE0F /* Headers */,
+				D5BBAE402D9D76900071BE0F /* Sources */,
+				D5BBAE412D9D76900071BE0F /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				D5510ACF2D9D35AC009A24BD /* MacOSPlatform */,
-			);
-			name = MacOSPlatform;
+			name = CocoaPlatform;
 			packageProductDependencies = (
 			);
-			productName = MacOSPlatform;
-			productReference = D5510ACD2D9D35AC009A24BD /* libMacOSPlatform.a */;
+			productName = CocoaPlatform;
+			productReference = D5BBAE432D9D76900071BE0F /* libCocoaPlatform.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		D5510ADC2D9D376B009A24BD /* test_window */ = {
+		D5BBAE532D9D79670071BE0F /* TestCocoaPlatform */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D5510AE12D9D376C009A24BD /* Build configuration list for PBXNativeTarget "test_window" */;
+			buildConfigurationList = D5BBAE582D9D79670071BE0F /* Build configuration list for PBXNativeTarget "TestCocoaPlatform" */;
 			buildPhases = (
-				D5510AD92D9D376B009A24BD /* Sources */,
-				D5510ADA2D9D376B009A24BD /* Frameworks */,
-				D5510ADB2D9D376B009A24BD /* CopyFiles */,
+				D5BBAE502D9D79670071BE0F /* Sources */,
+				D5BBAE512D9D79670071BE0F /* Frameworks */,
+				D5BBAE522D9D79670071BE0F /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				D5510AE72D9D3778009A24BD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				D5510ADE2D9D376C009A24BD /* test_window */,
+				D5BBAE552D9D79670071BE0F /* TestCocoaPlatform */,
 			);
-			name = test_window;
+			name = TestCocoaPlatform;
 			packageProductDependencies = (
 			);
-			productName = test_window;
-			productReference = D5510ADD2D9D376B009A24BD /* test_window */;
+			productName = TestCocoaPlatform;
+			productReference = D5BBAE542D9D79670071BE0F /* TestCocoaPlatform */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		D5510AC52D9D35AB009A24BD /* Project object */ = {
+		D5BBAE2A2D9D760C0071BE0F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
-					D5510ACC2D9D35AC009A24BD = {
+					D5BBAE422D9D76900071BE0F = {
 						CreatedOnToolsVersion = 16.2;
 					};
-					D5510ADC2D9D376B009A24BD = {
+					D5BBAE532D9D79670071BE0F = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
 			};
-			buildConfigurationList = D5510AC82D9D35AB009A24BD /* Build configuration list for PBXProject "MacOSPlatform" */;
+			buildConfigurationList = D5BBAE2D2D9D760C0071BE0F /* Build configuration list for PBXProject "MacOSPlatform" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = D5510AC42D9D35AB009A24BD;
+			mainGroup = D5BBAE292D9D760C0071BE0F;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = D5510ACE2D9D35AC009A24BD /* Products */;
+			productRefGroup = D5BBAE332D9D760C0071BE0F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				D5510ACC2D9D35AC009A24BD /* MacOSPlatform */,
-				D5510ADC2D9D376B009A24BD /* test_window */,
+				D5BBAE422D9D76900071BE0F /* CocoaPlatform */,
+				D5BBAE532D9D79670071BE0F /* TestCocoaPlatform */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		D5510ACA2D9D35AC009A24BD /* Sources */ = {
+		D5BBAE402D9D76900071BE0F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5BBAE4D2D9D76D80071BE0F /* CocoaPlatform.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D5510AD92D9D376B009A24BD /* Sources */ = {
+		D5BBAE502D9D79670071BE0F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5BBAE672D9D7BE60071BE0F /* platform.h in Sources */,
+				D5BBAE652D9D7BAC0071BE0F /* CocoaPlatform.h in Sources */,
+				D5BBAE662D9D7BB20071BE0F /* CocoaPlatform.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		D5510AE72D9D3778009A24BD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D5510ACC2D9D35AC009A24BD /* MacOSPlatform */;
-			targetProxy = D5510AE62D9D3778009A24BD /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
-		D5510AD42D9D35AC009A24BD /* Debug */ = {
+		D5BBAE392D9D760C0071BE0F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -281,7 +257,7 @@
 			};
 			name = Debug;
 		};
-		D5510AD52D9D35AC009A24BD /* Release */ = {
+		D5BBAE3A2D9D760C0071BE0F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -331,38 +307,31 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 			};
 			name = Release;
 		};
-		D5510AD72D9D35AC009A24BD /* Debug */ = {
+		D5BBAE4A2D9D76900071BE0F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CODE_SIGN_STYLE = Automatic;
 				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = c17;
-				HEADER_SEARCH_PATHS = ..;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
-		D5510AD82D9D35AC009A24BD /* Release */ = {
+		D5BBAE4B2D9D76900071BE0F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CODE_SIGN_STYLE = Automatic;
 				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = c17;
-				HEADER_SEARCH_PATHS = ..;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
-		D5510AE22D9D376C009A24BD /* Debug */ = {
+		D5BBAE592D9D79670071BE0F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -370,7 +339,7 @@
 			};
 			name = Debug;
 		};
-		D5510AE32D9D376C009A24BD /* Release */ = {
+		D5BBAE5A2D9D79670071BE0F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -381,34 +350,34 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		D5510AC82D9D35AB009A24BD /* Build configuration list for PBXProject "MacOSPlatform" */ = {
+		D5BBAE2D2D9D760C0071BE0F /* Build configuration list for PBXProject "MacOSPlatform" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D5510AD42D9D35AC009A24BD /* Debug */,
-				D5510AD52D9D35AC009A24BD /* Release */,
+				D5BBAE392D9D760C0071BE0F /* Debug */,
+				D5BBAE3A2D9D760C0071BE0F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D5510AD62D9D35AC009A24BD /* Build configuration list for PBXNativeTarget "MacOSPlatform" */ = {
+		D5BBAE492D9D76900071BE0F /* Build configuration list for PBXNativeTarget "CocoaPlatform" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D5510AD72D9D35AC009A24BD /* Debug */,
-				D5510AD82D9D35AC009A24BD /* Release */,
+				D5BBAE4A2D9D76900071BE0F /* Debug */,
+				D5BBAE4B2D9D76900071BE0F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D5510AE12D9D376C009A24BD /* Build configuration list for PBXNativeTarget "test_window" */ = {
+		D5BBAE582D9D79670071BE0F /* Build configuration list for PBXNativeTarget "TestCocoaPlatform" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D5510AE22D9D376C009A24BD /* Debug */,
-				D5510AE32D9D376C009A24BD /* Release */,
+				D5BBAE592D9D79670071BE0F /* Debug */,
+				D5BBAE5A2D9D79670071BE0F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = D5510AC52D9D35AB009A24BD /* Project object */;
+	rootObject = D5BBAE2A2D9D760C0071BE0F /* Project object */;
 }
