@@ -52,7 +52,11 @@ endif ()
 add_subdirectory(sub_repo)
 
 # 여기서부터는 executable 추가
-add_executable(CMDUtility CMDUtility.cpp)
+add_executable(CMDUtility SimpleCommandUtility.cpp
+        include/seohyuk.h
+        include/vulkan_utility.h
+)
+
 add_executable(Triangle triangle.cpp
         include/seohyuk.h
         include/vulkan_utility.h)
@@ -72,7 +76,7 @@ add_executable( teapot_OBJ_with_normal_rendering teapot_OBJ_with_normal_renderin
 # 여기에 execuable을 등록만 하면 자동으로 링크된다!
 set(    EXES
         #[==[============ 이하 executable의 목록 ============]==]
-        #CMDUtility
+        CMDUtility
         #Triangle
         TeapotBasic
 )
