@@ -239,7 +239,7 @@ typedef struct callback_t_ {
   void (*texcoord_cb)(void *user_data, real_t x, real_t y, real_t z);
 
   // called per 'f' line. num_indices is the number of face indices(e.g. 3 for
-  // triangle, 4 for quad)
+  // Triangle, 4 for quad)
   // 0 will be passed for undefined index in index_t members.
   void (*index_cb)(void *user_data, index_t *indices, int num_indices);
   // `name` material name, `material_id` = the array index of material_t[]. -1
@@ -906,7 +906,7 @@ static bool exportFaceGroupToShape(
     size_t npolys = face.size();
 
     if (triangulate) {
-      // Polygon -> triangle fan conversion
+      // Polygon -> Triangle fan conversion
       for (size_t k = 2; k < npolys; k++) {
         i1 = i2;
         i2 = face[k];
