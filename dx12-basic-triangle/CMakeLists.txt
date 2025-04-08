@@ -25,3 +25,5 @@ add_executable(${TARGET} ${SOURCES})
 target_link_libraries(${TARGET} ${LIBRARIES})
 target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 set_property(TARGET ${TARGET} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+install(TARGETS ${TARGET} RUNTIME DESTINATION bin)

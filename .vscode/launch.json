@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "(Windows) Debug vulkan-basic-triangle",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}/vulkan-basic-triangle",
+            "program": "${workspaceRoot}/builddirs/out/vulkan-basic-triangle/bin/hello_triangle.exe",
+        }
+    ]
+}

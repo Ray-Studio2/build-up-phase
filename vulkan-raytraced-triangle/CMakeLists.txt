@@ -5,8 +5,8 @@ project(hello_triangle)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
-set(GLFW_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/glfw-3.4.bin.WIN64/include)
-set(GLFW_LIBRARY_DIR ${CMAKE_SOURCE_DIR}/glfw-3.4.bin.WIN64/lib-vc2022)
+set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../builddirs/out/glfw/include")
+set(GLFW_LIBRARY_DIR "${CMAKE_SOURCE_DIR}/../builddirs/out/glfw/lib")
 
 add_executable(${PROJECT_NAME} main.cpp)
 
@@ -54,3 +54,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${VULKAN_LIB}
     ${GLSLANG_LIBS}
 )
+
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
