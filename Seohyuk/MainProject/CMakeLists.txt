@@ -52,7 +52,7 @@ endif ()
 
 message(STATUS "Prepareing project for the Executables ${EXES}")
 
-set(    _DEF_INCLUDES "${CMAKE_SOURCE_DIR}/include"
+set(    _DEF_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${GLOBAL_INCLUDE}
 )
 set(    _DEF_LIB_DIR "../SupportProjects/NeftyThinWindows"
 )
@@ -67,7 +67,6 @@ if (APPLE) # macOS
     set(INCLUDES
             ${_DEF_INCLUDES}
             "/$ENV{VK_DIR}/macOS/include"
-            ${GLOBAL_INCLUDE}
     )
 
 
@@ -109,7 +108,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
     set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
     list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
-    set(LIBS ${DEF_LIBS} vulkan-1)
+    set(LIBS ${DEF_LIBS} vulkan-1 glfw)
 
 
 else () #Unknown

@@ -25,7 +25,10 @@ typedef struct ExtraThinWindow_ {
     
     union windowHandle_ {
         void * asPointer;
+#ifdef _WIN32
         PTR64HWND asWin32Window;
+#endif
+
     } windowHandle;
 } ExtraThinWindow;
 

@@ -4,3 +4,6 @@
 [submodule "Seohyuk/GLFW/glfw"]
 	path = Seohyuk/GLFW/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "Seohyuk/SupportProjects/NeftyRenderTools/glfw"]
+	path = Seohyuk/SupportProjects/NeftyRenderTools/glfw
+	url = https://github.com/glfw/glfw.git
