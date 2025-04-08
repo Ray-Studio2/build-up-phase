@@ -3,19 +3,30 @@
 
 #include "extra_thin.h"
 
-#ifdef _Cocoa
+#ifdef _WIN32
+
+#include <windows.h>
+
+HWND * openWindowWin32(const char * title, uint32_t width, uint32_t height) {
+    WNDCLASSEX wc = {};
+
+}
 
 #endif
-void sayHello(void) {
-    printf("Hello!");
-}
 
-PtrTheWindow createWindowDefault() {
-}
-PtrTheWindow createWindowTitled(const char * title){}
-PtrTheWindow createWindowTitleDim(const char* title, uint32_t width, uint32_t height){}
-PtrTheWindow createWindowTitlePosDim(const char* title, uint32_t x, uint32_t y, uint32_t width, uint32_t height){}
+ExtraThinWindow openWindow(const char * title, uint32_t width, uint32_t height, bool isResizable, bool isBorderless) {
+    ExtraThinWindow window = {
+    .title = title,
+    .dim = {
+        .width = width,
+        .height = height,
+        .x = 0,
+        .y = 0,
+    },
+    .isResizable = isResizable,
+    .isBorderless = isBorderless,
+    .windowHandle = NULL
+    };
 
-void destroyWindow(PtrTheWindow window) {
-
+    return window;
 }

@@ -17,3 +17,8 @@ project(simple_platform C)
 set(${CMAKE_C_STANDARD} 23)
 
 add_subdirectory(src)
+
+add_executable(TestWindowShow test/TestWindowShow.c)
+target_include_directories(TestWindowShow PUBLIC include)
+#target_link_options(TestWindowShow PRIVATE "//SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+target_link_options(TestWindowShow PRIVATE "-mwindows")
