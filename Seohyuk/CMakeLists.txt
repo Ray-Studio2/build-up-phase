@@ -4,7 +4,7 @@ project(RayStudioPhase_1)
 
 set(VULKAN_SDK_DIR)
 
-
+add_subdirectory(GLFW/glfw)
 
 if(APPLE)
     file(GLOB VK_DIR "$ENV{HOME}/VulkanSDK/1.*/macOS")
@@ -30,5 +30,5 @@ set(GLOBAL_INCLUDE
 
 add_subdirectory(MainProject)
 add_subdirectory(SupportProjects/NeftyThinWindows)
-add_subdirectory(SupportProjects/VkNeftyRenderTools)
+add_subdirectory(SupportProjects/NeftyRenderTools)
 

@@ -12,7 +12,7 @@ using native gui in Win32, Cocoa, X11
 
 cmake_minimum_required(VERSION 3.30)
 
-project(simple_platform C)
+project(NeftyExtraThinWindow C)
 
 set(${CMAKE_C_STANDARD} 23)
 

@@ -1,5 +1,4 @@
 add_library(ExtraThinWindows
-
         windowCreation.c
 )
 
