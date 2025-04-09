@@ -1,0 +1,208 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ResolveNugetPackages>false</ResolveNugetPackages>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{980F03B6-5876-30A1-9BDB-D66187CD137E}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>ALL_BUILD</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/nefty/workspace/RayStudio2/Seohyuk/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -SC:/Users/nefty/workspace/RayStudio2/Seohyuk -BC:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio --check-stamp-file C:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCXXInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCommonLanguageInclude.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeGenericSystem.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeInitializeConfigs.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeLanguageInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeRCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInitialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-Initialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\WindowsPaths.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCXXCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeRCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/nefty/workspace/RayStudio2/Seohyuk/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -SC:/Users/nefty/workspace/RayStudio2/Seohyuk -BC:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio --check-stamp-file C:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCXXInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCommonLanguageInclude.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeGenericSystem.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeInitializeConfigs.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeLanguageInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeRCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInitialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-Initialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\WindowsPaths.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCXXCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeRCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/nefty/workspace/RayStudio2/Seohyuk/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -SC:/Users/nefty/workspace/RayStudio2/Seohyuk -BC:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio --check-stamp-file C:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCXXInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCommonLanguageInclude.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeGenericSystem.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeInitializeConfigs.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeLanguageInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeRCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInitialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-Initialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\WindowsPaths.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCXXCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeRCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/nefty/workspace/RayStudio2/Seohyuk/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -SC:/Users/nefty/workspace/RayStudio2/Seohyuk -BC:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio --check-stamp-file C:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-visual-studio/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCXXInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeCommonLanguageInclude.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeGenericSystem.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeInitializeConfigs.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeLanguageInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeRCInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInformation.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\CMakeSystemSpecificInitialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Compiler\MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-Initialize.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-C.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows-MSVC.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\Windows.cmake;C:\Users\nefty\AppData\Local\Programs\CLion\bin\cmake\win\x64\share\cmake-3.30\Modules\Platform\WindowsPaths.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeCXXCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeRCCompiler.cmake;C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\3.30.5\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\ZERO_CHECK.vcxproj">
+      <Project>{1F0BBCB4-8094-3188-A6BF-20B44D9AFFB3}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\SupportProjects\NeftyRenderTools\NeftyRenderTools.vcxproj">
+      <Project>{2396E948-9BF7-361F-90C6-3F8A417C7CA6}</Project>
+      <Name>NeftyRenderTools</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\SupportProjects\NeftyRenderTools\NeftyRenderToolsTest.vcxproj">
+      <Project>{56074402-323A-307B-B9F4-53FFD309C3D8}</Project>
+      <Name>NeftyRenderToolsTest</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\MainProject\Product\TeapotBasic.vcxproj">
+      <Project>{C77B497A-1AEC-34D9-9754-40B903B4F380}</Project>
+      <Name>TeapotBasic</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\MainProject\Product\Triangle.vcxproj">
+      <Project>{6279379C-AA23-3ED7-8868-E6255C273796}</Project>
+      <Name>Triangle</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\ExternalProjects\glfw\src\glfw.vcxproj">
+      <Project>{476751FA-60C8-3F34-A305-C497F6DDB6F1}</Project>
+      <Name>glfw</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\ExternalProjects\tinyobjloader\tinyobjloader.vcxproj">
+      <Project>{1C883B5A-26FE-37A8-A91C-73F451D28E63}</Project>
+      <Name>tinyobjloader</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

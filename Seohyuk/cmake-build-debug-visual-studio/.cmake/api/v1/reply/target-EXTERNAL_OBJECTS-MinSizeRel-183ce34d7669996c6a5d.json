@@ -1,0 +1,69 @@
+{
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target",
+			"add_dependencies",
+			"registerProject"
+		],
+		"files" : 
+		[
+			"ExternalProjects/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 1,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 19,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 14,
+				"parent" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 14,
+				"parent" : 2
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 3,
+			"id" : "glfw::@82b6fd495907bb2a0cc8"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "tinyobjloader::@f5b758276623e14bdd9d"
+		},
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
+		}
+	],
+	"id" : "EXTERNAL_OBJECTS::@1687bc44cdbe44ae90e7",
+	"name" : "EXTERNAL_OBJECTS",
+	"paths" : 
+	{
+		"build" : "ExternalProjects",
+		"source" : "ExternalProjects"
+	},
+	"sources" : [],
+	"type" : "UTILITY"
+}

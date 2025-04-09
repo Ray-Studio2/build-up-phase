@@ -1,5 +1,4 @@
 #include "vk_nutshell.h"
-#include "seohyuk.h"
 #include <iostream>
 
 

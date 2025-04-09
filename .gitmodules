@@ -1,12 +1,12 @@
-[submodule "Seohyuk/sub_repo/glfw"]
-	path = Seohyuk/sub_repo/glfw
+[submodule "Seohyuk/tinyobjloader"]
+	path = Seohyuk/tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader.git
+[submodule "Seohyuk/glfw"]
+	path = Seohyuk/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "Seohyuk/GLFW/glfw"]
-	path = Seohyuk/GLFW/glfw
+[submodule "Seohyuk/ExternalProjects/glfw"]
+	path = Seohyuk/ExternalProjects/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "Seohyuk/SupportProjects/NeftyRenderTools/glfw"]
-	path = Seohyuk/SupportProjects/NeftyRenderTools/glfw
-	url = https://github.com/glfw/glfw.git
-[submodule "tinyobjloader"]
-	path = tinyobjloader
+[submodule "Seohyuk/ExternalProjects/tinyobjloader"]
+	path = Seohyuk/ExternalProjects/tinyobjloader
 	url = https://github.com/tinyobjloader/tinyobjloader.git

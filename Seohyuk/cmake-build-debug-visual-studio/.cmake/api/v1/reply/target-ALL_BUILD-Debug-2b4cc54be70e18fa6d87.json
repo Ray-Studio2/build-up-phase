@@ -1,0 +1,43 @@
+{
+	"backtrace" : 0,
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : 
+		[
+			"SupportProjects/NeftyRenderTools/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"id" : "NeftyRenderTools::@ce0a2fa435a966c906ac"
+		},
+		{
+			"id" : "NeftyRenderToolsTest::@ce0a2fa435a966c906ac"
+		},
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "CMakePredefinedTargets"
+	},
+	"id" : "ALL_BUILD::@ce0a2fa435a966c906ac",
+	"isGeneratorProvided" : true,
+	"name" : "ALL_BUILD",
+	"paths" : 
+	{
+		"build" : "SupportProjects/NeftyRenderTools",
+		"source" : "SupportProjects/NeftyRenderTools"
+	},
+	"sources" : [],
+	"type" : "UTILITY"
+}

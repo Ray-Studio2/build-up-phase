@@ -1,10 +1,9 @@
 #pragma once
 
+#include "vulkan_utility.h"
 #include <iostream>
-#include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
-#include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
 
