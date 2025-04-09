@@ -7,3 +7,6 @@
 [submodule "Seohyuk/SupportProjects/NeftyRenderTools/glfw"]
 	path = Seohyuk/SupportProjects/NeftyRenderTools/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "tinyobjloader"]
+	path = tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader.git
