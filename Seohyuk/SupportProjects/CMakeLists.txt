@@ -1,6 +1,8 @@
-### There is no proper way to add the support project to the global project. ###
-### So we will just extract the files and copy them in the build dir. ###
+add_subdirectory(NeftyRenderTools)
 
-set(NEFTY_RENDER_TOOLS "!!!" )
+add_custom_target(SUPPORT_OBJECTS)
 
+#add_dependencies(SupportProjects)
+#if binary project is added to list,
+#you can add binaries target to SupportProject.
 

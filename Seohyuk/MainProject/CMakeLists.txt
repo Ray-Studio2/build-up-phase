@@ -108,7 +108,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
 
     set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
     list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
-    set(LIBS ${DEF_LIBS} vulkan-1 glfw)
+    set(LIBS ${DEF_LIBS} vulkan-1 )
 
 
 else () #Unknown

@@ -2,11 +2,9 @@ cmake_minimum_required(VERSION 3.30)
 
 project(SupporterNeftyRenderTools CXX)
 
-add_subdirectory(glfw)
-
 set(NEFTY_RENDER_TOOLS "include/vk_nutshell.h" "include/vulkan_utility.h")
 
-add_executable(TestCompilable Test/TestCompilable.cpp ${NEFTY_RENDER_TOOLS})
+add_executable(NeftyRenderToolsTest Test/TestCompilable.cpp ${NEFTY_RENDER_TOOLS})
 
 if(APPLE)
     ###### This is why we recommend to install vulkan sdk globally. ######
@@ -16,6 +14,7 @@ else ()
     set(LIBS glfw3 vulkan)
 endif ()
 
-target_include_directories(TestCompilable PUBLIC "include" "glfw/include" "${VK_DIR}/include")
-target_link_directories(TestCompilable PUBLIC "${VK_DIR}/lib" "${CMAKE_BINARY_DIR}/glfw/src")
-target_link_libraries(TestCompilable ${LIBS})
+target_include_directories(NeftyRenderToolsTest PUBLIC "${PROJECT_SOURCE_DIR}/include" "${VK_DIR}/include")
+target_link_directories(NeftyRenderToolsTest PUBLIC "${VK_DIR}/lib" "${CMAKE_BINARY_DIR}/ExternalProjects/glfw/src/debug")
+target_link_libraries(NeftyRenderToolsTest ${LIBS})
+
