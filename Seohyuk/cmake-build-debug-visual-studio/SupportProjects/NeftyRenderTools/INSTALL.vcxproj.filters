@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\CMakeFiles\7d90531b3ffeeac7a49db71106cf6e27\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{1E9B4DA5-27FF-3F5D-8CA6-F96496C57EEA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

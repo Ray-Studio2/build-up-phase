@@ -1,0 +1,355 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						6,
+						8
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "ExternalProjects",
+					"childIndexes" : 
+					[
+						2,
+						5
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-ExternalProjects-Debug-922e8866d1c48627fdd8.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "ExternalProjects",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "ExternalProjects/glfw",
+					"childIndexes" : 
+					[
+						3,
+						4
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-ExternalProjects.glfw-Debug-4f1dbe104f7eb4742515.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 1,
+					"source" : "ExternalProjects/glfw",
+					"targetIndexes" : 
+					[
+						9
+					]
+				},
+				{
+					"build" : "ExternalProjects/glfw/src",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-ExternalProjects.glfw.src-Debug-4e1a29596a59154b9d45.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 1,
+					"source" : "ExternalProjects/glfw/src",
+					"targetIndexes" : 
+					[
+						7,
+						10
+					]
+				},
+				{
+					"build" : "ExternalProjects/glfw/docs",
+					"jsonFile" : "directory-ExternalProjects.glfw.docs-Debug-532e040bf42a7d32092a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 1,
+					"source" : "ExternalProjects/glfw/docs"
+				},
+				{
+					"build" : "ExternalProjects/tinyobjloader",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-ExternalProjects.tinyobjloader-Debug-ce87730249ae0b1eae06.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 2,
+					"source" : "ExternalProjects/tinyobjloader",
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"build" : "SupportProjects",
+					"childIndexes" : 
+					[
+						7
+					],
+					"jsonFile" : "directory-SupportProjects-Debug-4b0124a991b4f3aaa621.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "SupportProjects",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "SupportProjects/NeftyRenderTools",
+					"jsonFile" : "directory-SupportProjects.NeftyRenderTools-Debug-a11cc44d347d24b5317d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 3,
+					"source" : "SupportProjects/NeftyRenderTools",
+					"targetIndexes" : 
+					[
+						1,
+						2
+					]
+				},
+				{
+					"build" : "MainProject",
+					"childIndexes" : 
+					[
+						9
+					],
+					"jsonFile" : "directory-MainProject-Debug-01b36ebcf08f83310bad.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 4,
+					"source" : "MainProject"
+				},
+				{
+					"build" : "MainProject/Product",
+					"jsonFile" : "directory-MainProject.Product-Debug-6430a5e855460a19d6c4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30.0"
+					},
+					"parentIndex" : 8,
+					"projectIndex" : 4,
+					"source" : "MainProject/Product",
+					"targetIndexes" : 
+					[
+						5,
+						6
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						6
+					],
+					"name" : "RayStudioPhase_1",
+					"targetIndexes" : 
+					[
+						0,
+						3,
+						4
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						2,
+						3,
+						4
+					],
+					"name" : "GLFW",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						7,
+						9,
+						10
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						5
+					],
+					"name" : "tinyobjloader",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						7
+					],
+					"name" : "SupporterNeftyRenderTools",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						1,
+						2
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						8,
+						9
+					],
+					"name" : "Seohyuk",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "EXTERNAL_OBJECTS::@1687bc44cdbe44ae90e7",
+					"jsonFile" : "target-EXTERNAL_OBJECTS-Debug-e3b073522fe13b864b93.json",
+					"name" : "EXTERNAL_OBJECTS",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "NeftyRenderTools::@ce0a2fa435a966c906ac",
+					"jsonFile" : "target-NeftyRenderTools-Debug-f227905aa854e67a3bc2.json",
+					"name" : "NeftyRenderTools",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "NeftyRenderToolsTest::@ce0a2fa435a966c906ac",
+					"jsonFile" : "target-NeftyRenderToolsTest-Debug-208f3535c3906299094f.json",
+					"name" : "NeftyRenderToolsTest",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "SETUPS::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SETUPS-Debug-f59a47ee6d79d57eaa73.json",
+					"name" : "SETUPS",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "SUPPORT_OBJECTS::@eb26578ef4342958058a",
+					"jsonFile" : "target-SUPPORT_OBJECTS-Debug-c8add75b03291f602405.json",
+					"name" : "SUPPORT_OBJECTS",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "TeapotBasic::@e35cb58959e57316dddd",
+					"jsonFile" : "target-TeapotBasic-Debug-1df338b8d5fe4c7788b0.json",
+					"name" : "TeapotBasic",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "Triangle::@e35cb58959e57316dddd",
+					"jsonFile" : "target-Triangle-Debug-14812e5232b31fe77b24.json",
+					"name" : "Triangle",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "glfw::@82b6fd495907bb2a0cc8",
+					"jsonFile" : "target-glfw-Debug-1a47b931c7cd13af67f2.json",
+					"name" : "glfw",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "tinyobjloader::@f5b758276623e14bdd9d",
+					"jsonFile" : "target-tinyobjloader-Debug-dd986c52daaa66afb4b8.json",
+					"name" : "tinyobjloader",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "uninstall::@bbdae231e67c99e26acc",
+					"jsonFile" : "target-uninstall-Debug-4b89c52121062ee92cdc.json",
+					"name" : "uninstall",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "update_mappings::@82b6fd495907bb2a0cc8",
+					"jsonFile" : "target-update_mappings-Debug-32216d757c44b687ea11.json",
+					"name" : "update_mappings",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/nefty/workspace/RayStudio2/Seohyuk/cmake-build-debug-mingw",
+		"source" : "C:/Users/nefty/workspace/RayStudio2/Seohyuk"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

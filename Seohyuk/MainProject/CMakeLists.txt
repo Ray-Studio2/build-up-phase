@@ -50,25 +50,22 @@ endif ()
 
 
 
-message(STATUS "Prepareing project for the Executables ${EXES}")
-
-set(    _DEF_INCLUDES "${CMAKE_SOURCE_DIR}/include" ${GLOBAL_INCLUDE}
-)
-set(    _DEF_LIB_DIR "../SupportProjects/NeftyThinWindows"
-)
-set(    _DEF_LIBS
+set(VULKAN_INCLUDE)
+set( DEF_LIBS
          # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
+set(LIB_DIRS)
 
 
 if (APPLE) # macOS
     enable_language(OBJC OBJCXX Swift)
 
     set(INCLUDES
-            ${_DEF_INCLUDES}
-            "/$ENV{VK_DIR}/macOS/include"
+            "${PROJECT_SOURCE_DIR}/include"
+
     )
 
+    set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
 
 
     set(LIB_DIRS "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
@@ -104,17 +101,21 @@ if (APPLE) # macOS
 
 
 
-elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
+elseif (WIN32) #Windows
 
-    set(INCLUDES  ${DEF_INCLUDES} "$ENV{VK_SDK_PATH}/Include")
-    list(APPEND LIB_DIRS ${DEF_LIB_DIR} "$ENV{VK_SDK_PATH}/Lib" )
-    set(LIBS ${DEF_LIBS} vulkan-1 )
+    set(LIBS vulkan-1 glfw3)
+    set(LIB_DIRS $ENV{VK_SDK_PATH}/Lib)
 
+    if (${CMAKE_GENERATOR} STREQUAL "Visual Studio 17 2022")
+        list(APPEND LIB_DIRS ${CMAKE_SOURCE_DIR}/lib/Debug)
+    endif ()
 
+    set(VULKAN_INCLUDE "${VULKAN_SDK_DIR}/Include")
 else () #Unknown
     message("Not supported OS")
 endif ()
 
 # global linking process
+
 
 add_subdirectory(Product)

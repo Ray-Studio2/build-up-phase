@@ -1,0 +1,158 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "MainProject/Product/TeapotBasic.exe"
+		},
+		{
+			"path" : "MainProject/Product/TeapotBasic.pdb"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_executable",
+			"target_link_directories",
+			"add_dependencies",
+			"target_include_directories"
+		],
+		"files" : 
+		[
+			"MainProject/Product/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 1,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 18,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 11,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 13,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -std=gnu++20 -fdiagnostics-color=always"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "C:/VulkanSDK/1.4.309.0/Include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "C:/Users/nefty/workspace/RayStudio2/Seohyuk/SupportProjects/NeftyRenderTools/include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "C:/Users/nefty/workspace/RayStudio2/Seohyuk/ExternalProjects/glfw/include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "C:/Users/nefty/workspace/RayStudio2/Seohyuk/ExternalProjects/tinyobjloader"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 3,
+			"id" : "SETUPS::@6890427a1f51a3e7e1df"
+		}
+	],
+	"id" : "TeapotBasic::@e35cb58959e57316dddd",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-g",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-LC:\\VulkanSDK\\1.4.309.0\\Lib",
+				"role" : "libraryPath"
+			},
+			{
+				"fragment" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "TeapotBasic",
+	"nameOnDisk" : "TeapotBasic.exe",
+	"paths" : 
+	{
+		"build" : "MainProject/Product",
+		"source" : "MainProject/Product"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "MainProject/Product/TeapotBasic/TeapotBasic.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "EXECUTABLE"
+}

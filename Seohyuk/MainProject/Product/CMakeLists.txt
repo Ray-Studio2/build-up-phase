@@ -1,16 +1,22 @@
 add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp)
 add_executable(Triangle Triangle/triangle.cpp)
 
-ADD_CUSTOM_TARGET(EXES
-        Triangle
-        TeapotBasic
-)
+set(EXES TeapotBasic Triangle)
 
-add_dependencies(EXES SETUPS)
 
-foreach (EXE ${EXES})
-    target_include_directories(${EXE} PUBLIC ${INCLUDES} ${GLOBAL_INCLUDE})
-    target_link_directories(${EXE} PUBLIC ${LIB_DIRS} ${GLOBAL_LINK_DIR})
-    target_link_libraries(${EXE} PUBLIC ${LIBS} ${GLOBAL_LINK_LIBS})
+
+foreach (EXE IN ITEMS ${EXES})
+
+
+    add_dependencies(${EXE} SETUPS)
+
+    target_include_directories(${EXE} PUBLIC
+            ${VULKAN_INCLUDE}
+            ${SUPPORT_PROJECTS_INCLUDE}
+            ${EXTERNAL_PROJECTS_INCLUDE}
+            ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_directories(${EXE} PUBLIC ${LIB_DIRS})
+    target_link_libraries(${EXE} PUBLIC ${LIBS})
 
 endforeach ()
