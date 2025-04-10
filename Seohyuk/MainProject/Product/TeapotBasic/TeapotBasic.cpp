@@ -1,19 +1,18 @@
-#include "vk_nutshell.h"
+#include <vk_nutshell.h>
 #include <iostream>
 
 
 
 void nutshell::beforeRender() {}
 
-void nutshell::drawCallPreRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
 
 void nutshell::whileRendering() {
   //std::cout << "Hello, World!" << std::endl;
 }
+void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance *instance, VkDevice *device, VkQueue *queue) {
 
-void nutshell::drawCallBackMain(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
+}
 
-void nutshell::drawCallPostRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
 
 void nutshell::afterRedner() {}
 

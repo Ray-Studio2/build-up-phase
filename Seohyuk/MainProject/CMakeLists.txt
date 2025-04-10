@@ -65,7 +65,7 @@ if (APPLE) # macOS
 
     )
 
-    set(VULKAN_INCLUDES "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
+    set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
 
 
     set(LIB_DIRS "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
@@ -101,7 +101,7 @@ if (APPLE) # macOS
 
 
 
-elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
+elseif (WIN32) #Windows
 
     set(LIBS vulkan-1 glfw3)
     set(LIB_DIRS $ENV{VK_SDK_PATH}/Lib)
@@ -110,8 +110,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL Windows) #Windows
         list(APPEND LIB_DIRS ${CMAKE_SOURCE_DIR}/lib/Debug)
     endif ()
 
-    set(VULKAN_INCLUDES "${VULKAN_SDK_DIR}/Include")
-
+    set(VULKAN_INCLUDE "${VULKAN_SDK_DIR}/Include")
 else () #Unknown
     message("Not supported OS")
 endif ()

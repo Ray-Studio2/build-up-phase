@@ -1,14 +1,17 @@
 #pragma once
 
+#define NDBUG
+
+
 #include <iostream>
-#include <vulkan/vulkan.hpp>
+#include <memory>
+#include <queue>
+#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
 #include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
-
-#define NDBUG
 
 namespace nutshell {
 
@@ -34,11 +37,11 @@ namespace nutshell {
      */
 
 
-    void (beforeRender)();                                                                                     /* anything before the renderpass starets */
-    void (drawCallPreRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);  /* inside the renderpass before something renders */
+    void (beforeRender)();                                                                                     /* anything before the renderpass starts */
+    //void (drawCallPreRender)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue);  /* inside the renderpass before something renders */
     void (whileRendering)();                                                                                   /* something to dso in program loop */
-    void (drawCallBackMain)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue);   /* main rendering stage */
-    void (drawCallPostRender)(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue); /* after the rendering inside a renderpass */
+    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue);   /* main rendering stage */
+    //void (drawCallPostRender)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue); /* after the rendering inside a renderpass */
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
     /**
@@ -47,25 +50,32 @@ namespace nutshell {
     typedef struct VkContext_ {
         struct {
             GLFWwindow * window = nullptr;
-            vk::SurfaceKHR surface;
-            vk::SwapchainKHR swapchaine;
+            VkSurfaceKHR surface = nullptr;
+            VkSwapchainKHR swapChaine = nullptr;
         } PresentationUnit;
 
-        vk::ApplicationInfo appInfo = vk::ApplicationInfo("vk_nutshell", 0, "nutshell", 0);
-        vk::Instance instance;
-        std::vector<vk::PhysicalDevice> physicalDevices;
-        vk::Device device;
+        std::vector<const char *> instanceLayerRequestList = {
+            "VK_LAYER_KHRONOS_validation"
+        };
+        std::vector<const char *> instanceExtensionRequestList = {
+            "VK_KHR_get_physical_device_properties2",
+        };
+
+
+        std::unique_ptr<VkInstance> instanceUnique = std::make_unique<VkInstance>();
+
+        std::vector<VkPhysicalDevice> physicalDevices;
+        std::unique_ptr<VkDevice> deviceUnique = std::make_unique<VkDevice>();
         const float queuePriorities = 1.0;
-        vk::Queue queue;
-        vk::CommandPool commandPool;
+        std::unique_ptr<VkQueue> queueUnique = std::make_unique<VkQueue>();
+        std::unique_ptr<VkCommandPool> commandPoolUnique = std::make_unique<VkCommandPool>();
+        std::unique_ptr<VkCommandBuffer> commandBufferUnique = std::make_unique<VkCommandBuffer>();
 
 
 
 
         VkContext_();
 
-
-        void injectGLFWWindow(GLFWwindow * pptrWindow);
 
         /**
          * After call this function the program will be started and loops.
@@ -84,153 +94,65 @@ namespace nutshell {
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        PresentationUnit.window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit",  NULL, NULL);
+        PresentationUnit.window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit", nullptr, nullptr);
+
         if (!PresentationUnit.window) {
             std::cerr << "Failed to create GLFW window" << std::endl;
             glfwTerminate();
             exit(EXIT_FAILURE);
         }
 
-        if ( glfwVulkanSupported() == GLFW_FALSE ) {
+        if (glfwVulkanSupported() == GLFW_FALSE) {
             std::cout << "Vulkan is not supported!" << std::endl;
             exit(VK_ERROR_INITIALIZATION_FAILED);
         }
 
         uint32_t glfwRequiredInstanceExtensionsCount;
-        const char** glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionsCount);
+        const char **glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionsCount);
 
-
-        std::vector<const char *> instanceLayerRequestList = {
-            "VK_LAYER_KHRONOS_validation"
-
-            //"VK_LAYER_NV_optimus"
-        };
-        std::vector<const char *> instanceExtensionRequestList = {
-            "VK_KHR_get_physical_device_properties2",
-            "VK_KHR_get_surface_capabilities2",
-            "VK_KHR_portability_enumeration",
-        };
 
         for (uint32_t i = 0; i < glfwRequiredInstanceExtensionsCount; i += 1) {
             instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
         }
 
-        {
-            instance = vk::createInstance(
-                vk::InstanceCreateInfo{
-                        {
-                            vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR
-                        },
-                    &appInfo,
 
-
-                    static_cast<unsigned int>(instanceLayerRequestList.capacity()),
-                    instanceLayerRequestList.data(),
-
-
-                    static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
-                    instanceExtensionRequestList.data(),
-                }
-            );
-        }
-
-        std::cout << "In a nut shell, vulkan is a Graphics API Spec." << std::endl;
-
-        physicalDevices = instance.enumeratePhysicalDevices();
-
-        VkSurfaceKHR surface;
-        VkResult error = glfwCreateWindowSurface(instance, PresentationUnit.window, nullptr, &surface);
-        if (error) {
-            std::cerr << "Failed to create window surface. error code: " << error << std::endl;
-        }
-        PresentationUnit.surface = vk::SurfaceKHR { surface };
-
-
-        uint32_t queueFamilyFoundedIndex = 0;
-        {
-            uint32_t q = 0;
-            for (const auto vec_qf = physicalDevices.at(DEVICE_SELECTION).getQueueFamilyProperties(); vk::QueueFamilyProperties queueFamily: vec_qf) {
-                /*
-                 * Queue family needs to support transfer, graphics.
-                 */ if (queueFamily.queueCount >= 1 && queueFamily.queueFlags | vk::QueueFlagBits::eGraphics && queueFamily.queueFlags & vk::QueueFlagBits::eTransfer) {
-                        break;
-                    }
-
-                    q += 1;
-            }
-            queueFamilyFoundedIndex = q;
-        }
-
-
-
-
-        const auto devQueueCreateInfo = vk::DeviceQueueCreateInfo {
-            {},
-            queueFamilyFoundedIndex,
-            1, //one Queue
-            &queuePriorities
+        VkApplicationInfo appInfo{
+            VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            nullptr,
+            "vk_nutshell",
+            0,
+            "nutshell",
+            0,
+            VK_API_VERSION_1_3
         };
 
-        const std::vector<const char *> deviceEnabledLayers = {
+        VkInstanceCreateInfo instanceCreateInfo {
+            VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            nullptr,
+            0,
+            &appInfo,
+            static_cast<unsigned int>(instanceLayerRequestList.capacity()),
+            instanceLayerRequestList.data(),
+            static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
+            instanceExtensionRequestList.data()
         };
-        std::vector<const char *> deviceEnabledExtensions = {
-            //"VK_KHR_swapchain"
-        };
 
-        for (const auto p : physicalDevices.at(DEVICE_SELECTION).enumerateDeviceExtensionProperties()) {
-            if (strcmp(p.extensionName, "VK_KHR_portability_subset")) {
-                deviceEnabledExtensions.push_back("VK_KHR_portability_subset");
-                break;
-            }
-        }
-
-
-
-        device = physicalDevices.at(DEVICE_SELECTION).createDevice(
-            vk::DeviceCreateInfo{
-                {}, //flags
-                1, //queue create info count
-                &devQueueCreateInfo,
-
-                static_cast<unsigned int>(deviceEnabledLayers.capacity()), // enabled extension count
-                deviceEnabledLayers.data(), // enabled extensions
-
-                static_cast<unsigned int>(deviceEnabledExtensions.capacity()), //enabled layer name count,
-                deviceEnabledExtensions.data() // enabled layer names
-            }
-        );
-
-
-        queue = device.getQueue(
-            queueFamilyFoundedIndex, //Queue family index
-            0 // Queue index
-        );
-
-        PresentationUnit.swapchaine = device.createSwapchainKHR(vkut::display::createSwapchainInfo(physicalDevices[DEVICE_SELECTION], PresentationUnit.surface, queueFamilyFoundedIndex));
-
+        vkCreateInstance(&instanceCreateInfo, nullptr, this->instanceUnique.get());
     }
-
 
 
     inline void VkContext_::programLoop() const {
         while ( !glfwWindowShouldClose(PresentationUnit.window) ) {
             beforeRender();
             {
-                drawCallPreRender(PresentationUnit.window, instance, device, queue);
+                //drawCallPreRender(PresentationUnit.window, instanceUnique.get(), deviceUnique.get(), queueUnique.get());
                 {
                     whileRendering();
-                    drawCallBackMain(PresentationUnit.window, instance, device, queue);
+                    drawCallBackMain(PresentationUnit.window, instanceUnique.get(), deviceUnique.get(), queueUnique.get());;
                 }
-                drawCallPostRender(PresentationUnit.window, instance, device, queue);
+                //drawCallPostRender(PresentationUnit.window, reinterpret_cast<VkInstance>(instanceUnique.get()), *device, *queue);
             }
             afterRedner();
-
-
-
-            if ( PresentationUnit.window != nullptr ) {
-            } else {
-                //offscreen
-            }
 
             glfwSwapBuffers(PresentationUnit.window);
             glfwPollEvents();
@@ -240,47 +162,15 @@ namespace nutshell {
     }
 
     inline VkContext_::~VkContext_() {
-
-        device.destroySwapchainKHR(PresentationUnit.swapchaine);
-        device.destroy();
-        instance.destroy();
+    /*
+     * in case we are using unique, we don't have to free things manually.
+     */
 
         glfwDestroyWindow(PresentationUnit.window);
 
         std::cout << "Nutshell says goodbye~" << std::endl; // if this doesn't happen, you are doing destroy in wrong way.
     }
 
-
-    /*
-     * The renderpass option implementation unit.
-     *
-     */
-    typedef struct RenderPassBoundary_ {
-    } RenderPassBoundary;
 }
 
 
-
-
-
-
-/*
-            uint32_t enumerate = 0;
-            for (const auto element: instanceLayerRequestList) {
-                std::cout << element << (enumerate >= instanceLayerRequestList.capacity() ? ", " : "") << std::endl;
-                enumerate += 1;
-            }
-            */
-
-
-/*
-vkut::filterSupportedInstanceLayers(instanceLayerRequestList);
-
-const char* filteredInstanceLayerList[INSTANCE_LAYER_COUNT] = {};
-
-uint32_t index = 0;
-for (auto layerName: instanceLayerRequestList) {
-    filteredInstanceLayerList[index] = layerName;
-    index += 1;
-}
-*/

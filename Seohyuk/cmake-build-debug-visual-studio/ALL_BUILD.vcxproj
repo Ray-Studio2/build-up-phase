@@ -177,14 +177,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\SupportProjects\NeftyRenderTools\NeftyRenderTools.vcxproj">
-      <Project>{2396E948-9BF7-361F-90C6-3F8A417C7CA6}</Project>
-      <Name>NeftyRenderTools</Name>
-    </ProjectReference>
-    <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\SupportProjects\NeftyRenderTools\NeftyRenderToolsTest.vcxproj">
-      <Project>{56074402-323A-307B-B9F4-53FFD309C3D8}</Project>
-      <Name>NeftyRenderToolsTest</Name>
-    </ProjectReference>
     <ProjectReference Include="C:\Users\nefty\workspace\RayStudio2\Seohyuk\cmake-build-debug-visual-studio\MainProject\Product\TeapotBasic.vcxproj">
       <Project>{C77B497A-1AEC-34D9-9754-40B903B4F380}</Project>
       <Name>TeapotBasic</Name>

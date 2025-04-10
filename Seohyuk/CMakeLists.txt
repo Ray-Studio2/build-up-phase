@@ -5,8 +5,6 @@ project(RayStudioPhase_1)
 ###### This directories will connect every thing together. ######
 #file(MAKE_DIRECTORY include lib bin)
 
-#TODO Copy compiled result to global directory
-
 
 ###### Variables ######
 
@@ -44,16 +42,18 @@ endif()
 ##### Support project for main project ######
 # Support project should be independent to other any project exception of external elements.
 # Subprojects contain with it's own project, must be can be open as a single project.
-add_subdirectory(SupportProjects)
+# add_subdirectory(SupportProjects)
 
+#[==[
 set(SUPPORT_PROJECTS_INCLUDE
         "${PROJECT_SOURCE_DIR}/SupportProjects/NeftyRenderTools/include"
         #SupportProjects/NeftyThinWindows
 )
+]==]
 
 
 add_custom_target(SETUPS)
-add_dependencies(SETUPS EXTERNAL_OBJECTS SUPPORT_OBJECTS)
+add_dependencies(SETUPS EXTERNAL_OBJECTS #[==[SUPPORT_OBJECTS]==])
 
 add_subdirectory(MainProject)
 

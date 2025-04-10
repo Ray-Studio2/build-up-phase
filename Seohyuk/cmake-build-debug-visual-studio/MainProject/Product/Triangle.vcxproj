@@ -90,7 +90,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -109,10 +109,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -135,7 +135,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -155,10 +155,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -181,7 +181,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -201,10 +201,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -227,7 +227,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -246,10 +246,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\SupportProjects\NeftyRenderTools\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.309.0\Include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\glfw\include;C:\Users\nefty\workspace\RayStudio2\Seohyuk\ExternalProjects\tinyobjloader;C:\Users\nefty\workspace\RayStudio2\Seohyuk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>

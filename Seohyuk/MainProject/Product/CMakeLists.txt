@@ -6,14 +6,15 @@ set(EXES TeapotBasic Triangle)
 
 
 foreach (EXE IN ITEMS ${EXES})
-    MESSAGE(WARNING "${LIB_DIRS}")
+
 
     add_dependencies(${EXE} SETUPS)
 
     target_include_directories(${EXE} PUBLIC
-            ${VULKAN_SDK_DIR}/Include
+            ${VULKAN_INCLUDE}
             ${SUPPORT_PROJECTS_INCLUDE}
             ${EXTERNAL_PROJECTS_INCLUDE}
+            ${CMAKE_SOURCE_DIR}/include
     )
     target_link_directories(${EXE} PUBLIC ${LIB_DIRS})
     target_link_libraries(${EXE} PUBLIC ${LIBS})
