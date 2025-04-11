@@ -12,4 +12,4 @@ _deps
 CMakeUserPresets.json
 model_view/.idea/
 model_view/cmake-build-debug/
-lib
+lib/*
