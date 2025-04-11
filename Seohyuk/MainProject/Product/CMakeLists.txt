@@ -6,13 +6,11 @@ set(EXES TeapotBasic Triangle)
 
 
 foreach (EXE IN ITEMS ${EXES})
-
-
     add_dependencies(${EXE} SETUPS)
 
     target_include_directories(${EXE} PUBLIC
             ${VULKAN_INCLUDE}
-            ${SUPPORT_PROJECTS_INCLUDE}
+            #${SUPPORT_PROJECTS_INCLUDE}
             ${EXTERNAL_PROJECTS_INCLUDE}
             ${CMAKE_SOURCE_DIR}/include
     )

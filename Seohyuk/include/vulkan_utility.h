@@ -4,7 +4,7 @@
 
 #include <string>
 #include <vector>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 #include <algorithm>
 #include <iostream>
 
@@ -20,29 +20,17 @@ namespace vkut {
         #define DISPLAY_DIM vk::Extent2D {WIDTH, HEIGHT}
 
 
-        inline vk::SwapchainCreateInfoKHR createSwapchainInfo(vk::PhysicalDevice physical_device, const vk::SurfaceKHR vkSurface, uint32_t queueFamily) {
+        inline VkSwapchainCreateInfoKHR createSwapchainInfo(VkPhysicalDevice physical_device, VkSurfaceKHR vkSurface, uint32_t queueFamily) {
 
-            vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo2KHR;
-            auto a = physical_device.getSurfaceFormats2KHR(physicalDeviceSurfaceInfo2KHR);
+            VkPhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo2KHR;
+            uint32_t surfaceFormatCount = 0;
+            std::vector<VkSurfaceFormat2KHR> surfaceFormats{};
+            vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &physicalDeviceSurfaceInfo2KHR, &surfaceFormatCount, nullptr);
+            vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &physicalDeviceSurfaceInfo2KHR, &surfaceFormatCount, surfaceFormats.data());
 
 
 
-            return vk::SwapchainCreateInfoKHR {
-                    {},
-                    vkSurface,
-                    SWAPCHAIN_IMAGE_COUNT,
-                    vk::Format::eB8G8R8Srgb,
-                    vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear,
-                    vk::Extent2D {WIDTH, HEIGHT},
-                    1,
-                    vk::ImageUsageFlagBits::eTransferDst,
-                    vk::SharingMode::eExclusive,
-                    queueFamily,
-                    vk::SurfaceTransformFlagBitsKHR::eIdentity, // preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-                    vk::CompositeAlphaFlagBitsKHR::eOpaque, // compositeAlpha =  VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                    vk::PresentModeKHR::eMailbox, // presentMode = VK_PRESENT_MODE_MAILBOX_KHR,
-                    VK_TRUE // CLIPED
-                };
+            return nullptr;
         }
     }
     // not the best way but it will work and comfortable to read. vk::enumerateInstanceLayerProperties function will not take that much reasource.

@@ -51,7 +51,7 @@ endif ()
 
 
 set(VULKAN_INCLUDE)
-set( DEF_LIBS
+set(DEF_LIBS
          # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
 set(LIB_DIRS)
@@ -61,8 +61,7 @@ if (APPLE) # macOS
     enable_language(OBJC OBJCXX Swift)
 
     set(INCLUDES
-            "${PROJECT_SOURCE_DIR}/include"
-
+            "${CMAKE_SOURCE_DIR}/include"
     )
 
     set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
@@ -82,7 +81,6 @@ if (APPLE) # macOS
             "-framework Cocoa"
             "-framework IOKit"
             "-framework IOSurface"
-            "-framework CoreFoundation"
             "-framework QuartzCore"
             "-framework Metal"
             #[==[
