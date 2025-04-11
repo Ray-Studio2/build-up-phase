@@ -3,7 +3,6 @@ add_custom_target(EXTERNAL_OBJECTS)
 macro(registerProject A B)
     foreach (item ${ARGV})
         add_subdirectory(${item})
-
         set_target_properties( ${item}
                 PROPERTIES
                 LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/lib"
