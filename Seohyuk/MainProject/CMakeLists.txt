@@ -51,7 +51,7 @@ endif ()
 
 
 set(VULKAN_INCLUDE)
-set(DEF_LIBS
+set(DEF_LIBS glfw3
          # 앞에 lib가 붙어도 gcc와 llvm은 자동으로 생략합니다.
 )
 set(LIB_DIRS)
@@ -67,7 +67,10 @@ if (APPLE) # macOS
     set(VULKAN_INCLUDE "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/include")
 
 
-    set(LIB_DIRS "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib")
+    set(LIB_DIRS
+            "/Users/$ENV{USER}/VulkanSDK/1.4.309.0/macOS/lib"
+            "${CMAKE_SOURCE_DIR}/lib"
+    )
 
     if(${CMAKE_GENERATOR} STREQUAL "Xcode")
         list(APPEND LIB_DIRS "${DEF_LIB_DIR}/Debug")
@@ -78,11 +81,14 @@ if (APPLE) # macOS
     list(APPEND DEF_LIBS vulkan) # MoltenVK
 
     set(LIBS ${DEF_LIBS} # 이런 경우에 list를 set대신 쓸 수 있습니다. https://cmake.org/cmake/help/latest/command/list.html
-            "-framework Cocoa"
-            "-framework IOKit"
-            "-framework IOSurface"
-            "-framework QuartzCore"
+
             "-framework Metal"
+            "-framework Foundation"
+            "-framework QuartzCore"
+            "-framework CoreGraphics"
+            "-framework IOSurface"
+            "-framework IOKit"
+            "-framework AppKit"
             #[==[
             glfw 의 설정을 크게 건들지 않아 임베딩이 되지 않습니다. 이 경우 프레임워크를 최종 컴파일 시점에서 구현체를 정해줘야합니다.
 
@@ -101,7 +107,7 @@ if (APPLE) # macOS
 
 elseif (WIN32) #Windows
 
-    set(LIBS vulkan-1 glfw3)
+    set(LIBS vulkan-1)
     set(LIB_DIRS $ENV{VK_SDK_PATH}/Lib)
 
     if (${CMAKE_GENERATOR} STREQUAL "Visual Studio 17 2022")

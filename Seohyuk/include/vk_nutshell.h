@@ -1,6 +1,6 @@
 #pragma once
 
-//#define NDBUG
+#define NDBUG
 
 
 #include <iostream>
@@ -12,6 +12,7 @@
 #include "vulkan_utility.h"
 
 #define DEVICE_SELECTION 0
+#define PRINT_INFO
 
 namespace nutshell {
 
@@ -55,16 +56,22 @@ namespace nutshell {
         } PresentationUnit;
 
         std::vector<const char *> instanceLayerRequestList = {
-            "VK_LAYER_KHRONOS_validation"
+            "VK_LAYER_KHRONOS_validation",
         };
         std::vector<const char *> instanceExtensionRequestList = {
             "VK_KHR_get_physical_device_properties2",
+#ifdef __APPLE__
+            "VK_KHR_portability_subset"
+            "VK_KHR_portability_enumeration"
+
+#endif
+
         };
 
 
         std::unique_ptr<VkInstance> instanceUnique = std::make_unique<VkInstance>();
 
-        std::vector<VkPhysicalDevice> physicalDevices;
+        std::vector<VkPhysicalDevice> physicalDevices{};
         std::unique_ptr<VkDevice> deviceUnique = std::make_unique<VkDevice>();
         const float queuePriorities = 1.0;
         std::unique_ptr<VkQueue> queueUnique = std::make_unique<VkQueue>();
@@ -123,12 +130,20 @@ namespace nutshell {
             0,
             "nutshell",
             0,
+#ifdef __APPLE__
+            VK_API_VERSION_1_2
+#else
             VK_API_VERSION_1_3
+#endif
+
         };
 
         VkInstanceCreateInfo instanceCreateInfo {
             VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             nullptr,
+#ifdef __APPLE__
+            VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR |
+#endif
             0,
             &appInfo,
             static_cast<unsigned int>(instanceLayerRequestList.capacity()),
@@ -137,7 +152,28 @@ namespace nutshell {
             instanceExtensionRequestList.data()
         };
 
-        vkCreateInstance(&instanceCreateInfo, nullptr, this->instanceUnique.get());
+        VkInstance instance = VK_NULL_HANDLE;
+        vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
+
+
+
+
+        uint32_t physicalDeviceCount = 0;
+        vkEnumeratePhysicalDevices(*instanceUnique, &physicalDeviceCount, nullptr);
+        if (physicalDeviceCount == 0) {
+            std::cerr << "No device available for vulkan." << std::endl;
+        }
+        physicalDevices.resize(physicalDeviceCount);
+        vkEnumeratePhysicalDevices(*instanceUnique, &physicalDeviceCount, physicalDevices.data());
+
+        std::cout << physicalDevices.size() << std::endl;
+
+#ifdef PRINT_INFO
+        VkPhysicalDeviceProperties2 deviceProperties;
+        vkGetPhysicalDeviceProperties2(physicalDevices.at(DEVICE_SELECTION), &deviceProperties);
+        std::cout << "Physical device selected: " << "number: " << DEVICE_SELECTION  << std::endl << "device name:" << deviceProperties.properties.deviceName << std::endl;
+
+#endif
     }
 
 

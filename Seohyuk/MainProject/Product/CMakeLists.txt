@@ -3,8 +3,6 @@ add_executable(Triangle Triangle/triangle.cpp)
 
 set(EXES TeapotBasic Triangle)
 
-
-
 foreach (EXE IN ITEMS ${EXES})
     add_dependencies(${EXE} SETUPS)
 
