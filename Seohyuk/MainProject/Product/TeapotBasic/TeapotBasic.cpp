@@ -18,8 +18,6 @@ void nutshell::afterRedner() {}
 
 
 int main() {
-
-
   std::cout << "Hello, World!" << std::endl << "Starting TeapotBasic" << std::endl;
 
 

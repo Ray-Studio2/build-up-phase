@@ -1,4 +1,6 @@
-add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp)
+add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp
+        ../../SupportProjects/Utility.cpp
+)
 add_executable(Triangle Triangle/triangle.cpp)
 
 set(EXES TeapotBasic Triangle)

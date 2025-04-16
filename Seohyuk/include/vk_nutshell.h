@@ -1,6 +1,6 @@
 #pragma once
 
-#define NDBUG
+//#define NDBUG
 
 
 #include <iostream>
@@ -14,8 +14,34 @@
 #define DEVICE_SELECTION 0
 #define PRINT_INFO
 
-namespace nutshell {
 
+#ifdef NDEBUG
+    const bool enableValidationLayers = false;
+#else
+constexpr bool enableValidationLayers = true;
+#endif
+
+
+inline VkBool32 debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void * pUserData) {
+
+
+    return VK_FALSE;
+}
+
+inline VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo {
+    .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+    .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+    .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+    .pfnUserCallback = debugCallback,
+};
+
+namespace nutshell {
 
     /**
      * all the draw callbacks must be implemented allways.
@@ -55,15 +81,16 @@ namespace nutshell {
             VkSwapchainKHR swapChaine = nullptr;
         } PresentationUnit;
 
-        std::vector<const char *> instanceLayerRequestList = {
-            "VK_LAYER_KHRONOS_validation",
-        };
+        std::vector<const char *> instanceLayerRequestList {};
         std::vector<const char *> instanceExtensionRequestList = {
-            "VK_KHR_get_physical_device_properties2",
-#ifdef __APPLE__
-            "VK_KHR_portability_subset"
-            "VK_KHR_portability_enumeration"
+            //"VK_KHR_get_physical_device_properties2",
+            //"VK_KHR_get_surface_capabilities2",
 
+            //"VK_EXT_DEBUG_UTILS_EXTENSION_NAME",
+            //"VK_EXT_debug_utils",
+
+#ifdef __APPLE__
+            "VK_KHR_portability_enumeration",
 #endif
 
         };
@@ -101,7 +128,7 @@ namespace nutshell {
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        PresentationUnit.window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Training Unit", nullptr, nullptr);
+        PresentationUnit.window = glfwCreateWindow(1200, 800, "Vulkan Training Unit", nullptr, nullptr);
 
         if (!PresentationUnit.window) {
             std::cerr << "Failed to create GLFW window" << std::endl;
@@ -114,18 +141,26 @@ namespace nutshell {
             exit(VK_ERROR_INITIALIZATION_FAILED);
         }
 
+        if (enableValidationLayers) {
+            this->instanceLayerRequestList.push_back("VK_LAYER_KHRONOS_validation");
+        }
+
         uint32_t glfwRequiredInstanceExtensionsCount;
         const char **glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionsCount);
 
-
         for (uint32_t i = 0; i < glfwRequiredInstanceExtensionsCount; i += 1) {
-            instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
+            //instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
         }
 
+        //vkut::checkValidationLayerSupport();
+        //vkut::showInstanceExtensions();
+        //vkut::showInstanceLayers();
 
-        VkApplicationInfo appInfo{
+
+        VkApplicationInfo appInfo {
             VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            nullptr,
+            &messengerCreateInfo,
+            //nullptr,
             "vk_nutshell",
             0,
             "nutshell",
@@ -135,27 +170,32 @@ namespace nutshell {
 #else
             VK_API_VERSION_1_3
 #endif
-
         };
 
         VkInstanceCreateInfo instanceCreateInfo {
             VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             nullptr,
 #ifdef __APPLE__
-            VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR |
+            //VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR |
 #endif
             0,
             &appInfo,
-            static_cast<unsigned int>(instanceLayerRequestList.capacity()),
+            static_cast<unsigned int>(instanceLayerRequestList.size()),
             instanceLayerRequestList.data(),
-            static_cast<unsigned int>(instanceExtensionRequestList.capacity()),
+            static_cast<unsigned int>(instanceExtensionRequestList.size()),
             instanceExtensionRequestList.data()
         };
 
-        VkInstance instance = VK_NULL_HANDLE;
+
+
+
+        VkInstance instance;
         vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
 
-
+        if (instance == VK_NULL_HANDLE) {
+            std::cerr << "Failed to create instance" << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
 
         uint32_t physicalDeviceCount = 0;
