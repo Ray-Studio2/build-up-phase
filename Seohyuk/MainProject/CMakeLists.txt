@@ -105,9 +105,9 @@ if (APPLE) # macOS
 
 
 
-elseif (WIN32) #Windows
+elseif (${WIN32}) #Windows
 
-    set(LIBS vulkan-1)
+    set(LIBS vulkan-1 glfw3)
     set(LIB_DIRS $ENV{VK_SDK_PATH}/Lib)
 
     if (${CMAKE_GENERATOR} STREQUAL "Visual Studio 17 2022")

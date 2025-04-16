@@ -25,16 +25,12 @@ elseif(LINUX)
 # Linux
 elseif(UNIX)
 # Linux, BSD, etc. (including macOS if not trapped above)
-elseif(WIN32)
+elseif(${WIN32})
     set(VULKAN_SDK_DIR $ENV{VK_SDK_PATH})
 else()
     ###### Unsupported system means it's not a Windows, POSIX or the OS we knows. ######
     message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
 endif()
-
-if (NOT ${VULKAN_SDK_DIR} )
-    message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
-endif ()
 
 ##### Support project for main project ######
 # Support project should be independent to other any project exception of external elements.

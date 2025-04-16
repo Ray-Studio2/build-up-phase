@@ -1,8 +1,5 @@
 #pragma once
 
-//#define NDBUG
-
-
 #include <iostream>
 #include <memory>
 #include <queue>
@@ -67,7 +64,7 @@ namespace nutshell {
     void (beforeRender)();                                                                                     /* anything before the renderpass starts */
     //void (drawCallPreRender)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue);  /* inside the renderpass before something renders */
     void (whileRendering)();                                                                                   /* something to dso in program loop */
-    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue);   /* main rendering stage */
+    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue);   /* main rendering stage */
     //void (drawCallPostRender)(GLFWwindow *pWindow, VkInstance * instance, VkDevice * device, VkQueue * queue); /* after the rendering inside a renderpass */
     void (afterRedner)();                                                                                      /* last thing to do in main loop */
 
@@ -88,22 +85,23 @@ namespace nutshell {
 
             //"VK_EXT_DEBUG_UTILS_EXTENSION_NAME",
             //"VK_EXT_debug_utils",
+            "VK_KHR_portability_enumeration",
 
 #ifdef __APPLE__
-            "VK_KHR_portability_enumeration",
+
 #endif
 
         };
 
 
-        std::unique_ptr<VkInstance> instanceUnique = std::make_unique<VkInstance>();
+        VkInstance instance;
 
         std::vector<VkPhysicalDevice> physicalDevices{};
-        std::unique_ptr<VkDevice> deviceUnique = std::make_unique<VkDevice>();
+        VkDevice deviceUnique;
         const float queuePriorities = 1.0;
-        std::unique_ptr<VkQueue> queueUnique = std::make_unique<VkQueue>();
-        std::unique_ptr<VkCommandPool> commandPoolUnique = std::make_unique<VkCommandPool>();
-        std::unique_ptr<VkCommandBuffer> commandBufferUnique = std::make_unique<VkCommandBuffer>();
+        VkQueue queueUnique;
+        VkCommandPool commandPoolUnique;
+        VkCommandBuffer commandBufferUnique;
 
 
 
@@ -149,7 +147,7 @@ namespace nutshell {
         const char **glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionsCount);
 
         for (uint32_t i = 0; i < glfwRequiredInstanceExtensionsCount; i += 1) {
-            //instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
+            instanceExtensionRequestList.push_back(glfwRequiredExtensions[i]);
         }
 
         //vkut::checkValidationLayerSupport();
@@ -159,8 +157,8 @@ namespace nutshell {
 
         VkApplicationInfo appInfo {
             VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            &messengerCreateInfo,
-            //nullptr,
+            //&messengerCreateInfo,
+            nullptr,
             "vk_nutshell",
             0,
             "nutshell",
@@ -168,7 +166,7 @@ namespace nutshell {
 #ifdef __APPLE__
             VK_API_VERSION_1_2
 #else
-            VK_API_VERSION_1_3
+            VK_API_VERSION_1_4
 #endif
         };
 
@@ -186,9 +184,6 @@ namespace nutshell {
             instanceExtensionRequestList.data()
         };
 
-
-
-
         VkInstance instance;
         vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
 
@@ -199,19 +194,17 @@ namespace nutshell {
 
 
         uint32_t physicalDeviceCount = 0;
-        vkEnumeratePhysicalDevices(*instanceUnique, &physicalDeviceCount, nullptr);
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
         if (physicalDeviceCount == 0) {
             std::cerr << "No device available for vulkan." << std::endl;
         }
         physicalDevices.resize(physicalDeviceCount);
-        vkEnumeratePhysicalDevices(*instanceUnique, &physicalDeviceCount, physicalDevices.data());
-
-        std::cout << physicalDevices.size() << std::endl;
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.data());
 
 #ifdef PRINT_INFO
-        VkPhysicalDeviceProperties2 deviceProperties;
-        vkGetPhysicalDeviceProperties2(physicalDevices.at(DEVICE_SELECTION), &deviceProperties);
-        std::cout << "Physical device selected: " << "number: " << DEVICE_SELECTION  << std::endl << "device name:" << deviceProperties.properties.deviceName << std::endl;
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(physicalDevices.at(DEVICE_SELECTION), &deviceProperties);
+        std::cout << "Physical device selected: " << "number: " << DEVICE_SELECTION  << std::endl << "device name:" << deviceProperties.deviceName << std::endl;
 
 #endif
     }
@@ -224,7 +217,7 @@ namespace nutshell {
                 //drawCallPreRender(PresentationUnit.window, instanceUnique.get(), deviceUnique.get(), queueUnique.get());
                 {
                     whileRendering();
-                    drawCallBackMain(PresentationUnit.window, instanceUnique.get(), deviceUnique.get(), queueUnique.get());;
+                    drawCallBackMain(PresentationUnit.window, instance, deviceUnique, queueUnique);;
                 }
                 //drawCallPostRender(PresentationUnit.window, reinterpret_cast<VkInstance>(instanceUnique.get()), *device, *queue);
             }

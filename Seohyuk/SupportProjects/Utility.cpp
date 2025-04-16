@@ -22,7 +22,7 @@ namespace vkut {
   std::vector<VkLayerProperties> availableLayers(layerCount);
   vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
   for (uint32_t i = 0; i < layerCount; i++) {
-   if (availableLayers[i].layerName == "VK_LAYER_KHRONOS_validation") {
+   if (std::strcmp(availableLayers[i].layerName, "VK_LAYER_KHRONOS_validation") != 0) {
     std::cerr << "Validation layer supports!" << availableLayers.at(i).layerName << std::endl;
     return VK_TRUE;
    }
