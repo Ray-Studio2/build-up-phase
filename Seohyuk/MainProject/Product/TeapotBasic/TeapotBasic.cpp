@@ -8,7 +8,7 @@
 void nutshell::whileRendering() {
   //std::cout << "Hello, World!" << std::endl;
 }
-void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, Synchronizer synchronizer) {
+void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, VkCommandBuffer commandBuffer, Synchronizer synchronizer) {
   vkWaitForFences(device, 1, &synchronizer.fence, VK_TRUE, UINT64_MAX);
 
 
@@ -38,9 +38,6 @@ void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance instance, VkDevi
   };
   vkQueueSubmit(queue, 1, &submitInfo, reinterpret_cast<VkFence>(&synchronizer.fence));
 }
-
-
-void nutshell::afterRedner() {}
 
 
 int main() {

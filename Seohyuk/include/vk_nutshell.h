@@ -65,8 +65,8 @@ namespace nutshell {
      *
      */
 
-    void (whileRendering)();                                                                                   /* something to dso in program loop */
-    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, Synchronizer synchronizer);   /* main rendering stage */
+    void (whileRendering)();                                                                                   /* something to do in program loop */
+    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, VkCommandBuffer commandBuffer, Synchronizer synchronizer);   /* main rendering stage */
 
 
     /**
@@ -88,7 +88,7 @@ namespace nutshell {
             "VK_KHR_portability_enumeration",
 
 #ifdef __APPLE__
-
+            "VK_KHR_portability_subset"
 #endif
 
         };
@@ -101,7 +101,7 @@ namespace nutshell {
         const float queuePriorities = 1.0;
         VkQueue queue;
         VkCommandPool commandPool;
-        //VkCommandBuffer commandBuffer;
+        VkCommandBuffer commandBuffer;
 
         Synchronizer synchronizer = {};
 
@@ -138,7 +138,7 @@ namespace nutshell {
         }
 
         if (enableValidationLayers) {
-            this->instanceLayerRequestList.push_back("VK_LAYER_KHRONOS_validation");
+            //this->instanceLayerRequestList.push_back("VK_LAYER_KHRONOS_validation");
         }
 
         uint32_t glfwRequiredInstanceExtensionsCount;
@@ -172,7 +172,7 @@ namespace nutshell {
             VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             nullptr,
 #ifdef __APPLE__
-            //VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR |
+            VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR |
 #endif
             0,
             &appInfo,
@@ -260,7 +260,14 @@ namespace nutshell {
             std::cerr << "Failed to create surface" << std::endl;
         }
 
-
+        VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
+            VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            nullptr,
+            commandPool,
+            VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            1
+        };
+        vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
 
         vkut::SurfaceInfo surfaceInfo = vkut::getSurfaceInfo(physicalDevices.at(DEVICE_SELECTION), PresentationUnit.surface, nullptr);
 
@@ -363,7 +370,7 @@ namespace nutshell {
             {
                 {
                     whileRendering();
-                    drawCallBackMain(PresentationUnit.window, instance, device, queue, synchronizer);
+                    drawCallBackMain(PresentationUnit.window, instance, device, queue, commandBuffer, synchronizer);
                 }
             }
 
@@ -402,6 +409,7 @@ namespace nutshell {
     }
 
 
+    /* For the future use
     typedef struct RenderingInstruction_ {
         VkDevice device;
         VkCommandBuffer commandBuffer;
@@ -475,6 +483,7 @@ namespace nutshell {
         vkDestroyRenderPass(device, renderPass, nullptr);
         vkDestroyPipeline(device, pipeline, nullptr);
     }
+    */
 }
 
 

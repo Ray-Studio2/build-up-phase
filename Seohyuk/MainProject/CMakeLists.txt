@@ -89,6 +89,7 @@ if (APPLE) # macOS
             "-framework IOSurface"
             "-framework IOKit"
             "-framework AppKit"
+
             #[==[
             glfw 의 설정을 크게 건들지 않아 임베딩이 되지 않습니다. 이 경우 프레임워크를 최종 컴파일 시점에서 구현체를 정해줘야합니다.
 

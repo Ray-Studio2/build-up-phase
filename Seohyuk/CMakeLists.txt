@@ -18,7 +18,6 @@ if(APPLE)
     ###### This is why we recommend to install vulkan sdk globally. ######
     file(GLOB VK_DIR "$ENV{HOME}/VulkanSDK/1.*/macOS")
     set(VULKAN_SDK_DIR VK_DIR)
-    list(APPEND glfw3 vulkan)
 elseif(BSD)
 # FreeBSD, NetBSD, OpenBSD, etc.
 elseif(LINUX)
