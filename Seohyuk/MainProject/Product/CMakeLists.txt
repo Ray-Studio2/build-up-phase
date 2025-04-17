@@ -1,5 +1,4 @@
 add_executable(TeapotBasic TeapotBasic/TeapotBasic.cpp
-        ../../SupportProjects/Utility.cpp
 )
 add_executable(Triangle Triangle/triangle.cpp)
 
