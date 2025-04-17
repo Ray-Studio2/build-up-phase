@@ -65,8 +65,14 @@ namespace nutshell {
      *
      */
 
+<<<<<<< HEAD
     void (whileRendering)();                                                                                   /* something to do in program loop */
     void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, VkCommandBuffer commandBuffer, Synchronizer synchronizer);   /* main rendering stage */
+=======
+    void (initFinished)(VkInstance instance, VkDevice device, );
+    void (whileRendering)();                                                                                   /* something to do in program loop */
+    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, Synchronizer synchronizer);   /* main rendering stage */
+>>>>>>> ab3c14c (all)
 
 
     /**
@@ -361,6 +367,7 @@ namespace nutshell {
         };
         vkCreateFence(device, &fenceCreateInfo, nullptr, &synchronizer.fence);
 
+
     }
 
 
@@ -424,6 +431,8 @@ namespace nutshell {
 
         void createRenderPass(VkFormat swapChainImageFormat) ;
 
+        void drawCall();
+
         void cleanup() const;
     } RenderingInstruction;
 
@@ -483,7 +492,24 @@ namespace nutshell {
         vkDestroyRenderPass(device, renderPass, nullptr);
         vkDestroyPipeline(device, pipeline, nullptr);
     }
+<<<<<<< HEAD
     */
+=======
+
+    inline void RenderingInstruction_::drawCall() {
+        VkCommandBufferBeginInfo commandBeginInfo = {
+            VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            nullptr,
+            0,
+            nullptr
+          };
+        vkBeginCommandBuffer(commandBuffer, &commandBeginInfo);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        vkResetCommandBuffer(commandBuffer, 0);
+    }
+>>>>>>> ab3c14c (all)
 }
 
 

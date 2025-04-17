@@ -18,11 +18,11 @@ void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance instance, VkDevi
     0,
     nullptr
   };
-  vkBeginCommandBuffer(commandBuffer, &commandBeginInfo);
 
-  vkEndCommandBuffer(commandBuffer);
 
-  vkResetCommandBuffer(commandBuffer, 0);
+
+
+
   vkResetFences(device, 1, &synchronizer.fence);
 
 
@@ -39,12 +39,16 @@ void nutshell::drawCallBackMain(GLFWwindow *pWindow, VkInstance instance, VkDevi
   vkQueueSubmit(queue, 1, &submitInfo, reinterpret_cast<VkFence>(&synchronizer.fence));
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ab3c14c (all)
 int main() {
   std::cout << "Hello, World!" << std::endl << "Starting TeapotBasic" << std::endl;
 
 
   auto context = nutshell::VkContext();
+  auto instruction = nutshell::RenderingInstruction();
 
   context.programLoop();
 
