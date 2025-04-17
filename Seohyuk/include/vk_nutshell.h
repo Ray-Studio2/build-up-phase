@@ -56,24 +56,15 @@ namespace nutshell {
      *
      * here. copy this.
      *
-    void nutshell::beforeRender() {}
-    void nutshell::drawCallPreRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
+
     void nutshell::whileRendering() {}
     void nutshell::drawCallBackMain(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
-    void nutshell::drawCallPostRender(GLFWwindow *pWindow, vk::Instance instance, vk::Device device, vk::Queue queue) {}
     void nutshell::afterRedner() {}
      *
      */
 
-<<<<<<< HEAD
     void (whileRendering)();                                                                                   /* something to do in program loop */
     void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, VkCommandBuffer commandBuffer, Synchronizer synchronizer);   /* main rendering stage */
-=======
-    void (initFinished)(VkInstance instance, VkDevice device, );
-    void (whileRendering)();                                                                                   /* something to do in program loop */
-    void (drawCallBackMain)(GLFWwindow *pWindow, VkInstance instance, VkDevice device, VkQueue queue, Synchronizer synchronizer);   /* main rendering stage */
->>>>>>> ab3c14c (all)
-
 
     /**
      * Very simple Vulkan instance context with some device info and the command pool.
@@ -492,9 +483,9 @@ namespace nutshell {
         vkDestroyRenderPass(device, renderPass, nullptr);
         vkDestroyPipeline(device, pipeline, nullptr);
     }
-<<<<<<< HEAD
-    */
-=======
+
+
+
 
     inline void RenderingInstruction_::drawCall() {
         VkCommandBufferBeginInfo commandBeginInfo = {
@@ -509,7 +500,8 @@ namespace nutshell {
 
         vkResetCommandBuffer(commandBuffer, 0);
     }
->>>>>>> ab3c14c (all)
+
+    */
 }
 
 
